@@ -1,0 +1,745 @@
+{
+  "milestones": [
+    {
+      "title": "G0",
+      "due_on": "2026-10-14T21:00:00Z",
+      "description": "P0 Setup: Everyone runs the stack"
+    },
+    {
+      "title": "G1",
+      "due_on": "2026-10-24T21:00:00Z",
+      "description": "P1 Foundations: Auth, sources, audit and schemas merged"
+    },
+    {
+      "title": "G2",
+      "due_on": "2026-11-07T21:00:00Z",
+      "description": "P2 Core features: Core endpoints merged"
+    },
+    {
+      "title": "G3",
+      "due_on": "2026-11-14T21:00:00Z",
+      "description": "P3 Integration and freeze: Feature freeze"
+    },
+    {
+      "title": "G4",
+      "due_on": "2026-11-24T21:00:00Z",
+      "description": "P4 Performance and security: Perf report and security review"
+    },
+    {
+      "title": "G5",
+      "due_on": "2026-12-01T21:00:00Z",
+      "description": "P5 Docs and submission: Submission"
+    },
+    {
+      "title": "UI",
+      "due_on": "2026-11-28T21:00:00Z",
+      "description": "Internal web client for the team and the demo; not graded"
+    }
+  ],
+  "issues": [
+    {
+      "number": 1,
+      "key": "repo",
+      "title": "Create the repo, branch protection, templates and project board",
+      "assignee_role": "baraa",
+      "milestone": "G0",
+      "labels": ["module:platform", "type:chore"],
+      "due": "2026-10-11",
+      "depends_on": [],
+      "body": "**Owner:** Baraa · **Due:** Sun 11 Oct 2026 · **Phase:** P0 Setup\n**Depends on:** none\n\n### Acceptance criteria\n- [ ] Direct pushes to main are rejected; merging needs 1 approval, a Code Owner review and green CI\n- [ ] CODEOWNERS, issue template and PR template exist in .github/\n- [ ] Labels, milestones G0–G5 and a project board (Backlog, Ready, In progress, In review, Done)\n- [ ] Squash merge only; head branches are deleted automatically\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 2,
+      "key": "skeleton",
+      "title": "NestJS skeleton with module folders",
+      "assignee_role": "baraa",
+      "milestone": "G0",
+      "labels": ["module:platform", "type:chore"],
+      "due": "2026-10-12",
+      "depends_on": [1],
+      "body": "**Owner:** Baraa · **Due:** Mon 12 Oct 2026 · **Phase:** P0 Setup\n**Depends on:** #1\n\n### Acceptance criteria\n- [ ] Node 24 LTS, TypeScript strict, ESLint, Prettier, Husky + lint-staged + commitlint\n- [ ] src/modules/ holds the 9 modules (including profile), each with web/, application/, domain/, infrastructure/ and a public index.ts\n- [ ] The app serves /api/v1 with URI versioning\n- [ ] dependency-cruiser enforces the boundary rules from the design\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 3,
+      "key": "docker",
+      "title": "Docker Compose and Drizzle baseline",
+      "assignee_role": "baraa",
+      "milestone": "G0",
+      "labels": ["module:platform", "type:chore"],
+      "due": "2026-10-13",
+      "depends_on": [2],
+      "body": "**Owner:** Baraa · **Due:** Tue 13 Oct 2026 · **Phase:** P0 Setup\n**Depends on:** #2\n\n### Acceptance criteria\n- [ ] docker compose up starts db (PostGIS 16), redis, a one-shot migrate service and api\n- [ ] The init script creates the restricted runtime role qaryati_app; migrations run as the owner role\n- [ ] The baseline migration enables postgis, pg_trgm and citext\n- [ ] Each module has infrastructure/persistence/schema.ts picked up by drizzle.config.ts; DatabaseModule provides a typed Drizzle instance\n- [ ] .env.example lists every variable; config is validated with zod at startup\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 4,
+      "key": "ci",
+      "title": "CI pipeline on every pull request",
+      "assignee_role": "baraa",
+      "milestone": "G0",
+      "labels": ["module:platform", "type:chore"],
+      "due": "2026-10-14",
+      "depends_on": [3],
+      "body": "**Owner:** Baraa · **Due:** Wed 14 Oct 2026 · **Phase:** P0 Setup\n**Depends on:** #3\n\n### Acceptance criteria\n- [ ] GitHub Actions runs format check, lint, typecheck, unit tests, integration tests (Testcontainers), dependency-cruiser, drizzle-kit check, a schema drift check and gitleaks\n- [ ] The CI jobs are required status checks on main\n- [ ] A sample integration test proves PostGIS and pg_trgm work in CI\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 5,
+      "key": "onboard",
+      "title": "First PR: run the stack and add yourself to the README team table (Hamam)",
+      "assignee_role": "hamam",
+      "milestone": "G0",
+      "labels": ["type:docs"],
+      "due": "2026-10-14",
+      "depends_on": [3],
+      "body": "**Owner:** Hamam · **Due:** Wed 14 Oct 2026 · **Phase:** P0 Setup\n**Depends on:** #3\n\n### Acceptance criteria\n- [ ] Clone the repo, run docker compose up and the tests locally\n- [ ] Branch, commit and open a PR adding your name, role and modules to the README team table\n- [ ] Follow the PR template; Baraa reviews and merges\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 6,
+      "key": "onboard",
+      "title": "First PR: run the stack and add yourself to the README team table (Momen)",
+      "assignee_role": "momen",
+      "milestone": "G0",
+      "labels": ["type:docs"],
+      "due": "2026-10-14",
+      "depends_on": [3],
+      "body": "**Owner:** Momen · **Due:** Wed 14 Oct 2026 · **Phase:** P0 Setup\n**Depends on:** #3\n\n### Acceptance criteria\n- [ ] Clone the repo, run docker compose up and the tests locally\n- [ ] Branch, commit and open a PR adding your name, role and modules to the README team table\n- [ ] Follow the PR template; Baraa reviews and merges\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 7,
+      "key": "onboard",
+      "title": "First PR: run the stack and add yourself to the README team table (Yahya)",
+      "assignee_role": "yahya",
+      "milestone": "G0",
+      "labels": ["type:docs"],
+      "due": "2026-10-14",
+      "depends_on": [3],
+      "body": "**Owner:** Yahya · **Due:** Wed 14 Oct 2026 · **Phase:** P0 Setup\n**Depends on:** #3\n\n### Acceptance criteria\n- [ ] Clone the repo, run docker compose up and the tests locally\n- [ ] Branch, commit and open a PR adding your name, role and modules to the README team table\n- [ ] Follow the PR template; Baraa reviews and merges\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 8,
+      "key": "onboard",
+      "title": "First PR: run the stack and add yourself to the README team table (Ali)",
+      "assignee_role": "ali",
+      "milestone": "G0",
+      "labels": ["type:docs"],
+      "due": "2026-10-14",
+      "depends_on": [3],
+      "body": "**Owner:** Ali · **Due:** Wed 14 Oct 2026 · **Phase:** P0 Setup\n**Depends on:** #3\n\n### Acceptance criteria\n- [ ] Clone the repo, run docker compose up and the tests locally\n- [ ] Branch, commit and open a PR adding your name, role and modules to the README team table\n- [ ] Follow the PR template; Baraa reviews and merges\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 9,
+      "key": "kernel",
+      "title": "Shared kernel: errors, pagination, transactions, logging",
+      "assignee_role": "baraa",
+      "milestone": "G1",
+      "labels": ["module:platform", "type:feature"],
+      "due": "2026-10-17",
+      "depends_on": [4],
+      "body": "**Owner:** Baraa · **Due:** Sat 17 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #4\n\n### Acceptance criteria\n- [ ] Global ProblemDetails filter (RFC 9457 + code + traceId); PostgreSQL errors mapped: 23505 → 409, 23503 → 409, 23514 → 422\n- [ ] ValidationPipe returns the errors[] array from the design\n- [ ] Pagination DTO and Page<T>; size capped at 100\n- [ ] UUIDv7 ids, injectable Clock, request ID + pino logging with redaction\n- [ ] @Transactional via nestjs-cls with the Drizzle adapter; optimistic-lock helper (UPDATE … WHERE version = $n RETURNING → 412 on 0 rows); after-commit event dispatcher\n- [ ] A reference repository adapter other modules can copy\n- [ ] Unit tests for every helper\n- [ ] @nestjs/swagger configured at /api/docs (disabled in production) with bearer auth\n- [ ] An npm script writes openapi.json; CI uploads it as an artifact on every PR\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 10,
+      "key": "guards",
+      "title": "JWT guards, roles and current user",
+      "assignee_role": "hamam",
+      "milestone": "G1",
+      "labels": ["module:iam", "type:security"],
+      "due": "2026-10-17",
+      "depends_on": [4],
+      "body": "**Owner:** Hamam · **Due:** Sat 17 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #4\n\n### Acceptance criteria\n- [ ] RS256 key pair loaded from secret files\n- [ ] Global JwtAuthGuard; public routes opt out with @Public()\n- [ ] @Roles() + RolesGuard; @CurrentUser() decorator\n- [ ] iam exports PermissionChecker; a test helper mints tokens for other modules’ tests\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 11,
+      "key": "adr12",
+      "title": "ADR-001 architecture and ADR-002 stack",
+      "assignee_role": "baraa",
+      "milestone": "G1",
+      "labels": ["type:docs"],
+      "due": "2026-10-18",
+      "depends_on": [],
+      "body": "**Owner:** Baraa · **Due:** Sun 18 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** none\n\n### Acceptance criteria\n- [ ] docs/adr/0001 and 0002 with context, decision, alternatives and consequences\n- [ ] ADR-002 explains Drizzle over Prisma and the cost accepted\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 12,
+      "key": "normalizer",
+      "title": "NameNormalizer for Arabic and Latin names",
+      "assignee_role": "momen",
+      "milestone": "G1",
+      "labels": ["module:village", "type:feature"],
+      "due": "2026-10-19",
+      "depends_on": [2],
+      "body": "**Owner:** Momen · **Due:** Mon 19 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #2\n\n### Acceptance criteria\n- [ ] Strips tashkeel; unifies أ إ آ → ا, ة → ه, ى → ي\n- [ ] Lowercases and strips accents from Latin text\n- [ ] At least 15 unit test cases, including real village-name variants\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 13,
+      "key": "sources",
+      "title": "Sources module",
+      "assignee_role": "yahya",
+      "milestone": "G1",
+      "labels": ["module:curation", "type:feature"],
+      "due": "2026-10-19",
+      "depends_on": [9, 10],
+      "body": "**Owner:** Yahya · **Due:** Mon 19 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #9, #10\n\n### Acceptance criteria\n- [ ] source table and migration\n- [ ] GET/POST /sources and GET/PATCH /sources/{id} for contributors and up\n- [ ] reliability validated as 1–5\n- [ ] curation exports SourceQueries.exists(id) for other modules\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 14,
+      "key": "users",
+      "title": "User accounts: register and login",
+      "assignee_role": "hamam",
+      "milestone": "G1",
+      "labels": ["module:iam", "type:feature"],
+      "due": "2026-10-20",
+      "depends_on": [10],
+      "body": "**Owner:** Hamam · **Due:** Tue 20 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #10\n\n### Acceptance criteria\n- [ ] user_account table: citext unique email, Argon2id hash, role, status\n- [ ] POST /auth/register creates a CONTRIBUTOR; passwords need at least 10 characters\n- [ ] POST /auth/login returns access and refresh tokens\n- [ ] A wrong email and a wrong password both return INVALID_CREDENTIALS\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 15,
+      "key": "vschema",
+      "title": "Village schema and migration",
+      "assignee_role": "momen",
+      "milestone": "G1",
+      "labels": ["module:village", "type:feature"],
+      "due": "2026-10-21",
+      "depends_on": [3],
+      "body": "**Owner:** Momen · **Due:** Wed 21 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #3\n\n### Acceptance criteria\n- [ ] village, village_name, name_origin, admin_unit, village_affiliation, village_relation\n- [ ] geography(Point,4326) via the shared customType with a GiST index; trigram GIN index on name_normalized\n- [ ] Partial unique index: one CURRENT name per language\n- [ ] Every foreign key indexed; CHECK constraints from the design\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 16,
+      "key": "claims",
+      "title": "Claim base columns and ClaimPolicy",
+      "assignee_role": "yahya",
+      "milestone": "G1",
+      "labels": ["module:curation", "type:feature"],
+      "due": "2026-10-21",
+      "depends_on": [13],
+      "body": "**Owner:** Yahya · **Due:** Wed 21 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #13\n\n### Acceptance criteria\n- [ ] A shared Drizzle column helper and docs/claims.md define the claim columns every content table uses\n- [ ] VerificationStatus enum and allowed transitions in the domain\n- [ ] ClaimPolicy: contributors edit only their own unverified claims; editors cannot verify their own\n- [ ] Unit tests for every policy rule\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 17,
+      "key": "hschema",
+      "title": "Heritage schema and migration",
+      "assignee_role": "ali",
+      "milestone": "G1",
+      "labels": ["module:heritage", "type:feature"],
+      "due": "2026-10-23",
+      "depends_on": [15, 16],
+      "body": "**Owner:** Ali · **Due:** Fri 23 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #15, #16\n\n### Acceptance criteria\n- [ ] history_overview, historical_event (with date_precision), landmark (geography), cultural_item\n- [ ] Claim columns on each table; foreign keys indexed; enums as CHECKs\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 18,
+      "key": "refresh",
+      "title": "Refresh-token rotation, logout and /auth/me",
+      "assignee_role": "hamam",
+      "milestone": "G1",
+      "labels": ["module:iam", "type:security"],
+      "due": "2026-10-24",
+      "depends_on": [14],
+      "body": "**Owner:** Hamam · **Due:** Sat 24 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #14\n\n### Acceptance criteria\n- [ ] Refresh tokens stored hashed, single use, valid 7 days\n- [ ] Reusing a revoked token revokes the whole family (tested)\n- [ ] POST /auth/refresh, POST /auth/logout and GET /auth/me\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 19,
+      "key": "admin",
+      "title": "Administrative units seed and GET /admin-units",
+      "assignee_role": "momen",
+      "milestone": "G1",
+      "labels": ["module:village", "type:feature"],
+      "due": "2026-10-24",
+      "depends_on": [15],
+      "body": "**Owner:** Momen · **Due:** Sat 24 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #15\n\n### Acceptance criteria\n- [ ] Seed the 16 governorates with Arabic and English names\n- [ ] GET /admin-units?type= is public\n- [ ] Cached in-process with lru-cache\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 20,
+      "key": "audit",
+      "title": "Audit module",
+      "assignee_role": "yahya",
+      "milestone": "G1",
+      "labels": ["module:audit", "type:feature"],
+      "due": "2026-10-24",
+      "depends_on": [9],
+      "body": "**Owner:** Yahya · **Due:** Sat 24 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #9\n\n### Acceptance criteria\n- [ ] audit_entry table; the migration grants the runtime role INSERT and SELECT only\n- [ ] AuditRecorder port writes in the same transaction as the change\n- [ ] A test proves a failed audit insert rolls back the change\n- [ ] Snapshots use a per-entity field allow-list\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 21,
+      "key": "geoport",
+      "title": "Geocoding port with Nominatim and stub adapters",
+      "assignee_role": "ali",
+      "milestone": "G1",
+      "labels": ["module:geo", "type:feature"],
+      "due": "2026-10-24",
+      "depends_on": [9],
+      "body": "**Owner:** Ali · **Due:** Sat 24 Oct 2026 · **Phase:** P1 Foundations\n**Depends on:** #9\n\n### Acceptance criteria\n- [ ] GeocodingPort interface in geo/application\n- [ ] Nominatim adapter with a custom User-Agent; responses validated with zod\n- [ ] Stub adapter for tests and k6; provider chosen by GEO_PROVIDER\n- [ ] nock tests: success, empty result, malformed JSON\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 22,
+      "key": "eschema",
+      "title": "Economy schema and products seed",
+      "assignee_role": "hamam",
+      "milestone": "G2",
+      "labels": ["module:economy", "type:feature"],
+      "due": "2026-10-28",
+      "depends_on": [15, 16],
+      "body": "**Owner:** Hamam · **Due:** Wed 28 Oct 2026 · **Phase:** P2 Core features\n**Depends on:** #15, #16\n\n### Acceptance criteria\n- [ ] product, village_product and facility tables with claim columns\n- [ ] Seed common products: olives, grapes, figs, wheat, almonds and others\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 23,
+      "key": "vcrud",
+      "title": "Village create, read, update and delete",
+      "assignee_role": "momen",
+      "milestone": "G2",
+      "labels": ["module:village", "type:feature"],
+      "due": "2026-10-29",
+      "depends_on": [15, 10, 20],
+      "body": "**Owner:** Momen · **Due:** Thu 29 Oct 2026 · **Phase:** P2 Core features\n**Depends on:** #15, #10, #20\n\n### Acceptance criteria\n- [ ] POST /villages creates a DRAFT with a unique slug\n- [ ] GET /villages/{idOrSlug}; PATCH needs If-Match (412 / 428); DELETE is a soft delete for editors\n- [ ] Every write is audited\n- [ ] Integration tests for each status code\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 24,
+      "key": "history",
+      "title": "History overview and historical events",
+      "assignee_role": "ali",
+      "milestone": "G2",
+      "labels": ["module:heritage", "type:feature"],
+      "due": "2026-10-31",
+      "depends_on": [17, 20],
+      "body": "**Owner:** Ali · **Due:** Sat 31 Oct 2026 · **Phase:** P2 Core features\n**Depends on:** #17, #20\n\n### Acceptance criteria\n- [ ] GET/PUT /villages/{id}/history\n- [ ] GET/POST /villages/{id}/events; source required; date precision validated\n- [ ] Writes audited; integration tests\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 25,
+      "key": "throttle",
+      "title": "Rate limiting and account lockout",
+      "assignee_role": "hamam",
+      "milestone": "G2",
+      "labels": ["module:iam", "type:security"],
+      "due": "2026-10-31",
+      "depends_on": [14],
+      "body": "**Owner:** Hamam · **Due:** Sat 31 Oct 2026 · **Phase:** P2 Core features\n**Depends on:** #14\n\n### Acceptance criteria\n- [ ] @nestjs/throttler with Redis storage\n- [ ] Login: 5 attempts per minute per IP + email; 10 failures lock the account for 15 minutes\n- [ ] API: 120 req/min anonymous, 300 req/min per user\n- [ ] 429 responses include Retry-After\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 26,
+      "key": "adr3",
+      "title": "ADR-003 claims model",
+      "assignee_role": "yahya",
+      "milestone": "G2",
+      "labels": ["type:docs"],
+      "due": "2026-10-31",
+      "depends_on": [16],
+      "body": "**Owner:** Yahya · **Due:** Sat 31 Oct 2026 · **Phase:** P2 Core features\n**Depends on:** #16\n\n### Acceptance criteria\n- [ ] docs/adr/0003 with alternatives and consequences\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 27,
+      "key": "names",
+      "title": "Village names and name origins",
+      "assignee_role": "momen",
+      "milestone": "G2",
+      "labels": ["module:village", "type:feature"],
+      "due": "2026-11-01",
+      "depends_on": [23, 16, 12],
+      "body": "**Owner:** Momen · **Due:** Sun 1 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #23, #16, #12\n\n### Acceptance criteria\n- [ ] GET/POST /villages/{id}/names; PATCH/DELETE a name\n- [ ] GET/POST /villages/{id}/name-origins with a required source\n- [ ] name_normalized filled by NameNormalizer\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 28,
+      "key": "pop",
+      "title": "Population records with consistency rules",
+      "assignee_role": "yahya",
+      "milestone": "G2",
+      "labels": ["module:population", "type:feature"],
+      "due": "2026-11-01",
+      "depends_on": [16, 23],
+      "body": "**Owner:** Yahya · **Due:** Sun 1 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #16, #23\n\n### Acceptance criteria\n- [ ] Table with CHECKs, unique per source, and the partial unique preferred index\n- [ ] POST/PATCH /villages/{id}/population\n- [ ] Rules 1–5 from the design live in the domain and are unit-tested\n- [ ] Duplicate → 409; a jump over 50% per year is flagged ANOMALY_SUSPECTED\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 29,
+      "key": "adr4",
+      "title": "ADR-004 token design",
+      "assignee_role": "hamam",
+      "milestone": "G2",
+      "labels": ["type:docs"],
+      "due": "2026-11-02",
+      "depends_on": [18],
+      "body": "**Owner:** Hamam · **Due:** Mon 2 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #18\n\n### Acceptance criteria\n- [ ] docs/adr/0004 with alternatives and consequences\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 30,
+      "key": "search",
+      "title": "Search, filter, sort and paginate villages",
+      "assignee_role": "momen",
+      "milestone": "G2",
+      "labels": ["module:village", "type:feature"],
+      "due": "2026-11-04",
+      "depends_on": [27],
+      "body": "**Owner:** Momen · **Due:** Wed 4 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #27\n\n### Acceptance criteria\n- [ ] GET /villages?q=&governorate=&settlementStatus=&sort=&page=&size=\n- [ ] q uses trigram similarity through native SQL (Drizzle sql``)\n- [ ] Unknown sort field → 400; size ≤ 100\n- [ ] Anonymous users see PUBLISHED villages only\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 31,
+      "key": "landmarks",
+      "title": "Landmarks and cultural items",
+      "assignee_role": "ali",
+      "milestone": "G2",
+      "labels": ["module:heritage", "type:feature"],
+      "due": "2026-11-04",
+      "depends_on": [17],
+      "body": "**Owner:** Ali · **Due:** Wed 4 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #17\n\n### Acceptance criteria\n- [ ] GET/POST /villages/{id}/landmarks with a type filter; optional location via native SQL\n- [ ] GET/POST /villages/{id}/cultural-items with a category filter\n- [ ] Writes audited; integration tests\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 32,
+      "key": "useradmin",
+      "title": "User administration",
+      "assignee_role": "hamam",
+      "milestone": "G2",
+      "labels": ["module:iam", "type:feature"],
+      "due": "2026-11-04",
+      "depends_on": [18, 20],
+      "body": "**Owner:** Hamam · **Due:** Wed 4 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #18, #20\n\n### Acceptance criteria\n- [ ] GET /users and PATCH /users/{id}/role and /status for admins only\n- [ ] A role change or disable revokes all refresh families\n- [ ] Audited\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 33,
+      "key": "popstats",
+      "title": "Population history and statistics",
+      "assignee_role": "yahya",
+      "milestone": "G2",
+      "labels": ["module:population", "type:feature"],
+      "due": "2026-11-05",
+      "depends_on": [28],
+      "body": "**Owner:** Yahya · **Due:** Thu 5 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #28\n\n### Acceptance criteria\n- [ ] GET /villages/{id}/population returns preferred verified records by default\n- [ ] includeUnverified honoured only for editors and the claim author\n- [ ] GET …/population/stats computes growth with lag() (native SQL)\n- [ ] Latest population per village (DISTINCT ON) exposed through the population facade\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 34,
+      "key": "location",
+      "title": "Location, nearby villages and relations",
+      "assignee_role": "momen",
+      "milestone": "G2",
+      "labels": ["module:village", "type:feature"],
+      "due": "2026-11-07",
+      "depends_on": [23],
+      "body": "**Owner:** Momen · **Due:** Sat 7 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #23\n\n### Acceptance criteria\n- [ ] Set and update location with native SQL\n- [ ] GET /villages/{id}/nearby?radiusKm=&limit= uses ST_DWithin + KNN ordering\n- [ ] GET/POST /villages/{id}/relations (adjacent, merged into, split from)\n- [ ] Emits VillageLocationChanged after commit\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 35,
+      "key": "verify",
+      "title": "Verification workflow for all claims",
+      "assignee_role": "yahya",
+      "milestone": "G2",
+      "labels": ["module:curation", "type:feature"],
+      "due": "2026-11-07",
+      "depends_on": [16, 20],
+      "body": "**Owner:** Yahya · **Due:** Sat 7 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #16, #20\n\n### Acceptance criteria\n- [ ] POST /claims/{type}/{id}/verify, /dispute, /reject and /prefer for editors\n- [ ] State machine enforced; verifying your own claim → 403 SELF_VERIFICATION_FORBIDDEN\n- [ ] Each module registers its claim types with curation\n- [ ] Every action audited\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 36,
+      "key": "economy",
+      "title": "Products and facilities endpoints",
+      "assignee_role": "hamam",
+      "milestone": "G2",
+      "labels": ["module:economy", "type:feature"],
+      "due": "2026-11-07",
+      "depends_on": [22],
+      "body": "**Owner:** Hamam · **Due:** Sat 7 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #22\n\n### Acceptance criteria\n- [ ] GET /products\n- [ ] GET/POST /villages/{id}/products and /villages/{id}/facilities\n- [ ] GET /products/{id}/villages filters villages by product through the village search facade (village search accepts villageIds; village never imports economy)\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 37,
+      "key": "resilience",
+      "title": "Geocoding resilience and cache",
+      "assignee_role": "ali",
+      "milestone": "G2",
+      "labels": ["module:geo", "type:feature"],
+      "due": "2026-11-07",
+      "depends_on": [21],
+      "body": "**Owner:** Ali · **Due:** Sat 7 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #21\n\n### Acceptance criteria\n- [ ] cockatiel timeout, retry (timeouts and 502/503/504 only) and circuit breaker\n- [ ] 429 is never retried in-process\n- [ ] Redis cache: 30 days, empty results 24 hours\n- [ ] nock tests for 500, 503 then success, 429 and timeout\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 38,
+      "key": "seed",
+      "title": "Development seed with sample villages and sources",
+      "assignee_role": "baraa",
+      "milestone": "G2",
+      "labels": ["module:platform", "type:chore"],
+      "due": "2026-11-07",
+      "depends_on": [23, 28],
+      "body": "**Owner:** Baraa · **Due:** Sat 7 Nov 2026 · **Phase:** P2 Core features\n**Depends on:** #23, #28\n\n### Acceptance criteria\n- [ ] 10–20 sample villages with names, sources and population records\n- [ ] Runs with npm run db:seed in development only\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 39,
+      "key": "details",
+      "title": "Village publish/archive, details page and completeness (profile module)",
+      "assignee_role": "momen",
+      "milestone": "G3",
+      "labels": ["module:village", "module:profile", "type:feature"],
+      "due": "2026-11-11",
+      "depends_on": [34, 33, 31, 36],
+      "body": "**Owner:** Momen · **Due:** Wed 11 Nov 2026 · **Phase:** P3 Integration and freeze\n**Depends on:** #34, #33, #31, #36\n\n### Acceptance criteria\n- [ ] GET /villages/{idOrSlug} lives in the profile module and assembles preferred facts through module facades only; village does not depend on content modules\n- [ ] POST /villages/{id}/publish and /archive for editors (village module)\n- [ ] GET /villages/{id}/completeness (profile module) lists sections without verified data\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 40,
+      "key": "conflicts",
+      "title": "Conflict detection and curation queue",
+      "assignee_role": "yahya",
+      "milestone": "G3",
+      "labels": ["module:curation", "type:feature"],
+      "due": "2026-11-11",
+      "depends_on": [35],
+      "body": "**Owner:** Yahya · **Due:** Wed 11 Nov 2026 · **Phase:** P3 Integration and freeze\n**Depends on:** #35\n\n### Acceptance criteria\n- [ ] Conflicting population records are marked DISPUTED automatically\n- [ ] GET /curation/conflicts and /curation/queue for editors\n- [ ] Resolving a conflict requires a note\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 41,
+      "key": "geoqueue",
+      "title": "Geocoding queue, suggestions and accept flow",
+      "assignee_role": "ali",
+      "milestone": "G3",
+      "labels": ["module:geo", "type:feature"],
+      "due": "2026-11-12",
+      "depends_on": [37, 34],
+      "body": "**Owner:** Ali · **Due:** Thu 12 Nov 2026 · **Phase:** P3 Integration and freeze\n**Depends on:** #37, #34\n\n### Acceptance criteria\n- [ ] BullMQ worker limited to 1 request per second, concurrency 1\n- [ ] POST /villages/{id}/geocode-suggestions → 202; GET list; POST accept\n- [ ] Accepting updates the location with an EXTERNAL_API source and an audit entry\n- [ ] A test shows village endpoints still return 200 while the breaker is open\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 42,
+      "key": "secconf",
+      "title": "Security configuration",
+      "assignee_role": "hamam",
+      "milestone": "G3",
+      "labels": ["module:platform", "type:security"],
+      "due": "2026-11-12",
+      "depends_on": [9],
+      "body": "**Owner:** Hamam · **Due:** Thu 12 Nov 2026 · **Phase:** P3 Integration and freeze\n**Depends on:** #9\n\n### Acceptance criteria\n- [ ] helmet; CORS allow-list from config\n- [ ] 1 MB body limit; statement_timeout 5 s on the runtime database role\n- [ ] trust proxy set; Swagger disabled in production\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 43,
+      "key": "ops",
+      "title": "Health checks, metrics and production Dockerfile",
+      "assignee_role": "baraa",
+      "milestone": "G3",
+      "labels": ["module:platform", "type:chore"],
+      "due": "2026-11-12",
+      "depends_on": [3],
+      "body": "**Owner:** Baraa · **Due:** Thu 12 Nov 2026 · **Phase:** P3 Integration and freeze\n**Depends on:** #3\n\n### Acceptance criteria\n- [ ] /health/live and /health/ready (database and Redis)\n- [ ] prom-client /metrics on an internal port\n- [ ] Multi-stage Dockerfile on node:24-slim, non-root, secrets read from files\n- [ ] monitoring profile with Prometheus and Grafana\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 44,
+      "key": "auditapi",
+      "title": "Audit read APIs",
+      "assignee_role": "yahya",
+      "milestone": "G3",
+      "labels": ["module:audit", "type:feature"],
+      "due": "2026-11-13",
+      "depends_on": [20],
+      "body": "**Owner:** Yahya · **Due:** Fri 13 Nov 2026 · **Phase:** P3 Integration and freeze\n**Depends on:** #20\n\n### Acceptance criteria\n- [ ] GET /villages/{id}/history-log for editors\n- [ ] GET /audit for admins, with filters and keyset pagination\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 45,
+      "key": "cache",
+      "title": "Village details cache in the profile module and ADR-006",
+      "assignee_role": "momen",
+      "milestone": "G3",
+      "labels": ["module:profile", "type:perf"],
+      "due": "2026-11-14",
+      "depends_on": [39],
+      "body": "**Owner:** Momen · **Due:** Sat 14 Nov 2026 · **Phase:** P3 Integration and freeze\n**Depends on:** #39\n\n### Acceptance criteria\n- [ ] Redis cache-aside on village:v1:{id}, 10 minutes\n- [ ] Evicted after commit on any change to the village or its claims\n- [ ] With Redis down the endpoint falls back to the database (tested)\n- [ ] docs/adr/0006 merged\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 46,
+      "key": "adr5",
+      "title": "ADR-005 geocoding integration",
+      "assignee_role": "ali",
+      "milestone": "G3",
+      "labels": ["type:docs"],
+      "due": "2026-11-14",
+      "depends_on": [41],
+      "body": "**Owner:** Ali · **Due:** Sat 14 Nov 2026 · **Phase:** P3 Integration and freeze\n**Depends on:** #41\n\n### Acceptance criteria\n- [ ] docs/adr/0005, including the Nominatim usage-policy limits\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 47,
+      "key": "k6read",
+      "title": "Perf seed and read-heavy k6 scenario",
+      "assignee_role": "ali",
+      "milestone": "G4",
+      "labels": ["type:perf"],
+      "due": "2026-11-17",
+      "depends_on": [45],
+      "body": "**Owner:** Ali · **Due:** Tue 17 Nov 2026 · **Phase:** P4 Performance and security\n**Depends on:** #45\n\n### Acceptance criteria\n- [ ] Perf seed: several hundred villages with names and population records\n- [ ] Read-heavy script: 50% search, 30% details, 20% population history\n- [ ] Baseline saved: average, p95, throughput, error rate\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 48,
+      "key": "k6write",
+      "title": "Write-oriented k6 scenario",
+      "assignee_role": "hamam",
+      "milestone": "G4",
+      "labels": ["type:perf"],
+      "due": "2026-11-17",
+      "depends_on": [42],
+      "body": "**Owner:** Hamam · **Due:** Tue 17 Nov 2026 · **Phase:** P4 Performance and security\n**Depends on:** #42\n\n### Acceptance criteria\n- [ ] Authenticated virtual users\n- [ ] 60% add population, 30% add landmark, 10% PATCH village with If-Match\n- [ ] Baseline saved; 412 responses counted separately\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 49,
+      "key": "perfobs",
+      "title": "Performance observability for k6 runs",
+      "assignee_role": "baraa",
+      "milestone": "G4",
+      "labels": ["module:platform", "type:perf"],
+      "due": "2026-11-17",
+      "depends_on": [43],
+      "body": "**Owner:** Baraa · **Due:** Tue 17 Nov 2026 · **Phase:** P4 Performance and security\n**Depends on:** #43\n\n### Acceptance criteria\n- [ ] perf profile: slow-query log at 100 ms and pg_stat_statements\n- [ ] Grafana dashboard: latency per route, connection pool, event-loop lag\n- [ ] Baseline screenshots saved in docs/performance/\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 50,
+      "key": "optread",
+      "title": "Read-path bottleneck: evidence and one optimization",
+      "assignee_role": "momen",
+      "milestone": "G4",
+      "labels": ["type:perf"],
+      "due": "2026-11-22",
+      "depends_on": [47, 49],
+      "body": "**Owner:** Momen · **Due:** Sun 22 Nov 2026 · **Phase:** P4 Performance and security\n**Depends on:** #47, #49\n\n### Acceptance criteria\n- [ ] EXPLAIN (ANALYZE, BUFFERS) and query counts for the slowest endpoint\n- [ ] One change, then the identical scenario rerun\n- [ ] Before and after numbers in the PR description\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 51,
+      "key": "optwrite",
+      "title": "Write-path bottleneck analysis",
+      "assignee_role": "yahya",
+      "milestone": "G4",
+      "labels": ["type:perf"],
+      "due": "2026-11-22",
+      "depends_on": [48, 49],
+      "body": "**Owner:** Yahya · **Due:** Sun 22 Nov 2026 · **Phase:** P4 Performance and security\n**Depends on:** #48, #49\n\n### Acceptance criteria\n- [ ] Same method on the write scenario\n- [ ] Apply a fix if the evidence supports one; otherwise document why not\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 52,
+      "key": "secreview",
+      "title": "Security review",
+      "assignee_role": "hamam",
+      "milestone": "G4",
+      "labels": ["type:security"],
+      "due": "2026-11-22",
+      "depends_on": [42],
+      "body": "**Owner:** Hamam · **Due:** Sun 22 Nov 2026 · **Phase:** P4 Performance and security\n**Depends on:** #42\n\n### Acceptance criteria\n- [ ] An e2e test walks every route and asserts anonymous access is denied except public GETs\n- [ ] A test proves a contributor cannot edit another user’s claim\n- [ ] OWASP API Top 10 table with evidence; npm audit shows no high issues; gitleaks clean\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 53,
+      "key": "perfreport",
+      "title": "Performance report",
+      "assignee_role": "ali",
+      "milestone": "G4",
+      "labels": ["type:perf", "type:docs"],
+      "due": "2026-11-24",
+      "depends_on": [50, 51],
+      "body": "**Owner:** Ali · **Due:** Tue 24 Nov 2026 · **Phase:** P4 Performance and security\n**Depends on:** #50, #51\n\n### Acceptance criteria\n- [ ] docs/performance.md: metrics before and after, bottleneck, root cause, optimization\n- [ ] k6 and Grafana screenshots for both scenarios\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 54,
+      "key": "docauth",
+      "title": "Docs: authentication, authorization and security",
+      "assignee_role": "hamam",
+      "milestone": "G5",
+      "labels": ["type:docs"],
+      "due": "2026-11-27",
+      "depends_on": [52],
+      "body": "**Owner:** Hamam · **Due:** Fri 27 Nov 2026 · **Phase:** P5 Docs and submission\n**Depends on:** #52\n\n### Acceptance criteria\n- [ ] A README/Wiki section that explains what was built and why\n- [ ] Diagrams or tables where they help; links to the related ADR\n- [ ] Reviewed by Baraa\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 55,
+      "key": "docdb",
+      "title": "Docs: ERD and data-modeling decisions",
+      "assignee_role": "momen",
+      "milestone": "G5",
+      "labels": ["type:docs"],
+      "due": "2026-11-27",
+      "depends_on": [45],
+      "body": "**Owner:** Momen · **Due:** Fri 27 Nov 2026 · **Phase:** P5 Docs and submission\n**Depends on:** #45\n\n### Acceptance criteria\n- [ ] A README/Wiki section that explains what was built and why\n- [ ] Diagrams or tables where they help; links to the related ADR\n- [ ] Reviewed by Baraa\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 56,
+      "key": "docquality",
+      "title": "Docs: data quality, provenance and audit",
+      "assignee_role": "yahya",
+      "milestone": "G5",
+      "labels": ["type:docs"],
+      "due": "2026-11-27",
+      "depends_on": [40],
+      "body": "**Owner:** Yahya · **Due:** Fri 27 Nov 2026 · **Phase:** P5 Docs and submission\n**Depends on:** #40\n\n### Acceptance criteria\n- [ ] A README/Wiki section that explains what was built and why\n- [ ] Diagrams or tables where they help; links to the related ADR\n- [ ] Reviewed by Baraa\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 57,
+      "key": "docgeo",
+      "title": "Docs: external API integration",
+      "assignee_role": "ali",
+      "milestone": "G5",
+      "labels": ["type:docs"],
+      "due": "2026-11-27",
+      "depends_on": [46],
+      "body": "**Owner:** Ali · **Due:** Fri 27 Nov 2026 · **Phase:** P5 Docs and submission\n**Depends on:** #46\n\n### Acceptance criteria\n- [ ] A README/Wiki section that explains what was built and why\n- [ ] Diagrams or tables where they help; links to the related ADR\n- [ ] Reviewed by Baraa\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 58,
+      "key": "apidog",
+      "title": "Apidog workspace",
+      "assignee_role": "yahya",
+      "milestone": "G5",
+      "labels": ["type:docs"],
+      "due": "2026-11-28",
+      "depends_on": [52],
+      "body": "**Owner:** Yahya · **Due:** Sat 28 Nov 2026 · **Phase:** P5 Docs and submission\n**Depends on:** #52\n\n### Acceptance criteria\n- [ ] OpenAPI file from CI imported\n- [ ] Auth flow, one example per endpoint and the error-code catalogue\n- [ ] Shared with the team and the instructor\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 59,
+      "key": "readme",
+      "title": "README assembly and clean-machine test",
+      "assignee_role": "baraa",
+      "milestone": "G5",
+      "labels": ["type:docs"],
+      "due": "2026-11-29",
+      "depends_on": [54, 55, 56, 57, 53],
+      "body": "**Owner:** Baraa · **Due:** Sun 29 Nov 2026 · **Phase:** P5 Docs and submission\n**Depends on:** #54, #55, #56, #57, #53\n\n### Acceptance criteria\n- [ ] Overview, architecture diagram, run instructions, links to every section and ADR\n- [ ] A fresh clone plus docker compose up works on a teammate’s machine\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 60,
+      "key": "release",
+      "title": "Tag v1.0.0 and submit",
+      "assignee_role": "baraa",
+      "milestone": "G5",
+      "labels": ["type:chore"],
+      "due": "2026-12-01",
+      "depends_on": [59, 58],
+      "body": "**Owner:** Baraa · **Due:** Tue 1 Dec 2026 · **Phase:** P5 Docs and submission\n**Depends on:** #59, #58\n\n### Acceptance criteria\n- [ ] All milestones closed; main is green\n- [ ] Release v1.0.0 tagged; repository, Apidog and report links submitted\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] New endpoints have Swagger decorators; writes are audited\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 61,
+      "key": "web-scaffold",
+      "title": "Web app scaffold",
+      "assignee_role": "unassigned",
+      "milestone": "UI",
+      "labels": ["module:web", "type:chore"],
+      "due": "2026-11-10",
+      "depends_on": [4, 9],
+      "body": "**Owner:** Unassigned · **Due:** Tue 10 Nov 2026 · **Phase:** UI (not graded)\n**Depends on:** #4, #9\n\n### Acceptance criteria\n- [ ] web/ folder: React + Vite + TypeScript strict, its own package.json, lint, typecheck and tests\n- [ ] Arabic RTL layout by default with an English toggle\n- [ ] Typed API client generated from the OpenAPI file (openapi-typescript + openapi-fetch); no hand-written request types\n- [ ] Separate CI job that runs only when web/ changes; web/ is excluded from the backend dependency-cruiser rules\n- [ ] API_BASE_URL from config; the API CORS allow-list includes the dev origin\n- [ ] docs/tech-stack.md entries for every UI dependency, with justification\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] Docs updated in the same PR\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 62,
+      "key": "web-search",
+      "title": "Village search page",
+      "assignee_role": "unassigned",
+      "milestone": "UI",
+      "labels": ["module:web", "type:feature"],
+      "due": "2026-11-14",
+      "depends_on": [61, 30],
+      "body": "**Owner:** Unassigned · **Due:** Sat 14 Nov 2026 · **Phase:** UI (not graded)\n**Depends on:** #61, #30\n\n### Acceptance criteria\n- [ ] Search box (Arabic and English), governorate and settlement-status filters, pagination\n- [ ] Loading, empty and error states\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] Docs updated in the same PR\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 63,
+      "key": "web-profile",
+      "title": "Village profile page",
+      "assignee_role": "unassigned",
+      "milestone": "UI",
+      "labels": ["module:web", "type:feature"],
+      "due": "2026-11-21",
+      "depends_on": [61, 39, 34],
+      "body": "**Owner:** Unassigned · **Due:** Sat 21 Nov 2026 · **Phase:** UI (not graded)\n**Depends on:** #61, #39, #34\n\n### Acceptance criteria\n- [ ] Names (current, former, variants), name origin, population over time as a chart, landmarks\n- [ ] Map with Leaflet and OpenStreetMap tiles (with attribution): the village and its nearby villages\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] Docs updated in the same PR\n- [ ] Reviewed by Baraa and squash-merged\n"
+    },
+    {
+      "number": 64,
+      "key": "web-curation",
+      "title": "Login and editor curation queue (optional)",
+      "assignee_role": "unassigned",
+      "milestone": "UI",
+      "labels": ["module:web", "type:feature"],
+      "due": "2026-11-28",
+      "depends_on": [61, 14, 18, 40],
+      "body": "**Owner:** Unassigned · **Due:** Sat 28 Nov 2026 · **Phase:** UI (not graded)\n**Depends on:** #61, #14, #18, #40\n\n### Acceptance criteria\n- [ ] Login and token refresh\n- [ ] Curation queue with verify and reject actions for editors\n\n### Definition of done\n- [ ] Tests for the new behaviour pass in CI\n- [ ] Docs updated in the same PR\n- [ ] Reviewed by Baraa and squash-merged\n"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+# Every issue must use the task template so it has an owner, a due date,
+# dependencies and acceptance criteria.
+blank_issues_enabled: false

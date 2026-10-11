@@ -1,0 +1,9 @@
+# Code owners for Qaryati. See docs/workflow.md ("Reviews and CODEOWNERS").
+#
+# Baraa reviews and merges every pull request.
+#
+# Hamam is listed only so that Baraa's own pull requests can receive the
+# required Code Owner approval: GitHub does not let an author approve their
+# own pull request. By team rule, Hamam approves only Baraa's pull requests,
+# and only Baraa merges.
+* @baraafanah21 @hamamalkhateeb2005-commits
