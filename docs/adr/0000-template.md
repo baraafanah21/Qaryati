@@ -16,9 +16,9 @@ What we decided, stated in one or two sentences, then the details.
 ## Alternatives considered
 
 | Option | Pros | Cons | Why rejected |
-| --- | --- | --- | --- |
-| A | | | |
-| B | | | |
+| ------ | ---- | ---- | ------------ |
+| A      |      |      |              |
+| B      |      |      |              |
 
 ## Consequences
 
