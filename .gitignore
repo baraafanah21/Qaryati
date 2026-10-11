@@ -31,3 +31,6 @@ secrets/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Local tool settings (Claude Code permissions, etc.)
+.claude/
