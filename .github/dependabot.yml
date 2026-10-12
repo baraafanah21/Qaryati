@@ -1,0 +1,65 @@
+# Weekly update PRs (docs/tech-stack.md, Dependabot). Titles are Conventional
+# Commits ("chore(deps): bump ...") because they become squash commit titles.
+# The labels exist in the repository (GitHub's default "dependencies" does not).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: saturday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    labels: [module:platform, type:chore]
+    groups:
+      # One PR for all minor and patch updates; each major update gets its own
+      # PR, because majors need reading the changelog.
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: saturday
+    commit-message:
+      prefix: ci
+      include: scope
+    labels: [module:platform, type:chore]
+    groups:
+      actions:
+        patterns: ['*']
+
+  # node:24-slim in the Dockerfile.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: saturday
+    commit-message:
+      prefix: chore
+      include: scope
+    labels: [module:platform, type:chore]
+    # Node majors are planned upgrades (engines, .nvmrc, CI), not weekly bumps.
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+
+  # postgis and redis images in docker-compose.yml. A PostGIS update must also
+  # change POSTGIS_IMAGE in test/support/test-database.ts.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: saturday
+    commit-message:
+      prefix: chore
+      include: scope
+    labels: [module:platform, type:chore]
+    # PostgreSQL and Redis majors are planned upgrades: a PostgreSQL major
+    # needs a data migration.
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
