@@ -1,0 +1,76 @@
+# Weekly update PRs (docs/ci.md, Dependabot). Titles are Conventional Commits
+# ("chore(deps): bump ...") because they become squash commit titles.
+# The labels exist in the repository (GitHub's default "dependencies" does not).
+#
+# In every ecosystem, minor and patch updates arrive together in one grouped
+# PR; a major update gets its own PR because it needs reading the changelog.
+# At most 3 open PRs per ecosystem keeps the review queue small.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+    labels: [module:platform, type:chore]
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: ci
+      include: scope
+    labels: [module:platform, type:chore]
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+
+  # node:24-slim in the Dockerfile.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+    labels: [module:platform, type:chore]
+    groups:
+      docker-minor-and-patch:
+        update-types: [minor, patch]
+    # Node majors are planned upgrades (engines, .nvmrc, CI), not weekly bumps.
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+
+  # postgis and redis images in docker-compose.yml. A PostGIS update must also
+  # change POSTGIS_IMAGE in test/support/test-database.ts.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: sunday
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore
+      include: scope
+    labels: [module:platform, type:chore]
+    groups:
+      compose-minor-and-patch:
+        update-types: [minor, patch]
+    # PostgreSQL and Redis majors are planned upgrades: a PostgreSQL major
+    # needs a data migration.
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]

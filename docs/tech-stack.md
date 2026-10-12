@@ -20,7 +20,7 @@ One entry per technology, library or tool. Each entry gives the version, its rol
 | Cache and queues           | Redis 7                                                                                              | Running (#3), first used in #9/#25 |
 | Configuration              | zod, @nestjs/config                                                                                  | In use (#3)                        |
 | Containers                 | Docker Compose, node:24-slim, postgis/postgis:16-3.5, redis:7.4-alpine                               | In use (#3)                        |
-| CI and supply chain        | GitHub Actions, gitleaks, Dependabot                                                                 | Planned (#4)                       |
+| CI and supply chain        | GitHub Actions, gitleaks, Dependabot                                                                 | In use (#4)                        |
 
 ---
 
@@ -30,7 +30,7 @@ One entry per technology, library or tool. Each entry gives the version, its rol
 
 - **Version:** github.com (hosted)
 - **Status:** In use (#1)
-- **Role:** hosts the repository, issues, pull requests, reviews and (from #4) CI.
+- **Role:** hosts the repository, issues, pull requests, reviews and CI (from #4).
 - **Why:** code, plan, reviews and checks live in one place, so every contribution is traceable (Git process is 15% of the grade). _Maintainability, traceability._
 - **Alternatives:** GitLab: equivalent features, but the team already uses GitHub, and GitHub Actions and Projects are free here.
 - **Cost:** private repositories on a free personal plan cannot use branch protection. The repository must be public, or the owner needs GitHub Pro (free with the Student Developer Pack).
@@ -69,7 +69,7 @@ One entry per technology, library or tool. Each entry gives the version, its rol
 ### Node.js 24 LTS
 
 - **Version:** 24 (`.nvmrc`), `engines: >=24 <25`; developed on 24.21.0
-- **Status:** In use (#2). The Dockerfile uses the same major version (`node:24-slim`, #3), and so will CI (#4).
+- **Status:** In use (#2). The Dockerfile (`node:24-slim`, #3) and CI (`node-version-file: .nvmrc`, #4) use the same major version.
 - **Role:** runs the API, migrations, tooling and tests.
 - **Why:** an LTS line has long security support, and one runtime for the whole team avoids version differences. _Security, maintainability._
 - **Alternatives:** odd-numbered "current" releases: short support windows.
@@ -315,7 +315,7 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### Base images: node:24-slim, postgis/postgis:16-3.5, redis:7.4-alpine
 
-- **Status:** In use (#3). The API image is a two-stage `Dockerfile` that runs as the `node` user. Dependabot (#4) will propose image updates.
+- **Status:** In use (#3). The API image is a two-stage `Dockerfile` that runs as the `node` user. Dependabot proposes minor and patch image updates (#4).
 - **Role:** runtime image of the API, the database, the cache.
 - **Why:** official, pinned and small. The slim image uses glibc, which avoids the native-module issues seen on Alpine for Node. _Reliability, security._
 - **Alternatives:** node:alpine: musl surprises with native modules.
@@ -327,24 +327,26 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### GitHub Actions
 
-- **Status:** Planned (#4)
-- **Role:** runs quality, unit, integration, secrets and Docker-build jobs on every PR.
-- **Why:** every check runs on every PR, next to the code, and it is free for this use. _Correctness, maintainability._
-- **Alternatives:** local discipline only.
-- **Cost:** CI minutes, and YAML to maintain.
+- **Version:** runner `ubuntu-24.04`; actions/checkout v7.0.1, actions/setup-node v7.1.0, each pinned to a commit SHA
+- **Status:** In use (#4): `.github/workflows/ci.yml`, five jobs that are required checks on `main`. See [ci.md](ci.md).
+- **Role:** runs the `quality`, `unit`, `integration`, `secrets` and `docker` jobs on every PR and on `main`.
+- **Why:** every check runs on every PR, next to the code, and it is free for this use. Required checks turn "please run the tests" into a merge rule. _Correctness, maintainability._
+- **Alternatives:** local discipline only: one forgotten run lets a broken change reach `main`. Other CI services (CircleCI, GitLab CI): a second system and a second login, for nothing GitHub Actions lacks here.
+- **Cost:** CI minutes (free for public repositories), YAML to maintain, and SHA pins that Dependabot must keep current.
 
 ### gitleaks
 
-- **Status:** Planned (#4)
+- **Version:** 8.30.1, the release binary checked against its SHA-256
+- **Status:** In use (#4): the `secrets` job scans the full history on every PR
 - **Role:** scans the full Git history for committed secrets.
-- **Why:** blocks committed secrets, which the brief forbids. _Security._
-- **Alternatives:** manual review.
-- **Cost:** occasional false positives to allow-list.
+- **Why:** blocks committed secrets, which the brief forbids. It scans every commit, not only the diff, so a secret added and removed again inside a PR is still caught. _Security._
+- **Alternatives:** manual review. `gitleaks-action`: needs a licence key for organisation repositories and adds a third-party action, while the plain binary does the same scan. GitHub secret scanning: a useful complement, but its availability depends on the repository's visibility and plan, and it is not a check we can require in CI.
+- **Cost:** occasional false positives, handled with `.gitleaksignore`. Updating gitleaks means changing the version and checksum in `ci.yml` by hand, because Dependabot does not track it.
 
 ### Dependabot
 
-- **Status:** Planned (#4)
-- **Role:** weekly update PRs for npm, GitHub Actions and Docker images.
+- **Status:** In use (#4): `.github/dependabot.yml`, see [ci.md](ci.md#dependabot)
+- **Role:** weekly update PRs (Sunday) for npm, GitHub Actions, the `Dockerfile` and the Compose images. In each ecosystem, minor and patch updates are grouped into one PR, with at most 3 open PRs. Docker major versions are ignored.
 - **Why:** automatic dependency and security updates. _Security._
 - **Alternatives:** manual upgrades.
-- **Cost:** PR noise, handled weekly.
+- **Cost:** PR noise, handled weekly. Every update PR needs a review like any other PR.

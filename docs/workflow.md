@@ -55,7 +55,7 @@ Keep commits focused. Squash merging joins them into one commit on `main`, but r
 - **The PR title is a Conventional Commit** (`feat(village): add village CRUD`), because it becomes the commit title on `main`.
 - Fill in **What**, **Why**, **How it was tested** and **Design decisions**. Lasting decisions also go into the relevant doc or an ADR.
 - Aim for about **400 changed lines** at most. Smaller PRs get better reviews.
-- Before pushing: `npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run test:unit && npm run test:int`. Never disable a check to get green.
+- Before pushing: `npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run test:unit && npm run test:int && npm run test:e2e`. CI runs the same checks ([ci.md](ci.md)). Never disable a check to get green.
 - Docs are part of done (see [CONTEXT.md](../CONTEXT.md)). A PR without its docs is not ready for review.
 - After merge, move to the next issue from an updated `main`. If `main` gained a migration while your branch was open, rebase, delete your migration and regenerate it.
 
@@ -79,6 +79,24 @@ Only **squash merge** is enabled. Each PR becomes one commit on `main`:
 - **body** = PR body (keeps `Closes #<n>` and the design decisions in history)
 
 Why squash: one commit per issue keeps `main` linear and readable, and work-in-progress commits stay in the PR. Merge commits and rebase merging are disabled so nobody picks a different strategy by accident. Head branches are deleted automatically after merge so stale branches do not pile up.
+
+### Keeping a PR up to date with `main` ("Update branch")
+
+The CI jobs are **strict** required checks: a PR can be merged only if its branch contains the latest `main` and the five jobs passed on that code. Every merge to `main` therefore makes the other open PRs out of date. GitHub shows "This branch is out-of-date with the base branch" and blocks the merge button until the branch is updated.
+
+**How to update:**
+
+1. Click **Update branch** on the PR and choose **Update with merge commit** (the default). GitHub merges `main` into your branch, and CI runs again on the result.
+2. Before you push more work, run `git pull` on your branch locally, or your next push is rejected.
+
+The command-line equivalents are `gh pr update-branch <number>`, or `git fetch origin && git merge origin/main && git push`.
+
+- **Use "merge commit", not "rebase".** The merge commit disappears when the PR is squash-merged, so it costs nothing. "Update with rebase" rewrites the branch: everyone who has it checked out must reset, and the next push needs a force push.
+- An update is a new commit. Stale approvals are dismissed on new commits, so the reviewer may need to approve again after a glance at what came in from `main`.
+- **Migrations:** if `main` gained a migration, the button usually reports a conflict in `migrations/meta/`. Do not resolve it by hand. Follow the migration rule: rebase on `main`, delete your migration and run `npm run db:generate` again ([database.md](database.md#migrations)).
+- Update right before merging, not after every merge to `main`. Each update re-runs CI (about 3 minutes).
+
+**Why strict checks:** without them, CI results are as old as the PR's last push. Two PRs can each be green and still break `main` together. For example, PR A renames a function while PR B adds a new call to the old name, or both PRs generate migration `0004`. Neither PR's CI saw the other change. Strict checks force CI to run on exactly the code that will land on `main`, so `main` stays green and every teammate can branch from it safely. The cost is one extra CI run per PR when `main` has moved. With five people, that is a few minutes per merge. A merge queue would automate this, but GitHub offers it only for organisation-owned repositories.
 
 ## Labels
 
@@ -118,18 +136,18 @@ The GitHub Project **Qaryati** is linked to the repository and has one Status fi
 
 ## Branch protection on `main`
 
-| Setting                                | Value    | Why                                                                                    |
-| -------------------------------------- | -------- | -------------------------------------------------------------------------------------- |
-| Require a pull request                 | on       | Nothing reaches `main` without review: no direct pushes.                               |
-| Required approvals                     | 1        | Every change is seen by a second person.                                               |
-| Dismiss stale approvals on new commits | on       | An approval covers exactly the code that is merged, not an earlier version.            |
-| Require review from Code Owners        | on       | Baraa (or Hamam, for Baraa's PRs) must approve.                                        |
-| Require conversation resolution        | on       | Review comments cannot be ignored.                                                     |
-| Require linear history                 | on       | Matches squash-only merging; history stays a straight line.                            |
-| Force pushes                           | blocked  | History on `main` is never rewritten.                                                  |
-| Deletions                              | blocked  | `main` cannot be deleted by accident.                                                  |
-| Enforce for admins                     | on       | The rules apply to the repository owner too.                                           |
-| Required status checks                 | none yet | #4 adds the five CI jobs as required checks, with "require branches to be up to date". |
+| Setting                                | Value                                                                                              | Why                                                                                                                                                                                         |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Require a pull request                 | on                                                                                                 | Nothing reaches `main` without review: no direct pushes.                                                                                                                                    |
+| Required approvals                     | 1                                                                                                  | Every change is seen by a second person.                                                                                                                                                    |
+| Dismiss stale approvals on new commits | on                                                                                                 | An approval covers exactly the code that is merged, not an earlier version.                                                                                                                 |
+| Require review from Code Owners        | on                                                                                                 | Baraa (or Hamam, for Baraa's PRs) must approve.                                                                                                                                             |
+| Require conversation resolution        | on                                                                                                 | Review comments cannot be ignored.                                                                                                                                                          |
+| Require linear history                 | on                                                                                                 | Matches squash-only merging; history stays a straight line.                                                                                                                                 |
+| Force pushes                           | blocked                                                                                            | History on `main` is never rewritten.                                                                                                                                                       |
+| Deletions                              | blocked                                                                                            | `main` cannot be deleted by accident.                                                                                                                                                       |
+| Enforce for admins                     | on                                                                                                 | The rules apply to the repository owner too.                                                                                                                                                |
+| Required status checks                 | `quality`, `unit`, `integration`, `secrets`, `docker`, from GitHub Actions only, branch up to date | Nothing merges unless every CI job passed on code that includes the latest `main` ([why strict](#keeping-a-pr-up-to-date-with-main-update-branch), [ci.md](ci.md#required-checks-on-main)). |
 
 ## Repository bootstrap script
 
@@ -145,7 +163,7 @@ scripts/github-bootstrap.sh --only issues      # one step: settings|labels|miles
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Idempotent                   | Every step reads the current state and changes only what differs. A second run makes no changes.                                                                                                     |
 | Issue numbers match the plan | Issues and PRs share one number sequence. Before each create, the next number must equal the planned one. After each create, the returned number is checked again. On any mismatch the script stops. |
-| Safe after #4                | The protection step keeps existing required status checks.                                                                                                                                           |
+| Required checks as code      | The protection step sets the required checks from `REQUIRED_CHECKS`, the job ids in `.github/workflows/ci.yml`.                                                                                      |
 | Late collaborators           | Issues of someone whose invitation is still pending are created unassigned. Run `--only issues` again after they accept.                                                                             |
 
 Run it only after the bootstrap commit is on `main`: branch protection is enforced for admins and rejects direct pushes afterwards. Requires `gh` (scopes `repo`, `workflow`, `project`) and `jq`.

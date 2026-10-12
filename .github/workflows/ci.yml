@@ -1,0 +1,127 @@
+# CI on every pull request and on main. The five job ids are the required
+# status checks on main (scripts/github-bootstrap.sh, REQUIRED_CHECKS); renaming
+# a job means updating that list in the same PR. Every job and how to run it
+# locally: docs/ci.md.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Read-only token: no job writes to the repository.
+permissions:
+  contents: read
+
+# A new push to a PR cancels the run for the previous push.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      # drizzle.config.ts requires it; db:check and db:drift never connect.
+      DATABASE_OWNER_URL: postgres://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Prettier
+        run: npm run format:check
+      - name: ESLint
+        run: npm run lint
+      - name: TypeScript
+        run: npm run typecheck
+      - name: dependency-cruiser
+        run: npm run depcruise
+      - name: drizzle-kit check
+        run: npm run db:check
+      - name: Schema drift
+        run: npm run db:drift
+
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run test:unit
+
+  # Testcontainers uses the runner's Docker to start PostGIS.
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Integration tests
+        run: npm run test:int
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the full history, not only the last commit
+          persist-credentials: false
+      # The release binary with a pinned checksum, instead of gitleaks-action,
+      # which needs a licence key for organisation repositories.
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/gitleaks.tar.gz" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+      - name: Scan Git history
+        run: '"$RUNNER_TEMP/gitleaks" git --redact --no-banner --exit-code 1 .'
+
+  # Builds the image and starts the whole Compose stack exactly as a teammate
+  # does with `docker compose up`.
+  docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start the stack
+        run: |
+          cp .env.example .env
+          docker compose up --detach --build --wait --wait-timeout 180
+          docker compose ps --all
+      - name: Health endpoint
+        run: curl --fail --silent --show-error http://localhost:3000/api/v1/health
+      - name: API runs as qaryati_app
+        run: docker compose logs api | grep 'Connected to PostgreSQL as qaryati_app'
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes
