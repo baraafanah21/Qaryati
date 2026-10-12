@@ -8,7 +8,7 @@ Append-only audit trail of every write, recorded in the same transaction as the 
 
 ## Owned data
 
-`audit_entry` (the runtime role may only INSERT and SELECT it). Tables are declared only in `infrastructure/persistence/schema.ts` of this module (from #3). No other module edits them.
+`audit_entry` (the runtime role may only INSERT and SELECT it). Tables are declared only in `infrastructure/persistence/schema.ts` of this module, which `drizzle.config.ts` picks up. No other module edits them. See [docs/database.md](../../../docs/database.md).
 
 ## Public API (`index.ts`)
 

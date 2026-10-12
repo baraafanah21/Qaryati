@@ -1,0 +1,12 @@
+# Only what the Dockerfile copies is needed; everything else slows the build
+# or could leak into the image (.env, Git history).
+**
+!package.json
+!package-lock.json
+!.npmrc
+!tsconfig.json
+!tsconfig.build.json
+!nest-cli.json
+!src/
+!migrations/
+**/*.spec.ts

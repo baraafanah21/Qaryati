@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { createAppConfigModule } from './config/app-config.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { CurationModule } from './modules/curation/curation.module';
 import { EconomyModule } from './modules/economy/economy.module';
@@ -8,6 +9,7 @@ import { IamModule } from './modules/iam/iam.module';
 import { PopulationModule } from './modules/population/population.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { VillageModule } from './modules/village/village.module';
+import { DatabaseModule } from './platform/database/database.module';
 import { HealthModule } from './platform/health/health.module';
 
 /**
@@ -19,6 +21,8 @@ import { HealthModule } from './platform/health/health.module';
  */
 @Module({
   imports: [
+    createAppConfigModule(),
+    DatabaseModule,
     HealthModule,
     IamModule,
     CurationModule,

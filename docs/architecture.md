@@ -150,7 +150,7 @@ src/modules/<module>/
 1. **Cross-module access goes only through `index.ts` or domain events,** and only in the directions in the table above. A module never imports another module's repositories, tables, entities or internal services.
 2. **Each module owns its tables.** Each module declares its tables in `src/modules/<m>/infrastructure/persistence/schema.ts`. Nobody edits another module's schema file.
 3. **`src/shared` is the kernel.** It must not import from `src/modules` or `src/platform`.
-4. **`src/platform` holds technical cross-cutting code:** health, database connection, config wiring. It contains no business rules.
+4. **`src/platform` holds technical cross-cutting code:** health, the database connection (`DatabaseModule`, the migration runner). It contains no business rules. Environment schemas live in `src/config`, the only code that reads `process.env` ([configuration.md](configuration.md)).
 5. **The composition root is exempt.** `src/app.module.ts` imports every module's Nest module to start the app. This is the only place that does.
 6. **Facts are claims.** Every fact has a source, an author and a verification status. Corrections add a new claim; they never overwrite a fact in place. This applies from P1 on (#16).
 

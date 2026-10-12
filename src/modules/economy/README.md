@@ -8,7 +8,7 @@ Products and facilities of each village, and the product filter for village sear
 
 ## Owned data
 
-`product`, `village_product`, `facility`. Tables are declared only in `infrastructure/persistence/schema.ts` of this module (from #3). No other module edits them.
+`product`, `village_product`, `facility`. Tables are declared only in `infrastructure/persistence/schema.ts` of this module, which `drizzle.config.ts` picks up. No other module edits them. See [docs/database.md](../../../docs/database.md).
 
 ## Public API (`index.ts`)
 
