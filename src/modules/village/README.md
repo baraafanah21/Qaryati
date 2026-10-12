@@ -8,7 +8,7 @@ The core village record: identity and slug, names and name origins, administrati
 
 ## Owned data
 
-`village`, `village_name`, `name_origin`, `admin_unit`, `village_affiliation`, `village_relation`. Tables are declared only in `infrastructure/persistence/schema.ts` of this module (from #3). No other module edits them.
+`village`, `village_name`, `name_origin`, `admin_unit`, `village_affiliation`, `village_relation`. Tables are declared only in `infrastructure/persistence/schema.ts` of this module, which `drizzle.config.ts` picks up. No other module edits them. See [docs/database.md](../../../docs/database.md).
 
 ## Public API (`index.ts`)
 

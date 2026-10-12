@@ -8,7 +8,7 @@ Read-only composition of one village: the details page `GET /villages/{idOrSlug}
 
 ## Owned data
 
-No tables. Redis cache entries for village details (#45). Tables are declared only in `infrastructure/persistence/schema.ts` of this module (from #3). No other module edits them.
+No tables. Redis cache entries for village details (#45). It has no `schema.ts`.
 
 ## Public API (`index.ts`)
 

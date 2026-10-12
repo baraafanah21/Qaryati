@@ -8,7 +8,7 @@ History overview, historical events, landmarks and cultural items of a village.
 
 ## Owned data
 
-`history_overview`, `historical_event`, `landmark`, `cultural_item`. Tables are declared only in `infrastructure/persistence/schema.ts` of this module (from #3). No other module edits them.
+`history_overview`, `historical_event`, `landmark`, `cultural_item`. Tables are declared only in `infrastructure/persistence/schema.ts` of this module, which `drizzle.config.ts` picks up. No other module edits them. See [docs/database.md](../../../docs/database.md).
 
 ## Public API (`index.ts`)
 

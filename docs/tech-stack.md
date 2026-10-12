@@ -8,19 +8,19 @@ One entry per technology, library or tool. Each entry gives the version, its rol
 
 ## Overview
 
-| Area                       | Technology                                                                                           | Status       |
-| -------------------------- | ---------------------------------------------------------------------------------------------------- | ------------ |
-| Collaboration              | GitHub, GitHub Projects, branch protection + CODEOWNERS, GitHub CLI + jq                             | In use       |
-| Runtime and language       | Node.js 24 LTS, TypeScript 6 (strict)                                                                | In use (#2)  |
-| Framework and architecture | NestJS 12 (+ reflect-metadata, rxjs, @nestjs/cli), hexagonal modules                                 | In use (#2)  |
-| Code quality               | ESLint, typescript-eslint, Prettier, Husky, lint-staged, commitlint, dependency-cruiser              | In use (#2)  |
-| Testing                    | Jest, ts-jest, Supertest, @nestjs/testing                                                            | In use (#2)  |
-| Testing (database)         | Testcontainers                                                                                       | Planned (#3) |
-| Data                       | PostgreSQL 16, PostGIS, pg_trgm, citext, Drizzle ORM, drizzle-kit, node-postgres, two database roles | Planned (#3) |
-| Cache and queues           | Redis 7                                                                                              | Planned (#3) |
-| Configuration              | zod, @nestjs/config                                                                                  | Planned (#3) |
-| Containers                 | Docker Compose, node:24-slim, postgis/postgis:16-3.4, redis:7-alpine                                 | Planned (#3) |
-| CI and supply chain        | GitHub Actions, gitleaks, Dependabot                                                                 | Planned (#4) |
+| Area                       | Technology                                                                                           | Status                             |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Collaboration              | GitHub, GitHub Projects, branch protection + CODEOWNERS, GitHub CLI + jq                             | In use                             |
+| Runtime and language       | Node.js 24 LTS, TypeScript 6 (strict)                                                                | In use (#2)                        |
+| Framework and architecture | NestJS 12 (+ reflect-metadata, rxjs, @nestjs/cli), hexagonal modules                                 | In use (#2)                        |
+| Code quality               | ESLint, typescript-eslint, Prettier, Husky, lint-staged, commitlint, dependency-cruiser              | In use (#2)                        |
+| Testing                    | Jest, ts-jest, Supertest, @nestjs/testing                                                            | In use (#2)                        |
+| Testing (database)         | Testcontainers                                                                                       | In use (#3)                        |
+| Data                       | PostgreSQL 16, PostGIS, pg_trgm, citext, Drizzle ORM, drizzle-kit, node-postgres, two database roles | In use (#3)                        |
+| Cache and queues           | Redis 7                                                                                              | Running (#3), first used in #9/#25 |
+| Configuration              | zod, @nestjs/config                                                                                  | In use (#3)                        |
+| Containers                 | Docker Compose, node:24-slim, postgis/postgis:16-3.5, redis:7.4-alpine                               | In use (#3)                        |
+| CI and supply chain        | GitHub Actions, gitleaks, Dependabot                                                                 | Planned (#4)                       |
 
 ---
 
@@ -69,7 +69,7 @@ One entry per technology, library or tool. Each entry gives the version, its rol
 ### Node.js 24 LTS
 
 - **Version:** 24 (`.nvmrc`), `engines: >=24 <25`; developed on 24.21.0
-- **Status:** In use (#2). The same major version goes into the Dockerfile (#3) and CI (#4).
+- **Status:** In use (#2). The Dockerfile uses the same major version (`node:24-slim`, #3), and so will CI (#4).
 - **Role:** runs the API, migrations, tooling and tests.
 - **Why:** an LTS line has long security support, and one runtime for the whole team avoids version differences. _Security, maintainability._
 - **Alternatives:** odd-numbered "current" releases: short support windows.
@@ -210,11 +210,12 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### Testcontainers
 
-- **Status:** Planned (#3)
-- **Role:** starts a real PostGIS container for integration tests.
+- **Version:** testcontainers 12.2.0, @testcontainers/postgresql 12.2.0 (Node `>= 22.22`, CommonJS build)
+- **Status:** In use (#3): `test/support/test-database.ts`, see [database.md](database.md#testing-against-the-database)
+- **Role:** starts a real PostGIS container, with the same image and role init script as Compose and all migrations applied, for integration (one per file) and e2e tests (one per run).
 - **Why:** the only way to test trigram, spatial and constraint behaviour honestly. _Correctness, testability._
 - **Alternatives:** SQLite or in-memory fakes: they cannot run PostGIS or pg_trgm, and they give false confidence.
-- **Cost:** Docker is needed for tests, and they are slower than unit tests.
+- **Cost:** Docker is needed for tests, and they are slower than unit tests (about 10–20 s to start a container once the image is cached).
 
 ---
 
@@ -222,7 +223,8 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### PostgreSQL 16
 
-- **Status:** Planned (#3)
+- **Version:** 16 (inside `postgis/postgis:16-3.5`)
+- **Status:** In use (#3)
 - **Role:** the system of record.
 - **Why:** a relational database is mandatory, and PostgreSQL has the strongest extension ecosystem for our needs (spatial, fuzzy text, case-insensitive text). _Correctness, performance._
 - **Alternatives:** MySQL: weaker spatial and fuzzy-text support.
@@ -230,7 +232,8 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### PostGIS
 
-- **Status:** Planned (#3)
+- **Version:** 3.5 (`postgis/postgis:16-3.5`, the newest PostGIS line published for PostgreSQL 16)
+- **Status:** In use (#3), enabled by the baseline migration
 - **Role:** village coordinates as `geography(Point,4326)`, distance and "nearby villages" queries, GiST indexes.
 - **Why:** spatial queries with spatial indexes. _Performance, correctness._
 - **Alternatives:** Haversine in application code: no index, slow and error-prone.
@@ -238,7 +241,7 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### pg_trgm
 
-- **Status:** Planned (#3)
+- **Status:** In use (#3), enabled by the baseline migration
 - **Role:** fuzzy search across Arabic and English spellings (بيت فوريك / بيت فوريق) with a GIN trigram index.
 - **Why:** typo-tolerant, indexed search inside the database. _Performance, usability._
 - **Alternatives:** `ILIKE '%x%'`: full scan, no typo tolerance. Elasticsearch: a whole extra system.
@@ -246,7 +249,7 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### citext
 
-- **Status:** Planned (#3)
+- **Status:** In use (#3), enabled by the baseline migration
 - **Role:** case-insensitive text for user emails.
 - **Why:** the database enforces case-insensitive unique emails. _Correctness, security._
 - **Alternatives:** `lower()` everywhere: easy to forget.
@@ -254,15 +257,18 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### Drizzle ORM + drizzle-kit + node-postgres (pg)
 
-- **Status:** Planned (#3)
-- **Role:** Drizzle defines schemas and queries in TypeScript. drizzle-kit generates and checks migrations. `pg` is the driver.
+- **Version:** drizzle-orm 0.45.4, drizzle-kit 0.31.11, pg 8.23.1, @types/pg 8.23.1
+- **Status:** In use (#3): `DatabaseModule`, `drizzle.config.ts`, `migrations/`. Conventions: [database.md](database.md).
+- **Role:** Drizzle defines schemas and queries in TypeScript. drizzle-kit generates and checks migrations. `pg` is the driver. The API and the `migrate` service apply migrations with drizzle-orm's own migrator, so the runtime image does not need drizzle-kit.
 - **Why:** an SQL-transparent ORM. We see the exact SQL, which matters for the 20% performance study. Constraints, partial indexes and GIN/GiST indexes are declared in TypeScript and land in migrations. Native SQL composes inside normal queries through the `sql` template. Custom types for PostGIS are easy. _Performance, maintainability._
 - **Alternatives:** Prisma: friendlier for beginners, but hides SQL, has no PostGIS types, and partial indexes need hand-edited migrations. TypeORM: weaker result typing and a weaker maintenance history. Kysely: a query builder, and the brief requires an ORM.
 - **Cost:** a steeper learning curve for SQL-shy members, and a smaller community than Prisma.
+- **Why 0.45 and not 1.0:** the newest _stable_ releases are drizzle-orm 0.45.4 and drizzle-kit 0.31.11 (npm `latest`, checked 2026-10-12). 1.0 exists only as a release candidate (`1.0.0-rc.5`). It changes the migration folder layout and the relational query API, and `@nestjs-cls/transactional-adapter-drizzle-orm` (#9) supports both lines. We stay on stable and move to 1.0 when it is released. drizzle-kit can convert the migration folder (`drizzle-kit up`).
+- **Node 24 and CommonJS:** drizzle-orm ships both CommonJS (`.cjs`) and ESM builds, and `pg` is CommonJS. `require('drizzle-orm/node-postgres')` resolves to `index.cjs`, so no flag is needed. drizzle-kit loads `drizzle.config.ts` and its TypeScript imports with its own bundled loader. Verified in #3 by the Compose stack, `npm run db:check` and the Testcontainers tests.
 
 ### Two database roles (owner and `qaryati_app`)
 
-- **Status:** Planned (#3)
+- **Status:** In use (#3): `docker/postgres/init/20-create-app-role.sh`, checked by `test/database-roles.int-spec.ts`. Grants: [database.md](database.md#roles).
 - **Role:** the owner role runs migrations. The app connects as `qaryati_app` with DML rights only.
 - **Why:** least privilege. Even if compromised, the running app cannot change the schema or delete audit history. _Security._
 - **Alternatives:** one superuser connection: any bug or injection has full power.
@@ -274,7 +280,8 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### Redis 7
 
-- **Status:** Planned (#3)
+- **Version:** `redis:7.4-alpine`
+- **Status:** runs in Compose since #3. The API connects to it with the first feature that needs it (#9/#25).
 - **Role:** shared cache, distributed rate limits, and later the BullMQ job queue.
 - **Why:** one dependency covers all three, and it works with more than one API instance. _Performance, scalability._
 - **Alternatives:** an in-process cache: breaks with more than one instance.
@@ -286,11 +293,12 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### zod + @nestjs/config
 
-- **Status:** Planned (#3)
-- **Role:** load environment variables and validate them at startup.
+- **Version:** zod 4.6.6, @nestjs/config 12.0.1
+- **Status:** In use (#3): `src/config/`, see [configuration.md](configuration.md)
+- **Role:** load environment variables and validate them at startup. `@nestjs/config` 12 accepts any Standard Schema as `validationSchema`, so the zod schema is passed directly, with no custom `validate` function. Its error lists every invalid variable on its own line (`PORT: must be a number`).
 - **Why:** the app refuses to start with a missing or malformed variable instead of failing later, and there is no hidden configuration (brief). _Correctness, security._
 - **Alternatives:** reading `process.env` ad hoc: silent misconfiguration.
-- **Cost:** a schema to keep in sync with `.env.example`.
+- **Cost:** a schema to keep in sync with `.env.example`. Tools outside Nest (the migration runner, drizzle-kit) validate with a second, smaller schema (`migrationEnvSchema`), so the API never sees the owner credentials.
 
 ---
 
@@ -298,15 +306,16 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 ### Docker Compose
 
-- **Status:** Planned (#3)
+- **Version:** Compose v2 (`docker compose`); file `docker-compose.yml`
+- **Status:** In use (#3): `db`, `redis`, one-shot `migrate`, `api`, all with health checks. See [development.md](development.md#running-with-docker).
 - **Role:** starts the database, Redis, migrations and API locally with one command.
 - **Why:** identical infrastructure for everyone, and Docker is mandatory in the brief. _Reproducibility._
 - **Alternatives:** local installs: "works on my machine" problems.
 - **Cost:** Docker is required on every laptop.
 
-### Base images: node:24-slim, postgis/postgis:16-3.4, redis:7-alpine
+### Base images: node:24-slim, postgis/postgis:16-3.5, redis:7.4-alpine
 
-- **Status:** Planned (#3)
+- **Status:** In use (#3). The API image is a two-stage `Dockerfile` that runs as the `node` user. Dependabot (#4) will propose image updates.
 - **Role:** runtime image of the API, the database, the cache.
 - **Why:** official, pinned and small. The slim image uses glibc, which avoids the native-module issues seen on Alpine for Node. _Reliability, security._
 - **Alternatives:** node:alpine: musl surprises with native modules.

@@ -27,8 +27,10 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 
 - Drizzle ORM for normal reads and writes; native SQL via Drizzle's sql template for trigram search, PostGIS and statistics. Never build SQL by string concatenation.
 - Migrations: change schema.ts, run npm run db:generate, review the generated SQL, commit it. Never edit a migration that is already on main. If main gained a migration while your branch was open, rebase, delete yours, regenerate.
-- The app connects as qaryati_app (DML only). Migrations run as the owner role.
-- Only src/config may read process.env.
+- The app connects as qaryati_app (DML only). Migrations run as the owner role. The API never receives DATABASE_OWNER_URL.
+- Repositories inject the Drizzle instance with @Inject(DRIZZLE) db: Database (src/platform/database/database.ts). There is no combined schema and no db.query: queries go through the table objects a module imports from its own schema.ts.
+- Drizzle uses casing: 'snake_case'. Declare columns in camelCase without explicit names.
+- Only src/config may read process.env. A new variable goes into the zod schema, .env.example and docs/configuration.md in the same PR.
 
 ## Workflow
 
@@ -49,7 +51,7 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 ## Testing
 
 - Unit tests for domain rules and pure helpers, no framework, no database.
-- Integration tests against real PostGIS via Testcontainers; do not mock the database or Redis.
+- Integration tests against real PostGIS via Testcontainers (test/support/test-database.ts: same image, role script and migrations as Compose); do not mock the database or Redis. Code under test connects as qaryati_app.
 - Every bug fix comes with a test that fails before the fix.
 
 ## Commands
@@ -57,4 +59,4 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 npm run start:dev | build | lint | format | typecheck | depcruise
 npm run test:unit | test:int | test:e2e | test:cov
 npm run db:generate | db:migrate | db:check | db:studio
-docker compose up -d
+cp .env.example .env && docker compose up -d --build --wait

@@ -8,7 +8,7 @@ Geocoding through an external API (Nominatim) behind a port: resilience, cache, 
 
 ## Owned data
 
-Geocoding suggestions. Tables are declared only in `infrastructure/persistence/schema.ts` of this module (from #3). No other module edits them.
+Geocoding suggestions. Tables are declared only in `infrastructure/persistence/schema.ts` of this module, which `drizzle.config.ts` picks up. No other module edits them. See [docs/database.md](../../../docs/database.md).
 
 ## Public API (`index.ts`)
 

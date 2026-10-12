@@ -8,7 +8,7 @@ Population records per village and year, the consistency rules, and population h
 
 ## Owned data
 
-Population records. Tables are declared only in `infrastructure/persistence/schema.ts` of this module (from #3). No other module edits them.
+Population records. Tables are declared only in `infrastructure/persistence/schema.ts` of this module, which `drizzle.config.ts` picks up. No other module edits them. See [docs/database.md](../../../docs/database.md).
 
 ## Public API (`index.ts`)
 

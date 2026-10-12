@@ -8,7 +8,7 @@ Provenance and verification: sources, the claim columns and `ClaimPolicy`, the v
 
 ## Owned data
 
-`source`, plus the claim column helper that content tables reuse (#16). Tables are declared only in `infrastructure/persistence/schema.ts` of this module (from #3). No other module edits them.
+`source`, plus the claim column helper that content tables reuse (#16). Tables are declared only in `infrastructure/persistence/schema.ts` of this module, which `drizzle.config.ts` picks up. No other module edits them. See [docs/database.md](../../../docs/database.md).
 
 ## Public API (`index.ts`)
 
