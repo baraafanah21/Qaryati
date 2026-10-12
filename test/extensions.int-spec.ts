@@ -81,11 +81,15 @@ describe('PostGIS and pg_trgm (sample)', () => {
   });
 
   it('serves both searches from their indexes', async () => {
-    // Three rows are cheaper to scan than to index, so forbid sequential scans
-    // to see whether the planner *can* use the indexes for these predicates.
+    // With three rows a sequential scan is cheapest, and with more rows the
+    // planner's choice depends on statistics. Disabling sequential scans makes
+    // the question independent of the data size: *can* these predicates use
+    // their index? SET LOCAL ends with the transaction, so the setting never
+    // leaks to the pooled connection, even if an assertion fails.
     const client = await pool.connect();
     try {
-      await client.query('SET enable_seqscan = off');
+      await client.query('BEGIN');
+      await client.query('SET LOCAL enable_seqscan = off');
       const plan = async (where: ReturnType<typeof sql>) => {
         const query = db.select().from(place).where(where).toSQL();
         const { rows } = await client.query<{ 'QUERY PLAN': string }>(
@@ -98,7 +102,7 @@ describe('PostGIS and pg_trgm (sample)', () => {
       expect(await plan(near(10_000))).toContain('sample_place_location_gist');
       expect(await plan(similarTo('بيت فوريق'))).toContain('sample_place_name_trgm');
     } finally {
-      await client.query('RESET enable_seqscan');
+      await client.query('ROLLBACK');
       client.release();
     }
   });
