@@ -5,6 +5,7 @@ import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/platform/http/configure-app';
 
+// The database comes from test/support/e2e-global-setup.ts.
 describe('GET /api/v1/health (e2e)', () => {
   let app: INestApplication<App>;
 
