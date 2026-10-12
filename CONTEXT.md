@@ -36,7 +36,7 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 
 - issue -> branch (feature|chore|fix|docs|ci/<issue>-<slug>) -> PR with "Closes #<n>" using the template -> review by Baraa -> squash merge. Never push to main.
 - Conventional Commits with the module as scope, e.g. feat(population): add record rules.
-- Before pushing: npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run test:unit && npm run test:int.
+- Before pushing: npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run test:unit && npm run test:int && npm run test:e2e (the same checks as CI, docs/ci.md). The five CI jobs are required checks on main; renaming a job means updating REQUIRED_CHECKS in scripts/github-bootstrap.sh.
 - Do only what the issue's acceptance criteria ask. Ask before widening scope.
 - Never commit secrets or .env files.
 - AI assistants prepare changes locally and never commit, push or run commands that change GitHub. Team members run those commands themselves, so every commit and every GitHub action belongs to a person.

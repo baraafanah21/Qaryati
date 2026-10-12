@@ -78,20 +78,21 @@ The `Dockerfile` builds in two stages. The first compiles TypeScript with dev de
 | `format`       | Prettier writes every supported file                                                                             | After a format failure            |
 | `format:check` | Prettier checks every supported file, changes nothing                                                            | Before pushing; in CI             |
 | `depcruise`    | dependency-cruiser checks module and layer boundaries in `src/` ([architecture.md](architecture.md#enforcement)) | Before pushing; in CI             |
-| `test:unit`    | Jest project `unit`: `src/**/*.spec.ts`                                                                          | Constantly                        |
-| `test:int`     | Jest project `integration`: `test/**/*.int-spec.ts`, real PostGIS via Testcontainers                             | Before pushing                    |
-| `test:e2e`     | Jest project `e2e`: `test/**/*.e2e-spec.ts`, the app over HTTP                                                   | Before pushing                    |
+| `test:unit`    | Jest project `unit`: `src/**/*.spec.ts`                                                                          | Constantly; in CI                 |
+| `test:int`     | Jest project `integration`: `test/**/*.int-spec.ts`, real PostGIS via Testcontainers                             | Before pushing; in CI             |
+| `test:e2e`     | Jest project `e2e`: `test/**/*.e2e-spec.ts`, the app over HTTP                                                   | Before pushing; in CI             |
 | `test:cov`     | Unit tests with a coverage report in `coverage/`                                                                 | To find untested code             |
 | `db:generate`  | drizzle-kit writes a SQL migration from the modules' `schema.ts` files ([database.md](database.md#migrations))   | After changing a `schema.ts`      |
 | `db:migrate`   | Applies pending migrations as the owner role (`DATABASE_OWNER_URL`)                                              | After pulling or generating       |
-| `db:check`     | Checks the migration history for conflicts                                                                       | After a rebase                    |
+| `db:check`     | Checks the migration history for conflicts                                                                       | After a rebase; in CI             |
+| `db:drift`     | Fails if a `schema.ts` change has no migration ([ci.md](ci.md#quality))                                          | Before pushing; in CI             |
 | `db:studio`    | Drizzle Studio, a browser UI for the local database                                                              | Looking at data                   |
 | `prepare`      | Installs the Husky Git hooks; npm runs it automatically after install                                            | Never by hand                     |
 
 Before every push, run the same checks as CI:
 
 ```bash
-npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run test:unit && npm run test:int && npm run test:e2e
+npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run test:unit && npm run test:int && npm run test:e2e
 ```
 
 ## Tests
@@ -115,7 +116,7 @@ Notes:
 | `pre-commit` | `lint-staged` | Staged `.ts/.js/.cjs/.mjs` files: `eslint --fix` then `prettier --write`. Staged `.json/.md/.yml`: `prettier --write`. The commit stops if ESLint still reports an error. |
 | `commit-msg` | `commitlint`  | The message must be a Conventional Commit with an allowed scope (see [workflow.md](workflow.md#commits)).                                                                 |
 
-The hooks give fast feedback; CI repeats every check (#4), so skipping a hook only delays the failure.
+The hooks give fast feedback; CI repeats every check ([ci.md](ci.md)), so skipping a hook only delays the failure.
 
 ## Project layout
 

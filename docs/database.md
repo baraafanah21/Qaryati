@@ -90,13 +90,14 @@ Never build SQL by string concatenation.
 
 Migrations live in [`migrations/`](../migrations/). Drizzle-kit generates them, they are reviewed like code, and they are applied in order.
 
-| Command                                    | What it does                                                                               |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `npm run db:generate`                      | Compares the `schema.ts` files with `migrations/meta` and writes a new SQL migration.      |
-| `npm run db:generate -- --custom --name=x` | Writes an empty migration for hand-written SQL (extensions, data fixes).                   |
-| `npm run db:migrate`                       | Applies pending migrations to the database in `DATABASE_OWNER_URL` (the Compose database). |
-| `npm run db:check`                         | Checks that the migration history is consistent (for example after a merge).               |
-| `npm run db:studio`                        | Opens Drizzle Studio on the owner connection, for browsing data locally.                   |
+| Command                                    | What it does                                                                                   |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `npm run db:generate`                      | Compares the `schema.ts` files with `migrations/meta` and writes a new SQL migration.          |
+| `npm run db:generate -- --custom --name=x` | Writes an empty migration for hand-written SQL (extensions, data fixes).                       |
+| `npm run db:migrate`                       | Applies pending migrations to the database in `DATABASE_OWNER_URL` (the Compose database).     |
+| `npm run db:check`                         | Checks that the migration history is consistent (for example after a merge).                   |
+| `npm run db:drift`                         | Fails if a `schema.ts` change has no generated migration. CI runs it ([ci.md](ci.md#quality)). |
+| `npm run db:studio`                        | Opens Drizzle Studio on the owner connection, for browsing data locally.                       |
 
 All four read `DATABASE_OWNER_URL` from `.env`, so copy `.env.example` first.
 

@@ -26,6 +26,7 @@ Checks to run before every push (CI runs the same):
 
 ```bash
 npm run format:check && npm run lint && npm run typecheck && npm run depcruise
+npm run db:check && npm run db:drift
 npm run test:unit && npm run test:int && npm run test:e2e
 ```
 
@@ -40,4 +41,5 @@ Hot reload on the host, every script and test type: [docs/development.md](docs/d
 - [Database: roles, migrations, Drizzle](docs/database.md)
 - [Architecture](docs/architecture.md)
 - [Git workflow](docs/workflow.md)
+- [CI: jobs, required checks, Dependabot](docs/ci.md)
 - [Technology stack and reasons](docs/tech-stack.md)
