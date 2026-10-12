@@ -43,7 +43,7 @@ docs: add ADR-003 claims model
 ci: cache npm dependencies
 ```
 
-Scopes: `platform`, `shared`, `village`, `population`, `heritage`, `economy`, `curation`, `audit`, `iam`, `geo`, `profile`, `web`. Leave the scope out for repository-wide changes.
+Scopes: `platform`, `shared`, `village`, `population`, `heritage`, `economy`, `curation`, `audit`, `iam`, `geo`, `profile`, `web`, `deps` (dependency updates). Leave the scope out for repository-wide changes. The list is closed: commitlint (`commitlint.config.mjs`) rejects any other scope, so a typo fails the commit.
 
 Why: readable history, and the scope shows which module a change touches. commitlint checks the format on every commit (#2).
 
@@ -82,11 +82,11 @@ Why squash: one commit per issue keeps `main` linear and readable, and work-in-p
 
 ## Labels
 
-| Group    | Labels                                                                                                                                                       | Colour |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| Group    | Labels                                                                                                                                                                                       | Colour |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | Module   | `module:platform`, `module:iam`, `module:village`, `module:curation`, `module:population`, `module:audit`, `module:heritage`, `module:economy`, `module:geo`, `module:profile`, `module:web` | blue   |
-| Type     | `type:feature`, `type:chore`, `type:test`, `type:docs`, `type:perf`, `type:security`                                                                         | green  |
-| Priority | `blocker`                                                                                                                                                    | red    |
+| Type     | `type:feature`, `type:chore`, `type:test`, `type:docs`, `type:perf`, `type:security`                                                                                                         | green  |
+| Priority | `blocker`                                                                                                                                                                                    | red    |
 
 GitHub's default labels were removed so every label means something in this project.
 

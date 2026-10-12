@@ -6,27 +6,27 @@ ADR-001 (#11) records the decision formally. This page describes the result.
 
 ## Why a modular monolith
 
-| Option | Why not chosen |
-| --- | --- |
-| Microservices | Five students, one deadline (2026-12-01) and one database. Network calls, distributed transactions and several deployments would cost more time than they give back. |
-| Classic layered app (controllers, services, repositories for the whole app) | Boundaries erode: any service ends up touching any table, and nobody owns anything. |
-| **Modular monolith (chosen)** | One process and one deployment, but each module owns its data and exposes a small public API. A module could be extracted later without rewriting its rules. |
+| Option                                                                      | Why not chosen                                                                                                                                                       |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Microservices                                                               | Five students, one deadline (2026-12-01) and one database. Network calls, distributed transactions and several deployments would cost more time than they give back. |
+| Classic layered app (controllers, services, repositories for the whole app) | Boundaries erode: any service ends up touching any table, and nobody owns anything.                                                                                  |
+| **Modular monolith (chosen)**                                               | One process and one deployment, but each module owns its data and exposes a small public API. A module could be extracted later without rewriting its rules.         |
 
 ## Modules
 
 Nine business modules live in `src/modules`. The kernel lives in `src/shared`, and technical cross-cutting code lives in `src/platform`.
 
-| Module | Owner | Responsibility | Owns (tables, planned) |
-| --- | --- | --- | --- |
-| `iam` | Hamam | Users, registration and login, JWT, refresh tokens, roles, `PermissionChecker` | users, refresh tokens |
-| `curation` | Yahya | Sources, claim columns and `ClaimPolicy`, the verification workflow, conflict detection, curation queue, the `ClaimHandler` registry | `source` |
-| `audit` | Yahya | Append-only audit trail of every write, written in the same transaction as the change; audit read APIs | `audit_entry` |
-| `village` | Momen | The core village record: identity, slug, names and name origins, administrative units, search, location, nearby villages, relations, publish/archive | `village`, `village_name`, `name_origin`, `admin_unit`, `village_affiliation`, `village_relation` |
-| `population` | Yahya | Population records per village and year, consistency rules, statistics | population records |
-| `heritage` | Ali | History overview, historical events, landmarks, cultural items | `history_overview`, `historical_event`, `landmark`, `cultural_item` |
-| `economy` | Hamam | Products and facilities of each village; the product filter for village search | `product`, `village_product`, `facility` |
-| `geo` | Ali | Geocoding through an external API (Nominatim), resilience, cache, suggestion queue and accept flow | geocoding suggestions |
-| `profile` | Momen | Read-only composition: the village details page `GET /villages/{idOrSlug}`, `GET /villages/{id}/completeness`, and the details cache | none (Redis cache entries only) |
+| Module       | Owner | Responsibility                                                                                                                                       | Owns (tables, planned)                                                                            |
+| ------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `iam`        | Hamam | Users, registration and login, JWT, refresh tokens, roles, `PermissionChecker`                                                                       | users, refresh tokens                                                                             |
+| `curation`   | Yahya | Sources, claim columns and `ClaimPolicy`, the verification workflow, conflict detection, curation queue, the `ClaimHandler` registry                 | `source`                                                                                          |
+| `audit`      | Yahya | Append-only audit trail of every write, written in the same transaction as the change; audit read APIs                                               | `audit_entry`                                                                                     |
+| `village`    | Momen | The core village record: identity, slug, names and name origins, administrative units, search, location, nearby villages, relations, publish/archive | `village`, `village_name`, `name_origin`, `admin_unit`, `village_affiliation`, `village_relation` |
+| `population` | Yahya | Population records per village and year, consistency rules, statistics                                                                               | population records                                                                                |
+| `heritage`   | Ali   | History overview, historical events, landmarks, cultural items                                                                                       | `history_overview`, `historical_event`, `landmark`, `cultural_item`                               |
+| `economy`    | Hamam | Products and facilities of each village; the product filter for village search                                                                       | `product`, `village_product`, `facility`                                                          |
+| `geo`        | Ali   | Geocoding through an external API (Nominatim), resilience, cache, suggestion queue and accept flow                                                   | geocoding suggestions                                                                             |
+| `profile`    | Momen | Read-only composition: the village details page `GET /villages/{idOrSlug}`, `GET /villages/{id}/completeness`, and the details cache                 | none (Redis cache entries only)                                                                   |
 
 `src/shared` (the kernel) holds what every module needs: ids, errors, pagination, `Clock`, domain event types and the **`AuditRecorder` port interface**. It contains no module's business rules.
 
@@ -47,17 +47,17 @@ flowchart BT
   audit -. implements AuditRecorder port .-> shared["src/shared"]
 ```
 
-| Module | May import (besides `src/shared`) |
-| --- | --- |
-| `iam` | none |
-| `curation` | `iam` |
-| `audit` | none. It implements the `AuditRecorder` port from `src/shared`. **No module imports `audit`.** |
-| `village` | `iam`, `curation` |
-| `population` | `iam`, `curation`, `village` |
-| `heritage` | `iam`, `curation`, `village` |
-| `economy` | `iam`, `curation`, `village` |
-| `geo` | `iam`, `curation`, `village` |
-| `profile` | `iam`, `curation`, `village`, `population`, `heritage`, `economy`. **No module imports `profile`.** |
+| Module       | May import (besides `src/shared`)                                                                   |
+| ------------ | --------------------------------------------------------------------------------------------------- |
+| `iam`        | none                                                                                                |
+| `curation`   | `iam`                                                                                               |
+| `audit`      | none. It implements the `AuditRecorder` port from `src/shared`. **No module imports `audit`.**      |
+| `village`    | `iam`, `curation`                                                                                   |
+| `population` | `iam`, `curation`, `village`                                                                        |
+| `heritage`   | `iam`, `curation`, `village`                                                                        |
+| `economy`    | `iam`, `curation`, `village`                                                                        |
+| `geo`        | `iam`, `curation`, `village`                                                                        |
+| `profile`    | `iam`, `curation`, `village`, `population`, `heritage`, `economy`. **No module imports `profile`.** |
 
 The graph has no cycles. Dependencies point from the edges toward the core: `iam` and `curation` are the base, `village` is the core record, the content modules build on `village`, and `profile` sits on top as a pure reader.
 
@@ -73,12 +73,12 @@ The graph has no cycles. Dependencies point from the edges toward the core: `iam
 
 Some features look like they need a dependency in the forbidden direction. Each one is solved with a port or a registration instead of an import:
 
-| Need | Forbidden import | Solution |
-| --- | --- | --- |
-| Every module writes audit entries (#20) | `* → audit` | `src/shared` declares the `AuditRecorder` port. `audit` provides the implementation through Nest DI. Modules depend only on the port. |
+| Need                                                                           | Forbidden import                                 | Solution                                                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every module writes audit entries (#20)                                        | `* → audit`                                      | `src/shared` declares the `AuditRecorder` port. `audit` provides the implementation through Nest DI. Modules depend only on the port.                                                                                                                         |
 | Curation verifies, disputes or rejects a claim stored in a content table (#35) | `curation → population/heritage/economy/village` | **ClaimHandler registration.** `village`, `population`, `heritage` and `economy` register a `ClaimHandler` for their claim types with curation when their module initialises. Curation calls the registered handler. The dependency stays content → curation. |
-| Curation marks conflicting population records as DISPUTED (#40) | `curation → population` | Through the same `ClaimHandler` registered by `population`. |
-| Village search filters by product (#30, #36) | `village → economy` | See the next section. |
+| Curation marks conflicting population records as DISPUTED (#40)                | `curation → population`                          | Through the same `ClaimHandler` registered by `population`.                                                                                                                                                                                                   |
+| Village search filters by product (#30, #36)                                   | `village → economy`                              | See the next section.                                                                                                                                                                                                                                         |
 
 ### Product filter for village search
 
@@ -90,11 +90,11 @@ Searching villages by product (olives, grapes, ...) needs data from `economy`, b
 - `economy` exposes `GET /products/{productId}/villages?q=&governorate=&sort=&page=&size=`. It reads the ids of villages that produce the product from its own `village_product` table, then calls the `village` search facade with them.
 - `GET /villages` (#30) stays in `village` without a product parameter.
 
-| Option | Why not chosen |
-| --- | --- |
-| `economy` exposes a query that `village` search calls | Creates `village → economy`, which is forbidden. |
-| A product filter in a `profile` list endpoint | `profile` would need its own list route next to `GET /villages`, and it would duplicate search and pagination. It also breaks "profile is read-only composition of one village". |
-| **`village` search takes `villageIds`; `economy` calls it (chosen)** | Uses an already allowed direction (`economy → village`), adds one optional parameter and one route, and keeps search logic in one place. |
+| Option                                                               | Why not chosen                                                                                                                                                                   |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `economy` exposes a query that `village` search calls                | Creates `village → economy`, which is forbidden.                                                                                                                                 |
+| A product filter in a `profile` list endpoint                        | `profile` would need its own list route next to `GET /villages`, and it would duplicate search and pagination. It also breaks "profile is read-only composition of one village". |
+| **`village` search takes `villageIds`; `economy` calls it (chosen)** | Uses an already allowed direction (`economy → village`), adds one optional parameter and one route, and keeps search logic in one place.                                         |
 
 Cost: the id list is passed in memory. That is fine at our scale (hundreds of villages per product). If it ever grows large, the same facade can take a subquery instead. ADR-001 (#11) finalises this decision.
 
@@ -136,12 +136,12 @@ src/modules/<module>/
   infrastructure/     adapters: persistence/schema.ts, repositories, Redis, HTTP clients
 ```
 
-| Layer | May import | Must not import |
-| --- | --- | --- |
-| `web` | `application`, own `domain` types, `src/shared` | `infrastructure` |
-| `application` | `domain`, `src/shared`, other modules' `index.ts` (per the direction table) | `web`, `infrastructure` |
-| `domain` | `src/shared` (framework-free parts) | `@nestjs/*`, `drizzle-orm`, `pg`, `ioredis`, `express`, `web`, `application`, `infrastructure` |
-| `infrastructure` | `domain`, `application` (to implement ports), `src/platform` | `web` |
+| Layer            | May import                                                                  | Must not import                                                                                |
+| ---------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `web`            | `application`, own `domain` types, `src/shared`                             | `infrastructure`                                                                               |
+| `application`    | `domain`, `src/shared`, other modules' `index.ts` (per the direction table) | `web`, `infrastructure`                                                                        |
+| `domain`         | `src/shared` (framework-free parts)                                         | `@nestjs/*`, `drizzle-orm`, `pg`, `ioredis`, `express`, `web`, `application`, `infrastructure` |
+| `infrastructure` | `domain`, `application` (to implement ports), `src/platform`                | `web`                                                                                          |
 
 **Why:** the domain holds the business rules: claim transitions, population consistency, self-verification. Without a framework or a database these rules run in milliseconds in unit tests. Adapters can change without touching the rules, for example the Nominatim adapter versus a stub. The cost is more files and interfaces per feature.
 
@@ -156,17 +156,47 @@ src/modules/<module>/
 
 ## Enforcement
 
-dependency-cruiser checks these rules (`.dependency-cruiser.cjs`, added in #2). All rules are **errors**:
+dependency-cruiser checks these rules on every `npm run depcruise`. The configuration is in [`.dependency-cruiser.cjs`](../.dependency-cruiser.cjs). All rules are **errors**:
 
-| Rule | What it forbids |
-| --- | --- |
-| `no-circular` | Any import cycle |
-| `domain-is-framework-free` | `src/modules/*/domain` importing `@nestjs`, `drizzle-orm`, `pg`, `ioredis`, `express`, or anything under `web`, `application` or `infrastructure` |
-| `application-not-to-outer-layers` | `application` importing `web` or `infrastructure` |
-| `no-cross-module-internals` | A file in module A importing module B through anything other than `src/modules/B/index.ts` |
-| `module-dependency-direction` | A file in module A importing module B when B is not in A's row of the direction table. This includes any import of `audit` or `profile` from another module. |
-| `shared-is-independent` | `src/shared` importing `src/modules` or `src/platform` |
+| Rule                              | What it forbids                                                                                                                                              |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `no-circular`                     | Any import cycle                                                                                                                                             |
+| `domain-is-framework-free`        | `src/modules/*/domain` importing `@nestjs`, `drizzle-orm`, `pg`, `ioredis`, `express`, or anything under `web`, `application` or `infrastructure`            |
+| `application-not-to-outer-layers` | `application` importing `web` or `infrastructure`                                                                                                            |
+| `no-cross-module-internals`       | A file in module A importing module B through anything other than `src/modules/B/index.ts`                                                                   |
+| `module-dependency-direction`     | A file in module A importing module B when B is not in A's row of the direction table. This includes any import of `audit` or `profile` from another module. |
+| `shared-is-independent`           | `src/shared` importing `src/modules` or `src/platform`                                                                                                       |
 
-`src/app.module.ts` is excluded from the module rules (rule 5). The CI `quality` job runs dependency-cruiser on every pull request as a required status check (#4).
+How the configuration works:
 
-#2 adds the configuration file, proves each rule fails on a deliberate violation, and explains how to read a violation.
+- **One table drives the direction rules.** `ALLOWED` at the top of `.dependency-cruiser.cjs` lists, for each module, the modules it may import. The file generates one `module-dependency-direction` rule per module from it. That table and the "Dependency directions" table on this page must stay identical. Changing a direction means changing both, in the same PR, with a reason (and an ADR if it changes the design).
+- **Type-only imports count** (`tsPreCompilationDeps: true`). `import type { ... } from 'drizzle-orm'` in a domain file is still a violation, because the domain would still be coupled to Drizzle.
+- **Packages that are not installed yet are caught too.** `domain-is-framework-free` matches both `node_modules/<pkg>` and the bare package name, so `drizzle-orm` is blocked in domain code even before #3 installs it.
+- **Only `src/` is checked.** `src/app.module.ts` is outside `src/modules`, so the module rules do not apply to it (rule 5). The future `web/` client (#61) is outside `src/` and has its own tooling.
+- The CI `quality` job runs dependency-cruiser on every pull request as a required status check (#4).
+
+Each rule was proven in #2 by adding a deliberate violation, checking that `npm run depcruise` failed with that rule's name, and removing it.
+
+### Reading a violation
+
+```text
+  error module-dependency-direction: src/modules/village/application/zz-uc.ts → src/modules/population/index.ts
+
+✘ 1 dependency violations (1 errors, 0 warnings). 26 modules, 29 dependencies cruised.
+```
+
+The line gives: the **rule name**, the **importing file** (left of `→`) and the **imported file** (right). The rule's `comment` in `.dependency-cruiser.cjs` explains the intent. To see every rule with its comment, read the file. The usual fixes:
+
+| Rule                              | Usual fix                                                                                                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no-circular`                     | Move the shared piece into one of the two files, or into a third file both import. Across modules, a cycle means the dependency direction is wrong.                       |
+| `domain-is-framework-free`        | Declare a port (interface) in `domain/` and implement it in `infrastructure/`.                                                                                            |
+| `application-not-to-outer-layers` | Let the use case take plain input and return plain output. The controller maps DTOs, and the adapter is injected through its port.                                        |
+| `no-cross-module-internals`       | Export what you need from the other module's `index.ts` (a facade or a DTO, never a repository or a table) and import it from there.                                      |
+| `module-dependency-direction`     | Invert the call: a port in `src/shared`, a registration (like `ClaimHandler`), or a domain event. If the direction itself is wrong, discuss it before changing `ALLOWED`. |
+| `shared-is-independent`           | Move the code into the module that needs it, or move the type it needs down into `src/shared`.                                                                            |
+
+## Imports
+
+- **Relative imports, no path aliases.** `@shared/*`-style aliases would have to be wired into TypeScript, Jest and the compiled output (`nest build` does not rewrite them). That is three configurations to keep in sync, for shorter import lines. Relative paths work everywhere unchanged, and dependency-cruiser checks the real file paths either way.
+- Cross-module imports point at the module folder (`../../village`), which resolves to its `index.ts`.

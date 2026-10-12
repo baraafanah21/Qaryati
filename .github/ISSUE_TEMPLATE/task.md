@@ -1,7 +1,7 @@
 ---
 name: Task
 about: A planned unit of work with an owner, a due date and acceptance criteria
-title: ""
+title: ''
 labels: []
 assignees: []
 ---
@@ -10,9 +10,11 @@ assignees: []
 **Depends on:** <!-- #n, #m or none -->
 
 ### Acceptance criteria
+
 - [ ]
 
 ### Definition of done
+
 - [ ] Tests for the new behaviour pass in CI
 - [ ] New endpoints have Swagger decorators; writes are audited
 - [ ] Docs updated in the same PR

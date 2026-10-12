@@ -1,0 +1,38 @@
+import type { Config } from 'jest';
+
+/**
+ * Three Jest projects, selected by the npm scripts with --selectProjects:
+ * - unit:        src/**\/*.spec.ts, no framework bootstrapping, no database
+ * - integration: test/**\/*.int-spec.ts, real PostGIS via Testcontainers (from #3)
+ * - e2e:         test/**\/*.e2e-spec.ts, the Nest app over HTTP with Supertest
+ *
+ * Tests run under `node --experimental-vm-modules` because NestJS 12 ships as
+ * ES modules while this project compiles to CommonJS (same as the official
+ * Nest 12 template).
+ */
+const shared = {
+  rootDir: '.',
+  moduleFileExtensions: ['js', 'json', 'ts'],
+  transform: { '^.+\\.ts$': 'ts-jest' },
+  testEnvironment: 'node',
+} satisfies Config;
+
+const config: Config = {
+  projects: [
+    { ...shared, displayName: 'unit', testMatch: ['<rootDir>/src/**/*.spec.ts'] },
+    { ...shared, displayName: 'integration', testMatch: ['<rootDir>/test/**/*.int-spec.ts'] },
+    { ...shared, displayName: 'e2e', testMatch: ['<rootDir>/test/**/*.e2e-spec.ts'] },
+  ],
+  // Nest module classes and index.ts files are wiring, not logic; counting them
+  // would make the coverage number say nothing about tested behaviour.
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/main.ts',
+    '!src/**/*.spec.ts',
+    '!src/**/*.module.ts',
+    '!src/**/index.ts',
+  ],
+  coverageDirectory: 'coverage',
+};
+
+export default config;
