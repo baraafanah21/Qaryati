@@ -346,7 +346,7 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 ### Dependabot
 
 - **Status:** In use (#4): `.github/dependabot.yml`, see [ci.md](ci.md#dependabot)
-- **Role:** weekly update PRs (Saturday) for npm, GitHub Actions, the `Dockerfile` and the Compose images. npm minor and patch updates are grouped into one PR. Docker major versions are ignored.
+- **Role:** weekly update PRs (Sunday) for npm, GitHub Actions, the `Dockerfile` and the Compose images. In each ecosystem, minor and patch updates are grouped into one PR, with at most 3 open PRs. Docker major versions are ignored.
 - **Why:** automatic dependency and security updates. _Security._
 - **Alternatives:** manual upgrades.
 - **Cost:** PR noise, handled weekly. Every update PR needs a review like any other PR.

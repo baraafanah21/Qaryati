@@ -63,18 +63,18 @@ scripts/github-bootstrap.sh --only protection             # applies it
 ```
 
 - Each check is bound to the GitHub Actions app (`app_id` 15368), so only a workflow run can satisfy it, not a commit status posted through the API by someone with write access.
-- `strict: true`: the branch must be up to date with `main` ("Require branches to be up to date before merging"). The checks therefore ran against the code that will actually land.
+- `strict: true`: the branch must be up to date with `main` ("Require branches to be up to date before merging"). The checks therefore ran against the code that will actually land. How to update a PR and why we chose this: [workflow.md](workflow.md#keeping-a-pr-up-to-date-with-main-update-branch).
 - **Renaming or adding a job** means updating `REQUIRED_CHECKS` in the same PR and running the protection step after merge. Until then, a renamed check never reports, and every PR stays blocked waiting for it.
 
 ## Dependabot
 
-[`.github/dependabot.yml`](../.github/dependabot.yml) opens update PRs every Saturday:
+[`.github/dependabot.yml`](../.github/dependabot.yml) checks for updates every Sunday. In every ecosystem, **minor and patch updates arrive together in one grouped PR**, and each major update gets its own PR, because a major needs reading the changelog. **At most 3 Dependabot PRs are open per ecosystem**, so updates never pile up faster than one review session clears them.
 
-| Ecosystem        | Covers                                        | Grouping and limits                                                    |
-| ---------------- | --------------------------------------------- | ---------------------------------------------------------------------- |
-| `npm`            | `package.json`                                | All minor and patch updates in one PR; each major update in its own PR |
-| `github-actions` | the actions in `ci.yml`                       | One PR for all actions                                                 |
-| `docker`         | `node:24-slim` in the `Dockerfile`            | Major versions ignored (a Node major is a planned upgrade)             |
-| `docker-compose` | `postgis` and `redis` in `docker-compose.yml` | Major versions ignored (a PostgreSQL major needs a data migration)     |
+| Ecosystem        | Covers                                        | Majors                                             |
+| ---------------- | --------------------------------------------- | -------------------------------------------------- |
+| `npm`            | `package.json`                                | Own PR each                                        |
+| `github-actions` | the actions in `ci.yml` (SHA pins)            | Own PR each                                        |
+| `docker`         | `node:24-slim` in the `Dockerfile`            | Ignored: a Node major is a planned upgrade         |
+| `docker-compose` | `postgis` and `redis` in `docker-compose.yml` | Ignored: a PostgreSQL major needs a data migration |
 
 Dependabot PRs go through the same checks and the same review as any other PR. Their titles are Conventional Commits (`chore(deps): …`, `ci(deps): …`). A PostGIS image update must also change `POSTGIS_IMAGE` in `test/support/test-database.ts`; the reviewer adds that commit to the PR.
