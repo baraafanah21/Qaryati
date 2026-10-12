@@ -74,6 +74,13 @@ LABELS=(
 DEFAULT_LABELS=("bug" "documentation" "duplicate" "enhancement" "good first issue"
   "help wanted" "invalid" "question" "wontfix")
 
+# Required status checks on main: the job ids in .github/workflows/ci.yml.
+# Bound to the GitHub Actions app (id 15368), so only a workflow run can
+# satisfy them, not a status posted through the API. "strict": the branch must
+# be up to date with main before merging.
+REQUIRED_CHECKS=(quality unit integration secrets docker)
+GITHUB_ACTIONS_APP_ID=15368
+
 STATUS_OPTIONS=("Backlog" "Ready" "In progress" "In review" "Done")
 READY_ISSUES=" 2 3 4 5 6 7 8 "
 
@@ -427,20 +434,21 @@ step_protection() {
     current=""
   fi
 
-  # Required status checks are added in #4. Keep whatever is already set, so
-  # running this script later never removes them.
-  checks=$(jq -c '.required_status_checks // null | if . == null then null else {strict, contexts} end' \
-    <<<"${current:-null}")
+  checks=$(printf '%s\n' "${REQUIRED_CHECKS[@]}" | jq -Rsc --argjson app "$GITHUB_ACTIONS_APP_ID" \
+    '{strict: true, checks: [split("\n")[] | select(. != "") | {context: ., app_id: $app}]}')
 
   summary='[.required_pull_request_reviews.required_approving_review_count,
     .required_pull_request_reviews.dismiss_stale_reviews,
     .required_pull_request_reviews.require_code_owner_reviews,
     .enforce_admins.enabled, .required_linear_history.enabled,
     .allow_force_pushes.enabled, .allow_deletions.enabled,
-    .required_conversation_resolution.enabled] | map(tostring) | join(" ")'
-  wanted="1 true true true true false false true"
+    .required_conversation_resolution.enabled,
+    .required_status_checks.strict,
+    ([.required_status_checks.checks[]? | "\(.context)@\(.app_id)"] | sort | join(","))]
+    | map(tostring) | join(" ")'
+  wanted="1 true true true true false false true true $(jq -r '[.checks[] | "\(.context)@\(.app_id)"] | sort | join(",")' <<<"$checks")"
   if [[ -n $current && $(jq -r "$summary" <<<"$current") == "$wanted" ]]; then
-    info "up to date (required checks: $(jq -r '.contexts // [] | join(", ") | if . == "" then "none" else . end' <<<"$checks"))"
+    info "up to date (required checks: ${REQUIRED_CHECKS[*]})"
     return
   fi
 
@@ -479,7 +487,7 @@ step_protection() {
     fi
     die "branch protection failed: $out"
   fi
-  info "applied: PR required, 1 approval, stale approvals dismissed, Code Owner review, conversations resolved, linear history, no force push or deletion, enforced for admins"
+  info "applied: PR required, 1 approval, stale approvals dismissed, Code Owner review, conversations resolved, linear history, no force push or deletion, enforced for admins, required checks: ${REQUIRED_CHECKS[*]} (up to date with main)"
 }
 
 step_close() {
