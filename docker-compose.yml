@@ -1,0 +1,81 @@
+# Local stack: docker compose up -d
+# Copy .env.example to .env first; Compose reads it for the ${...} values below.
+# Every variable is documented in docs/configuration.md.
+name: qaryati
+
+x-api-image: &api-image
+  build: .
+  image: qaryati-api:local
+
+services:
+  db:
+    # Same image as test/support/test-database.ts; keep the two in sync.
+    image: postgis/postgis:16-3.5
+    environment:
+      # The owner role: owns the database and runs migrations.
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      # Read by the init script that creates qaryati_app.
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./docker/postgres/init/20-create-app-role.sh:/docker-entrypoint-initdb.d/20-create-app-role.sh:ro
+    ports:
+      - '127.0.0.1:${DB_HOST_PORT:-5432}:5432'
+    healthcheck:
+      # Over TCP on purpose: during first-start initialisation the server
+      # listens only on its Unix socket, so this stays unhealthy until the init
+      # scripts (including the role script) have finished.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - '127.0.0.1:${REDIS_HOST_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: applies pending migrations as the owner role, then exits.
+  migrate:
+    <<: *api-image
+    command: ['node', 'dist/platform/database/migrate.js']
+    environment:
+      DATABASE_OWNER_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    <<: *api-image
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # The restricted runtime role; the API never gets the owner credentials.
+      DATABASE_URL: postgres://qaryati_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - '127.0.0.1:${API_HOST_PORT:-3000}:3000'
+    healthcheck:
+      # node:24-slim has no curl; Node's built-in fetch does the same job.
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/v1/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  db-data:
