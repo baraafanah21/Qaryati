@@ -7,8 +7,14 @@ describe('appEnvSchema', () => {
     expect(appEnvSchema.parse({ DATABASE_URL })).toEqual({
       NODE_ENV: 'development',
       PORT: 3000,
+      LOG_LEVEL: 'info',
       DATABASE_URL,
     });
+  });
+
+  it('rejects an unknown LOG_LEVEL', () => {
+    const result = appEnvSchema.safeParse({ DATABASE_URL, LOG_LEVEL: 'verbose' });
+    expect(result.error?.issues[0]?.path).toEqual(['LOG_LEVEL']);
   });
 
   it('turns PORT from a string into a number', () => {

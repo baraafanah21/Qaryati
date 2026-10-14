@@ -18,11 +18,12 @@ All configuration comes from environment variables. There is no hidden configura
 
 Read by the API process and validated at startup by `appEnvSchema` ([`src/config/app-env.ts`](../src/config/app-env.ts)).
 
-| Variable       | Required | Default       | Meaning                                                                                                                  |
-| -------------- | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `NODE_ENV`     | no       | `development` | `development`, `test` or `production`. Jest sets `test`.                                                                 |
-| `PORT`         | no       | `3000`        | HTTP port inside the process (1–65535).                                                                                  |
-| `DATABASE_URL` | yes      |               | `postgres://` URL of the restricted runtime role `qaryati_app`. Never the owner role ([database.md](database.md#roles)). |
+| Variable       | Required | Default       | Meaning                                                                                                                                                                                                                                            |
+| -------------- | -------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`     | no       | `development` | `development`, `test` or `production`. Jest sets `test`.                                                                                                                                                                                           |
+| `PORT`         | no       | `3000`        | HTTP port inside the process (1–65535).                                                                                                                                                                                                            |
+| `LOG_LEVEL`    | no       | `info`        | Minimum log level: `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent`. The e2e tests default to `silent`. Compose passes it to the `api` container. Logs are JSON except when `NODE_ENV=development` ([kernel.md](kernel.md#logging)). |
+| `DATABASE_URL` | yes      |               | `postgres://` URL of the restricted runtime role `qaryati_app`. Never the owner role ([database.md](database.md#roles)).                                                                                                                           |
 
 ### Migrations
 

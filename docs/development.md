@@ -126,10 +126,13 @@ src/
   app.module.ts           composition root: imports every module
   config/                 environment schemas (zod); the only code that reads process.env
   platform/
-    http/configure-app.ts global prefix /api, URI versioning (default v1), shutdown hooks
-    database/             DatabaseModule (typed Drizzle instance), migrate.ts (migration runner)
+    http/                 configure-app.ts (prefix /api, URI versioning, shutdown hooks, pino logger),
+                          problem-details filter, validation pipe, pagination/sort schemas, request ID
+    logging/              pino setup (JSON logs, access log, redaction)
+    database/             DatabaseModule (shared pool, forFeature per module), migrate.ts (migration runner)
+    kernel/               runtime implementations of kernel ports (SystemClock, UUIDv7 ids)
     health/               GET /api/v1/health → { "status": "ok" }; replaced by Terminus in #43
-  shared/                 kernel, arrives in #9
+  shared/kernel/          plain TypeScript kernel: errors and codes, Clock, Id, Page<T> (docs/kernel.md)
   modules/<module>/       9 business modules, see architecture.md
     index.ts              public API
     <module>.module.ts    Nest module

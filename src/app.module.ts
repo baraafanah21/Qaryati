@@ -11,6 +11,9 @@ import { ProfileModule } from './modules/profile/profile.module';
 import { VillageModule } from './modules/village/village.module';
 import { DatabaseModule } from './platform/database/database.module';
 import { HealthModule } from './platform/health/health.module';
+import { HttpPlatformModule } from './platform/http/http-platform.module';
+import { KernelModule } from './platform/kernel/kernel.module';
+import { LoggingModule } from './platform/logging/logging.module';
 
 /**
  * Composition root of the modular monolith.
@@ -22,6 +25,9 @@ import { HealthModule } from './platform/health/health.module';
 @Module({
   imports: [
     createAppConfigModule(),
+    LoggingModule,
+    HttpPlatformModule,
+    KernelModule,
     DatabaseModule,
     HealthModule,
     IamModule,

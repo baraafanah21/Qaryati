@@ -19,6 +19,8 @@ One entry per technology, library or tool. Each entry gives the version, its rol
 | Data                       | PostgreSQL 16, PostGIS, pg_trgm, citext, Drizzle ORM, drizzle-kit, node-postgres, two database roles | In use (#3)                        |
 | Cache and queues           | Redis 7                                                                                              | Running (#3), first used in #9/#25 |
 | Configuration              | zod, @nestjs/config                                                                                  | In use (#3)                        |
+| HTTP and observability     | zod request schemas (Standard Schema), nestjs-cls, pino, pino-http, nestjs-pino, pino-pretty         | In use (#9)                        |
+| Identifiers                | uuid (UUIDv7)                                                                                        | In use (#9)                        |
 | Containers                 | Docker Compose, node:24-slim, postgis/postgis:16-3.5, redis:7.4-alpine                               | In use (#3)                        |
 | CI and supply chain        | GitHub Actions, gitleaks, Dependabot                                                                 | In use (#4)                        |
 
@@ -299,6 +301,63 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 - **Why:** the app refuses to start with a missing or malformed variable instead of failing later, and there is no hidden configuration (brief). _Correctness, security._
 - **Alternatives:** reading `process.env` ad hoc: silent misconfiguration.
 - **Cost:** a schema to keep in sync with `.env.example`. Tools outside Nest (the migration runner, drizzle-kit) validate with a second, smaller schema (`migrationEnvSchema`), so the API never sees the owner credentials.
+
+---
+
+## HTTP and observability
+
+### Request validation: zod through Standard Schema
+
+- **Version:** zod 4.6.6 (already installed for configuration), Nest's built-in `StandardSchemaValidationPipe` (@nestjs/common 12.1.2)
+- **Status:** In use (#9): `src/platform/http/validation.ts`, `pagination.ts`; usage in [kernel.md](kernel.md#validating-a-request)
+- **Role:** request bodies, query strings and path parameters are zod schemas passed to `@Body({ schema })`, `@Query({ schema })`, `@Param('id', { schema })`. The global `RequestValidationPipe` (a subclass of Nest's pipe) validates, converts types (`z.coerce.number()`), refuses schemas that would strip unknown properties instead of rejecting them, and turns issues into `errors: [{ field, code, message }]` with our own stable codes.
+- **Why:** one library for configuration and requests, and one source for the type (`z.infer`), the validation and the API docs. _Maintainability, correctness._
+- **Decision rule (#9):** choose zod only if `@nestjs/swagger` for Nest 12 generates OpenAPI request and response schemas from it **without a third-party bridge**; otherwise choose class-validator. Checked on 2026-10-14 against the published packages, not the docs alone:
+  - `@nestjs/swagger@12.0.2` depends on `@standard-schema/spec` and ships `StandardSchemaOpenApiConverter`. It reads the `schema` of `@Body/@Query/@Param` for requests and `@ApiResponse({ standardSchema })` for responses, and converts by calling the schema's own `~standard.jsonSchema.input|output({ target: 'openapi-3.0' })`. `class-validator` and `class-transformer` are only optional peers.
+  - zod 4.6.6 implements `~standard.jsonSchema`: `z.strictObject({ a: z.string().max(3) })` converts to `{ type: 'object', properties: { a: { type: 'string', maxLength: 3 } }, additionalProperties: false }`.
+  - So the condition holds and zod is chosen. Swagger itself is wired in #9 part 2.
+- **Alternatives:** class-validator + class-transformer, the long-standing Nest default: a second validation library next to zod, and every DTO is a class whose decorators repeat what the type already says. `nestjs-zod` and similar packages: exactly the third-party bridge the rule excludes, now that Nest and Swagger support Standard Schema directly.
+- **Cost:** zod's issue codes and messages are library wording, so `validation.ts` translates them into our field codes (`REQUIRED`, `TOO_LONG`, ...) and keeps a unit test per code. zod reports a missing enum value like a wrong one, so the pipe looks the path up in the input to tell `REQUIRED` apart. Request schemas must use `z.strictObject` (the pipe enforces it).
+
+### nestjs-cls
+
+- **Version:** 7.0.1
+- **Status:** In use (#9): request context in `src/platform/http/http-platform.module.ts`
+- **Role:** opens an `AsyncLocalStorage` context per request. Its id is the request ID, which the exception filter returns as `traceId`. Part 2 of #9 keeps the current transaction in the same context (`@nestjs-cls/transactional`).
+- **Why:** request-scoped data (request ID now, transaction and current user later) without passing it through every call or making providers request-scoped. _Maintainability, performance._
+- **Alternatives:** `AsyncLocalStorage` by hand: the same mechanism, but we would write the middleware, the Nest integration and the transaction plug-in ourselves. Request-scoped providers (`Scope.REQUEST`): a new provider tree per request, slower, and the scope spreads to everything that injects them.
+- **Cost:** one more concept. Code outside a request (startup, a future job) has no context, so the filter falls back to `req.id`.
+
+### pino + pino-http + nestjs-pino
+
+- **Version:** pino 10.4.0, pino-http 11.0.0, nestjs-pino 5.3.1
+- **Status:** In use (#9): `src/platform/logging/`; usage in [kernel.md](kernel.md#logging)
+- **Role:** structured JSON logs. pino-http writes one access line per request (method, route, status, duration, requestId, userId) and binds `requestId` to every line of the request. nestjs-pino makes pino the Nest logger, so `new Logger(...)` and framework messages land in the same stream. Credentials are redacted at any depth.
+- **Why:** JSON lines can be searched by `requestId`, status or route, and pino is the fastest common Node logger, which matters on the hot path of every request. _Observability, performance, security._
+- **Alternatives:** Nest's `ConsoleLogger` with `json: true`: JSON, but no access log, no request ID on each line and no redaction. winston: slower, more configuration, and request context would still need its own wiring.
+- **Cost:** pino's `redact` takes fixed paths only, so a small `redactDeep` formatter covers "any depth". pino runs formatters only on log-call objects, not on `child()` bindings, so bindings must never carry secrets. pino-http is a peer dependency of nestjs-pino and listed in `package.json` for that reason.
+
+### pino-pretty
+
+- **Version:** 13.2.0 (devDependency)
+- **Status:** In use (#9)
+- **Role:** human-readable, single-line logs when `NODE_ENV=development`. Every other environment logs JSON.
+- **Why:** JSON is hard to read in a terminal while developing. _Developer experience._
+- **Alternatives:** piping JSON through `pino-pretty` by hand: one more thing to remember on every `start:dev`.
+- **Cost:** it is a devDependency, so the production image does not contain it: running that image with `NODE_ENV=development` fails at startup. Compose sets `NODE_ENV=production` for the `api` service.
+
+---
+
+## Identifiers
+
+### uuid (UUIDv7)
+
+- **Version:** 14.0.3
+- **Status:** In use (#9): `src/platform/kernel/uuid-v7-id-generator.ts` (behind the `IdGenerator` port), and new request IDs
+- **Role:** generates entity ids as UUIDv7.
+- **Why:** ids are created in the application before the insert, so an entity is complete without a database round trip. UUIDv7 starts with a millisecond timestamp, so new ids are roughly ordered and B-tree index inserts stay at the end of the index instead of scattering like UUIDv4. Ids do not reveal how many records exist. _Performance, security._
+- **Alternatives:** `crypto.randomUUID()`: built in, but only UUIDv4. `bigserial`: needs the database to assign the id and makes ids guessable. PostgreSQL 18's `uuidv7()`: we run PostgreSQL 16.
+- **Cost:** a dependency for one function. uuid 14 ships ES modules only; it loads through Node's `require(esm)` like NestJS 12 (see [CommonJS on an ESM-only framework](#commonjs-on-an-esm-only-framework)). Domain code never imports it (ESLint rule); it receives ids from `ID_GENERATOR`.
 
 ---
 

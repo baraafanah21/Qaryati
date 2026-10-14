@@ -52,27 +52,44 @@ Conventions:
 - **Only the owning module edits its `schema.ts`.** Other modules reach the data through the owner's `index.ts` facade. dependency-cruiser rejects imports of another module's internals, `schema.ts` included.
 - **Constraints belong in the schema**, not only in application code: `notNull`, `unique`, `check`, foreign keys, partial and GIN/GiST indexes.
 
-## Querying: the `DRIZZLE` instance
+## Querying: the module database
 
-[`DatabaseModule`](../src/platform/database/database.module.ts) is global and provides one Drizzle instance, connected as `qaryati_app`. A repository in a module's `infrastructure/` injects it:
+[`DatabaseModule`](../src/platform/database/database.module.ts) owns the one connection pool (connected as `qaryati_app`). Each module asks it for a Drizzle instance that knows **only that module's schema**:
 
 ```ts
-import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
-import { DRIZZLE, type Database } from '../../../../platform/database/database';
-import { village } from './schema';
+// village.module.ts
+import { DatabaseModule } from '../../platform/database/database.module';
+import * as schema from './infrastructure/persistence/schema';
 
+@Module({ imports: [DatabaseModule.forFeature(schema)], providers: [DrizzleVillageRepository] })
+export class VillageModule {}
+
+// infrastructure/persistence/village-db.ts
+export type VillageDb = ModuleDb<typeof schema>;
+
+// infrastructure/drizzle-village.repository.ts
 @Injectable()
 export class DrizzleVillageRepository {
-  constructor(@Inject(DRIZZLE) private readonly db: Database) {}
+  constructor(@InjectModuleDb() private readonly db: VillageDb) {}
 
   findBySlug(slug: string) {
-    return this.db.select().from(village).where(eq(village.slug, slug));
+    return this.db.query.village.findFirst({
+      where: eq(village.slug, slug),
+      with: { names: true },
+    });
   }
 }
 ```
 
-`Database` is `NodePgDatabase` **without a combined schema**, on purpose. Query results are typed from the table objects passed in (`db.select().from(village)`), and a module can import only its own tables. A combined schema would enable `db.query.<anyTable>` and let every module read every other module's tables without any import that dependency-cruiser could catch. The cost is that Drizzle's relational query API (`db.query.x.findMany({ with })`) is not available. Joins are written with the query builder instead, which also keeps the SQL visible.
+`forFeature(schema)` returns a dynamic module that provides the token `MODULE_DB` to the importing module only. `@InjectModuleDb()` injects it, and `ModuleDb<typeof schema>` types it.
+
+Why one instance per module:
+
+- **Relational queries without N+1.** With a schema (tables plus `relations(...)`), `db.query.village.findMany({ with: { names: true } })` loads a village and its names in one SQL statement. A Drizzle instance without a schema has no `db.query` at all, so a module would either write the joins by hand or, worse, query names once per village.
+- **Isolation between modules.** A single combined schema would put every table of every module on `db.query`, so any repository could read any module's tables without an import that dependency-cruiser could catch. With `forFeature`, `db.query` has only the module's own tables. Another module's table is a compile error (`db.query.populationRecord` does not exist on `VillageDb`) and `undefined` at runtime. `test/database-module.int-spec.ts` checks both with two fake modules.
+- **One pool.** Every instance is built on the same `pg` pool (`PG_POOL`), so the number of connections does not grow with the number of modules. The same test checks that both fake modules share that one pool.
+
+The query builder (`db.select().from(village).innerJoin(...)`) works as before and keeps the SQL visible; use whichever reads better. Tables from another module are still off limits: reach them through that module's `index.ts`.
 
 ### Native SQL
 

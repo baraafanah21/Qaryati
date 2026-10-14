@@ -12,5 +12,7 @@ declare global {
 export default async function globalSetup(): Promise<void> {
   const database = await startTestDatabase();
   process.env.DATABASE_URL = database.appUrl;
+  // Keep test output readable; a test that checks log lines builds its own logger.
+  process.env.LOG_LEVEL ??= 'silent';
   globalThis.qaryatiE2eDatabase = database;
 }

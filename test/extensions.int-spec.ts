@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
 import { integer, pgTable, text } from 'drizzle-orm/pg-core';
 import { Client, Pool } from 'pg';
-import type { Database } from '../src/platform/database/database';
+import type { ModuleDb } from '../src/platform/database/database';
 import {
   CONTAINER_STARTUP_TIMEOUT_MS,
   startTestDatabase,
@@ -23,7 +23,7 @@ const BEIT_FURIK = { lon: 35.336, lat: 32.177 };
 describe('PostGIS and pg_trgm (sample)', () => {
   let database: TestDatabase;
   let pool: Pool;
-  let db: Database;
+  let db: ModuleDb<Record<string, never>>;
 
   beforeAll(async () => {
     database = await startTestDatabase();

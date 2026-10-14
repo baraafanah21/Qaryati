@@ -58,6 +58,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
       # The restricted runtime role; the API never gets the owner credentials.
       DATABASE_URL: postgres://qaryati_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
     depends_on:
