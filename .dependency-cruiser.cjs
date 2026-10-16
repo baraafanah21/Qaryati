@@ -85,6 +85,24 @@ module.exports = {
     },
     ...directionRules,
     {
+      name: 'domain-imports-only-kernel',
+      comment:
+        'domain/ may use src/shared/kernel (plain TypeScript) and nothing else from ' +
+        'src/shared or src/platform: platform code is framework code.',
+      severity: 'error',
+      from: { path: '^src/modules/[^/]+/domain/' },
+      to: { path: '^src/(shared|platform)/', pathNot: '^src/shared/kernel/' },
+    },
+    {
+      name: 'kernel-is-framework-free',
+      comment:
+        'src/shared/kernel is imported by domain code, so it is plain TypeScript too: ' +
+        'no npm packages at all (NestJS, Drizzle, pg, uuid, ...).',
+      severity: 'error',
+      from: { path: '^src/shared/kernel/' },
+      to: { path: [`^(node_modules/)?${FRAMEWORKS}`, '^node_modules/'] },
+    },
+    {
       name: 'shared-is-independent',
       comment: 'The shared kernel sits below every module and must not import them or platform.',
       severity: 'error',

@@ -1,21 +1,29 @@
+import { Inject } from '@nestjs/common';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-/**
- * Injection token of the Drizzle instance. Repositories in a module's
- * `infrastructure/` inject it with `@Inject(DRIZZLE) db: Database`.
- */
-export const DRIZZLE = Symbol('DRIZZLE');
-
-/** Injection token of the underlying node-postgres pool (owned by DatabaseModule). */
+/** Injection token of the node-postgres pool, the one pool every module shares. */
 export const PG_POOL = Symbol('PG_POOL');
 
 /**
- * Drizzle instance connected as `qaryati_app`.
- *
- * Queries are typed by the table objects passed to them (`db.select().from(village)`),
- * so a repository can only reach tables it can import, and dependency-cruiser
- * allows importing only the module's own schema. No combined schema is
- * registered: it would hand every module every other module's tables through
- * `db.query`. See docs/database.md.
+ * Injection token of the calling module's own Drizzle instance, provided by
+ * `DatabaseModule.forFeature(schema)`. Each module that imports `forFeature`
+ * gets its own instance under this same token; Nest resolves it from the
+ * module's own imports, so one module never receives another's.
  */
-export type Database = NodePgDatabase;
+export const MODULE_DB = Symbol('MODULE_DB');
+
+/**
+ * A module's Drizzle instance, typed with that module's schema: `db.query`
+ * knows exactly the module's tables and relations.
+ *
+ * ```ts
+ * import * as schema from './schema';
+ * export type VillageDb = ModuleDb<typeof schema>;
+ * ```
+ */
+export type ModuleDb<TSchema extends Record<string, unknown>> = NodePgDatabase<TSchema>;
+
+/** Injects the module's own Drizzle instance: `@InjectModuleDb() db: VillageDb`. */
+export function InjectModuleDb(): ParameterDecorator & PropertyDecorator {
+  return Inject(MODULE_DB);
+}

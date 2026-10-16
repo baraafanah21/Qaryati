@@ -14,7 +14,7 @@ ADR-001 (#11) records the decision formally. This page describes the result.
 
 ## Modules
 
-Nine business modules live in `src/modules`. The kernel lives in `src/shared`, and technical cross-cutting code lives in `src/platform`.
+Nine business modules live in `src/modules`. The kernel lives in `src/shared/kernel`, and technical cross-cutting code lives in `src/platform` (see [Kernel and platform](#kernel-and-platform)).
 
 | Module       | Owner | Responsibility                                                                                                                                       | Owns (tables, planned)                                                                            |
 | ------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -28,7 +28,7 @@ Nine business modules live in `src/modules`. The kernel lives in `src/shared`, a
 | `geo`        | Ali   | Geocoding through an external API (Nominatim), resilience, cache, suggestion queue and accept flow                                                   | geocoding suggestions                                                                             |
 | `profile`    | Momen | Read-only composition: the village details page `GET /villages/{idOrSlug}`, `GET /villages/{id}/completeness`, and the details cache                 | none (Redis cache entries only)                                                                   |
 
-`src/shared` (the kernel) holds what every module needs: ids, errors, pagination, `Clock`, domain event types and the **`AuditRecorder` port interface**. It contains no module's business rules.
+`src/shared/kernel` holds what every module needs: ids, errors, pagination, `Clock`, and (from #9 part 2) domain event types and the **`AuditRecorder` port interface**. It contains no module's business rules.
 
 ## Dependency directions
 
@@ -136,12 +136,12 @@ src/modules/<module>/
   infrastructure/     adapters: persistence/schema.ts, repositories, Redis, HTTP clients
 ```
 
-| Layer            | May import                                                                  | Must not import                                                                                |
-| ---------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `web`            | `application`, own `domain` types, `src/shared`                             | `infrastructure`                                                                               |
-| `application`    | `domain`, `src/shared`, other modules' `index.ts` (per the direction table) | `web`, `infrastructure`                                                                        |
-| `domain`         | `src/shared` (framework-free parts)                                         | `@nestjs/*`, `drizzle-orm`, `pg`, `ioredis`, `express`, `web`, `application`, `infrastructure` |
-| `infrastructure` | `domain`, `application` (to implement ports), `src/platform`                | `web`                                                                                          |
+| Layer            | May import                                                                         | Must not import                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `web`            | `application`, own `domain` types, `src/shared/kernel`, `src/platform/http`        | `infrastructure`                                                                                               |
+| `application`    | `domain`, `src/shared/kernel`, other modules' `index.ts` (per the direction table) | `web`, `infrastructure`                                                                                        |
+| `domain`         | `src/shared/kernel` only                                                           | `@nestjs/*`, `drizzle-orm`, `pg`, `ioredis`, `express`, `src/platform`, `web`, `application`, `infrastructure` |
+| `infrastructure` | `domain`, `application` (to implement ports), `src/platform`                       | `web`                                                                                                          |
 
 **Why:** the domain holds the business rules: claim transitions, population consistency, self-verification. Without a framework or a database these rules run in milliseconds in unit tests. Adapters can change without touching the rules, for example the Nominatim adapter versus a stub. The cost is more files and interfaces per feature.
 
@@ -149,10 +149,21 @@ src/modules/<module>/
 
 1. **Cross-module access goes only through `index.ts` or domain events,** and only in the directions in the table above. A module never imports another module's repositories, tables, entities or internal services.
 2. **Each module owns its tables.** Each module declares its tables in `src/modules/<m>/infrastructure/persistence/schema.ts`. Nobody edits another module's schema file.
-3. **`src/shared` is the kernel.** It must not import from `src/modules` or `src/platform`.
-4. **`src/platform` holds technical cross-cutting code:** health, the database connection (`DatabaseModule`, the migration runner). It contains no business rules. Environment schemas live in `src/config`, the only code that reads `process.env` ([configuration.md](configuration.md)).
+3. **`src/shared/kernel` is the kernel.** It is plain TypeScript with no npm packages, and must not import from `src/modules` or `src/platform`.
+4. **`src/platform` holds technical cross-cutting code:** health, HTTP conventions (problem filter, validation pipe, request ID), logging, the database connection (`DatabaseModule`, the migration runner), and the runtime implementations of kernel ports (`SystemClock`, the UUIDv7 generator). It contains no business rules. Environment schemas live in `src/config`, the only code that reads `process.env` ([configuration.md](configuration.md)).
 5. **The composition root is exempt.** `src/app.module.ts` imports every module's Nest module to start the app. This is the only place that does.
 6. **Facts are claims.** Every fact has a source, an author and a verification status. Corrections add a new claim; they never overwrite a fact in place. This applies from P1 on (#16).
+
+## Kernel and platform
+
+Shared code is split by one question: **may domain code use it?**
+
+| Folder              | Contents                                                                                                                | Dependencies          | Imported by                                                       |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------- |
+| `src/shared/kernel` | `DomainError` and its categories, the error code catalogue, `Clock`, `Id`/`IdGenerator`, `Page<T>` and pagination types | none (plain TS)       | every layer of every module, `domain/` included                   |
+| `src/platform`      | `http/` (filter, pipe, query schemas, request ID), `logging/`, `database/`, `kernel/` (port implementations), `health/` | NestJS, Drizzle, pino | `web/` (only `platform/http`), `infrastructure/`, the module file |
+
+The kernel declares a port (`Clock`, `IdGenerator`) and its injection token; `src/platform/kernel` provides the implementation. Domain code therefore depends on an interface it can fake in a unit test (`FixedClock`, `SequentialIdGenerator`), never on Nest or a library. How to use each piece: [kernel.md](kernel.md).
 
 ## Enforcement
 
@@ -165,6 +176,8 @@ dependency-cruiser checks these rules on every `npm run depcruise`. The configur
 | `application-not-to-outer-layers` | `application` importing `web` or `infrastructure`                                                                                                            |
 | `no-cross-module-internals`       | A file in module A importing module B through anything other than `src/modules/B/index.ts`                                                                   |
 | `module-dependency-direction`     | A file in module A importing module B when B is not in A's row of the direction table. This includes any import of `audit` or `profile` from another module. |
+| `domain-imports-only-kernel`      | `src/modules/*/domain` importing anything in `src/shared` or `src/platform` other than `src/shared/kernel`                                                   |
+| `kernel-is-framework-free`        | `src/shared/kernel` importing any npm package (NestJS, Drizzle, pg, uuid, ...)                                                                               |
 | `shared-is-independent`           | `src/shared` importing `src/modules` or `src/platform`                                                                                                       |
 
 How the configuration works:
@@ -175,7 +188,9 @@ How the configuration works:
 - **Only `src/` is checked.** `src/app.module.ts` is outside `src/modules`, so the module rules do not apply to it (rule 5). The future `web/` client (#61) is outside `src/` and has its own tooling.
 - The CI `quality` job runs dependency-cruiser on every pull request as a required status check (#4).
 
-Each rule was proven in #2 by adding a deliberate violation, checking that `npm run depcruise` failed with that rule's name, and removing it.
+Each rule was proven by adding a deliberate violation, checking that `npm run depcruise` failed with that rule's name, and removing it: the first six in #2, `domain-imports-only-kernel` and `kernel-is-framework-free` in #9.
+
+ESLint adds one rule that dependency-cruiser cannot express, because it is about calls rather than imports: in `src/modules/*/domain` and `src/modules/*/application`, `new Date()`, `Date.now()`, `randomUUID()` and imports of `uuid` are errors. Business code gets time and ids from `CLOCK` and `ID_GENERATOR` ([kernel.md](kernel.md#current-time-and-new-ids)). `new Date(value)`, which parses a value, stays allowed.
 
 ### Reading a violation
 
@@ -194,6 +209,8 @@ The line gives: the **rule name**, the **importing file** (left of `→`) and th
 | `application-not-to-outer-layers` | Let the use case take plain input and return plain output. The controller maps DTOs, and the adapter is injected through its port.                                        |
 | `no-cross-module-internals`       | Export what you need from the other module's `index.ts` (a facade or a DTO, never a repository or a table) and import it from there.                                      |
 | `module-dependency-direction`     | Invert the call: a port in `src/shared`, a registration (like `ClaimHandler`), or a domain event. If the direction itself is wrong, discuss it before changing `ALLOWED`. |
+| `domain-imports-only-kernel`      | Declare a port in `domain/` and implement it in `infrastructure/` with the platform code, or move the plain type you need into `src/shared/kernel`.                       |
+| `kernel-is-framework-free`        | Keep the interface and token in the kernel and put the implementation that needs the package in `src/platform` (like `UuidV7IdGenerator`).                                |
 | `shared-is-independent`           | Move the code into the module that needs it, or move the type it needs down into `src/shared`.                                                                            |
 
 ## Imports

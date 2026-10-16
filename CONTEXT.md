@@ -10,12 +10,15 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 
 ## Architecture rules (enforced by dependency-cruiser in CI)
 
-- Modular monolith; modules: village, population, heritage, economy, curation, audit, iam, geo, profile. Kernel in src/shared (ids, errors, pagination, Clock, domain event types, AuditRecorder port), technical cross-cutting code in src/platform.
+- Modular monolith; modules: village, population, heritage, economy, curation, audit, iam, geo, profile. Kernel in src/shared/kernel (plain TypeScript: errors and error codes, Clock, Id/IdGenerator, Page<T>; domain event types and the AuditRecorder port follow in #9 part 2), technical cross-cutting code in src/platform (http, logging, database, kernel port implementations). How to use them: docs/kernel.md.
 - Module dependency directions (no cycles; see docs/architecture.md): iam -> none; curation -> iam; audit -> none (implements the AuditRecorder port from shared; nobody imports audit); village -> iam, curation; population, heritage, economy, geo -> iam, curation, village; profile -> iam, curation, village, population, heritage, economy (read-only composition; nobody imports profile). Every module may import shared.
 - village never depends on content modules. Curation reaches content tables only through ClaimHandlers that content modules register with it.
 - web/ is a separate client (React, issues #61-#64, milestone UI, not graded). It talks to the API over HTTP only, through a client generated from openapi.json, and never imports from src/. It has its own package.json and CI job, and the backend dependency-cruiser rules do not cover it.
 - Inside a module: web -> application -> domain; infrastructure implements ports declared in domain/application.
-- domain is plain TypeScript: no @nestjs, drizzle-orm, pg, ioredis, express, and no imports from web/application/infrastructure.
+- domain is plain TypeScript: no @nestjs, drizzle-orm, pg, ioredis, express, and no imports from web/application/infrastructure. From src/shared and src/platform it may import only src/shared/kernel, which itself imports no npm package.
+- domain and application never call new Date(), Date.now(), randomUUID() or uuid: inject CLOCK and ID_GENERATOR (ESLint enforces it).
+- Errors: throw the kernel's DomainError subclasses (NotFoundError, ConflictError, ...) with a code from ErrorCode; the global filter returns application/problem+json. A new code gets a section in docs/errors.md in the same PR (a unit test checks it).
+- Requests: zod schemas with z.strictObject, passed as @Body/@Query/@Param({ schema }). Lists use paginationQuery and sortQuery with an allow-list, and return Page<T> via toPage.
 - Cross-module access only through the other module's index.ts or domain events. Never import another module's repositories, tables or internals.
 - Each module owns its tables in src/modules/<m>/infrastructure/persistence/schema.ts. Never edit another module's schema file.
 - Facts are claims: a source, a verification status and an author. Never overwrite a fact in place; add a new claim.
@@ -28,7 +31,7 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 - Drizzle ORM for normal reads and writes; native SQL via Drizzle's sql template for trigram search, PostGIS and statistics. Never build SQL by string concatenation.
 - Migrations: change schema.ts, run npm run db:generate, review the generated SQL, commit it. Never edit a migration that is already on main. If main gained a migration while your branch was open, rebase, delete yours, regenerate.
 - The app connects as qaryati_app (DML only). Migrations run as the owner role. The API never receives DATABASE_OWNER_URL.
-- Repositories inject the Drizzle instance with @Inject(DRIZZLE) db: Database (src/platform/database/database.ts). There is no combined schema and no db.query: queries go through the table objects a module imports from its own schema.ts.
+- Each module imports DatabaseModule.forFeature(schema) with its own schema.ts; repositories inject it with @InjectModuleDb() db: ModuleDb<typeof schema>. db.query (relational queries) sees only the module's own tables, and every instance shares one pool. There is no combined schema.
 - Drizzle uses casing: 'snake_case'. Declare columns in camelCase without explicit names.
 - Only src/config may read process.env. A new variable goes into the zod schema, .env.example and docs/configuration.md in the same PR.
 
