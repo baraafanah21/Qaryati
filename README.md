@@ -6,10 +6,11 @@ Qaryati is an API-only backend for structured, sourced knowledge about Palestini
 
 Each member adds their own row in their onboarding pull request (#5 to #8).
 
-| Name  | GitHub                                           | Role                                        | Modules                     |
-| ----- | ------------------------------------------------ | ------------------------------------------- | --------------------------- |
-| Baraa | [@baraafanah21](https://github.com/baraafanah21) | Repository owner, reviewer, platform lead   | platform, shared            |
-| Yahya | [@yahya-ka](https://github.com/yahya-ka)         | Sources and verification, audit, population | curation, audit, population |     |
+| Name  | GitHub                                                       | Role                                        | Modules                     |
+| ----- | ------------------------------------------------------------ | ------------------------------------------- | --------------------------- |
+| Baraa | [@baraafanah21](https://github.com/baraafanah21)             | Repository owner, reviewer, platform lead   | platform, shared            |
+| Yahya | [@yahya-ka](https://github.com/yahya-ka)                     | Sources and verification, audit, population | curation, audit, population |
+| Hamam | [@hamamalkhateeb2005](https://github.com/hamamalkhateeb2005) | Backend developer                           | iam, economy                |
 
 ## Getting started
 
