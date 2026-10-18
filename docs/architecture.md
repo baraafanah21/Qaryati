@@ -28,7 +28,7 @@ Nine business modules live in `src/modules`. The kernel lives in `src/shared/ker
 | `geo`        | Ali   | Geocoding through an external API (Nominatim), resilience, cache, suggestion queue and accept flow                                                   | geocoding suggestions                                                                             |
 | `profile`    | Momen | Read-only composition: the village details page `GET /villages/{idOrSlug}`, `GET /villages/{id}/completeness`, and the details cache                 | none (Redis cache entries only)                                                                   |
 
-`src/shared/kernel` holds what every module needs: ids, errors, pagination, `Clock`, and (from #9 part 2) domain event types and the **`AuditRecorder` port interface**. It contains no module's business rules.
+`src/shared/kernel` holds what every module needs: ids, errors, pagination, `Clock`, `Versioned`, domain event types and the **`AuditRecorder` port interface**. It contains no module's business rules.
 
 ## Dependency directions
 
@@ -143,6 +143,45 @@ src/modules/<module>/
 | `domain`         | `src/shared/kernel` only                                                           | `@nestjs/*`, `drizzle-orm`, `pg`, `ioredis`, `express`, `src/platform`, `web`, `application`, `infrastructure` |
 | `infrastructure` | `domain`, `application` (to implement ports), `src/platform`                       | `web`                                                                                                          |
 
+### A write request, end to end
+
+What happens when a client changes something, for example `PATCH /api/v1/widgets/{id}` in the reference module ([kernel.md](kernel.md#build-a-new-endpoint-in-10-steps)):
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant C as Client
+  participant G as Guard (#10)
+  participant P as Validation pipe
+  participant Ctl as Controller (web)
+  participant UC as Use case (application)
+  participant TX as Transaction (CLS + pg client)
+  participant R as Repository (infrastructure)
+  participant A as AuditRecorder
+  participant E as Event listeners
+  participant DB as PostgreSQL
+
+  C->>G: PATCH /widgets/{id}, If-Match: "3", body
+  G->>G: verify token, RequestContext.setActorId()
+  G->>P: request
+  P->>Ctl: parsed body (zod), id, expected version (@IfMatch)
+  Ctl->>UC: execute({ id, expectedVersion: 3, name })
+  UC->>TX: @Transactional(): check out one client
+  TX->>DB: BEGIN
+  UC->>R: findById, then update(widget, 3)
+  R->>DB: UPDATE ... WHERE id = $1 AND version = 3 RETURNING *
+  DB-->>R: row at version 4 (0 rows → 404 or 412, ROLLBACK)
+  UC->>A: record({ action, before, after })
+  A->>DB: INSERT audit_entry (same transaction, #20)
+  UC->>TX: publish(event) → queued on the transaction
+  UC-->>TX: return
+  TX->>DB: COMMIT, release client
+  TX->>E: deliver queued events (errors logged, never returned)
+  Ctl-->>C: 200, ETag: "4", body
+```
+
+Any throw between `BEGIN` and `COMMIT` rolls everything back, including the audit entry, and the queued events are dropped. The exception filter then answers with a problem response.
+
 **Why:** the domain holds the business rules: claim transitions, population consistency, self-verification. Without a framework or a database these rules run in milliseconds in unit tests. Adapters can change without touching the rules, for example the Nominatim adapter versus a stub. The cost is more files and interfaces per feature.
 
 ## Rules
@@ -158,39 +197,41 @@ src/modules/<module>/
 
 Shared code is split by one question: **may domain code use it?**
 
-| Folder              | Contents                                                                                                                | Dependencies          | Imported by                                                       |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------------------------------- |
-| `src/shared/kernel` | `DomainError` and its categories, the error code catalogue, `Clock`, `Id`/`IdGenerator`, `Page<T>` and pagination types | none (plain TS)       | every layer of every module, `domain/` included                   |
-| `src/platform`      | `http/` (filter, pipe, query schemas, request ID), `logging/`, `database/`, `kernel/` (port implementations), `health/` | NestJS, Drizzle, pino | `web/` (only `platform/http`), `infrastructure/`, the module file |
+| Folder              | Contents                                                                                                                                                                                                                                                                          | Dependencies                               | Imported by                                                       |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------- |
+| `src/shared/kernel` | `DomainError` and its categories, the error code catalogue, `Clock`, `Id`/`IdGenerator`, `Page<T>` and pagination types, `Versioned`, `DomainEvent` and the `DomainEventPublisher` port, the `AuditRecorder` port                                                                 | none (plain TS)                            | every layer of every module, `domain/` included                   |
+| `src/platform`      | `http/` (filter, pipe, query schemas, request ID, ETag/If-Match, Swagger), `context/` (request context), `logging/`, `database/` (pool, module handles, transactions, versioned writes), `events/`, `audit/` (placeholder until #20), `kernel/` (port implementations), `health/` | NestJS, Drizzle, pino, nestjs-cls, Swagger | `web/` (only `platform/http`), `infrastructure/`, the module file |
 
-The kernel declares a port (`Clock`, `IdGenerator`) and its injection token; `src/platform/kernel` provides the implementation. Domain code therefore depends on an interface it can fake in a unit test (`FixedClock`, `SequentialIdGenerator`), never on Nest or a library. How to use each piece: [kernel.md](kernel.md).
+The kernel declares a port (`Clock`, `IdGenerator`, `DomainEventPublisher`, `AuditRecorder`) and its injection token; `src/platform` (or, for `AuditRecorder`, the audit module from #20) provides the implementation. Domain code therefore depends on an interface it can fake in a unit test (`FixedClock`, `SequentialIdGenerator`), never on Nest or a library. How to use each piece: [kernel.md](kernel.md).
 
 ## Enforcement
 
 dependency-cruiser checks these rules on every `npm run depcruise`. The configuration is in [`.dependency-cruiser.cjs`](../.dependency-cruiser.cjs). All rules are **errors**:
 
-| Rule                              | What it forbids                                                                                                                                              |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `no-circular`                     | Any import cycle                                                                                                                                             |
-| `domain-is-framework-free`        | `src/modules/*/domain` importing `@nestjs`, `drizzle-orm`, `pg`, `ioredis`, `express`, or anything under `web`, `application` or `infrastructure`            |
-| `application-not-to-outer-layers` | `application` importing `web` or `infrastructure`                                                                                                            |
-| `no-cross-module-internals`       | A file in module A importing module B through anything other than `src/modules/B/index.ts`                                                                   |
-| `module-dependency-direction`     | A file in module A importing module B when B is not in A's row of the direction table. This includes any import of `audit` or `profile` from another module. |
-| `domain-imports-only-kernel`      | `src/modules/*/domain` importing anything in `src/shared` or `src/platform` other than `src/shared/kernel`                                                   |
-| `kernel-is-framework-free`        | `src/shared/kernel` importing any npm package (NestJS, Drizzle, pg, uuid, ...)                                                                               |
-| `shared-is-independent`           | `src/shared` importing `src/modules` or `src/platform`                                                                                                       |
+| Rule                                 | What it forbids                                                                                                                                              |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `no-circular`                        | Any import cycle                                                                                                                                             |
+| `domain-is-framework-free`           | `src/modules/*/domain` importing `@nestjs`, `drizzle-orm`, `pg`, `ioredis`, `express`, or anything under `web`, `application` or `infrastructure`            |
+| `application-not-to-outer-layers`    | `application` importing `web` or `infrastructure`                                                                                                            |
+| `no-cross-module-internals`          | A file in module A importing module B through anything other than `src/modules/B/index.ts`                                                                   |
+| `module-dependency-direction`        | A file in module A importing module B when B is not in A's row of the direction table. This includes any import of `audit` or `profile` from another module. |
+| `domain-imports-only-kernel`         | `src/modules/*/domain` importing anything in `src/shared` or `src/platform` other than `src/shared/kernel`                                                   |
+| `kernel-is-framework-free`           | `src/shared/kernel` importing any npm package (NestJS, Drizzle, pg, uuid, ...)                                                                               |
+| `shared-is-independent`              | `src/shared` importing `src/modules` or `src/platform`                                                                                                       |
+| `reference-module-imports-no-module` | `test/reference-module` importing anything under `src/modules`                                                                                               |
+| `src-not-to-tests`                   | Anything in `src/` importing from `test/`                                                                                                                    |
 
 How the configuration works:
 
 - **One table drives the direction rules.** `ALLOWED` at the top of `.dependency-cruiser.cjs` lists, for each module, the modules it may import. The file generates one `module-dependency-direction` rule per module from it. That table and the "Dependency directions" table on this page must stay identical. Changing a direction means changing both, in the same PR, with a reason (and an ADR if it changes the design).
 - **Type-only imports count** (`tsPreCompilationDeps: true`). `import type { ... } from 'drizzle-orm'` in a domain file is still a violation, because the domain would still be coupled to Drizzle.
 - **Packages that are not installed yet are caught too.** `domain-is-framework-free` matches both `node_modules/<pkg>` and the bare package name, so `drizzle-orm` is blocked in domain code even before #3 installs it.
-- **Only `src/` is checked.** `src/app.module.ts` is outside `src/modules`, so the module rules do not apply to it (rule 5). The future `web/` client (#61) is outside `src/` and has its own tooling.
+- **`src/` and the reference module are checked.** `npm run depcruise` cruises `src` and `test/reference-module`. The layer rules (`domain-is-framework-free`, `application-not-to-outer-layers`, `domain-imports-only-kernel`) match both `src/modules/<m>/` and `test/reference-module/`, so the template the team copies obeys the same rules as a real module. `src/app.module.ts` is outside `src/modules`, so the module rules do not apply to it (rule 5). The future `web/` client (#61) is outside `src/` and has its own tooling.
 - The CI `quality` job runs dependency-cruiser on every pull request as a required status check (#4).
 
-Each rule was proven by adding a deliberate violation, checking that `npm run depcruise` failed with that rule's name, and removing it: the first six in #2, `domain-imports-only-kernel` and `kernel-is-framework-free` in #9.
+Each rule was proven by adding a deliberate violation, checking that `npm run depcruise` failed with that rule's name, and removing it: the first six in #2, `domain-imports-only-kernel` and `kernel-is-framework-free` in #9, and in #9 part 2 the layer rules on the reference module plus `reference-module-imports-no-module` and `src-not-to-tests`.
 
-ESLint adds one rule that dependency-cruiser cannot express, because it is about calls rather than imports: in `src/modules/*/domain` and `src/modules/*/application`, `new Date()`, `Date.now()`, `randomUUID()` and imports of `uuid` are errors. Business code gets time and ids from `CLOCK` and `ID_GENERATOR` ([kernel.md](kernel.md#current-time-and-new-ids)). `new Date(value)`, which parses a value, stays allowed.
+ESLint adds one rule that dependency-cruiser cannot express, because it is about calls rather than imports: in `src/modules/*/domain` and `src/modules/*/application` (and the same folders of `test/reference-module`), `new Date()`, `Date.now()`, `randomUUID()` and imports of `uuid` are errors. Business code gets time and ids from `CLOCK` and `ID_GENERATOR` ([kernel.md](kernel.md#current-time-and-new-ids)). `new Date(value)`, which parses a value, stays allowed.
 
 ### Reading a violation
 

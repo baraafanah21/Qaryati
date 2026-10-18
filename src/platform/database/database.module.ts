@@ -8,10 +8,13 @@ import {
   type OnModuleInit,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { ClsPluginTransactional, TransactionHost } from '@nestjs-cls/transactional';
+import { ClsModule } from 'nestjs-cls';
 import { Pool } from 'pg';
 import type { AppEnv } from '../../config/app-env';
 import { MODULE_DB, PG_POOL, type ModuleDb } from './database';
+import { createModuleDb } from './module-db';
+import { PgTransactionalAdapter } from './pg-transactional-adapter';
 
 const logger = new Logger('Database');
 
@@ -32,11 +35,19 @@ class DatabaseFeatureModule {}
  *   immediately instead of failing on the first request, and logs the role it
  *   connected as.
  * - Closes the pool on shutdown (shutdown hooks are enabled in configureApp).
+ * - Registers `@Transactional()` (nestjs-cls + `@nestjs-cls/transactional`)
+ *   with {@link PgTransactionalAdapter}: a transaction is one pool client,
+ *   shared by every module's handle (docs/database.md, "Transactions").
  *
  * Imported once by AppModule; modules call {@link DatabaseModule.forFeature}.
  */
 @Global()
 @Module({
+  imports: [
+    ClsModule.registerPlugins([
+      new ClsPluginTransactional({ adapter: new PgTransactionalAdapter() }),
+    ]),
+  ],
   providers: [
     {
       provide: PG_POOL,
@@ -59,11 +70,14 @@ export class DatabaseModule implements OnModuleInit, OnApplicationShutdown {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
   /**
-   * A Drizzle instance on the shared pool that knows only `schema`, provided
-   * as `MODULE_DB` to the importing module. Relational queries
+   * A Drizzle handle that knows only `schema`, provided as `MODULE_DB` to the
+   * importing module. Relational queries
    * (`db.query.village.findMany({ with: { names: true } })`) work on the
    * module's own tables and relations, and other modules' tables are not on
    * `db.query` at all (docs/database.md, "Querying").
+   *
+   * The handle runs each query on the active transaction's client inside
+   * `@Transactional()`, and on the shared pool otherwise.
    *
    * @param schema everything exported by the module's `schema.ts`
    *   (`import * as schema from './schema'`): tables and `relations(...)`.
@@ -74,9 +88,9 @@ export class DatabaseModule implements OnModuleInit, OnApplicationShutdown {
       providers: [
         {
           provide: MODULE_DB,
-          inject: [PG_POOL],
-          useFactory: (pool: Pool): ModuleDb<TSchema> =>
-            drizzle({ client: pool, schema, casing: 'snake_case' }),
+          inject: [TransactionHost],
+          useFactory: (txHost: TransactionHost<PgTransactionalAdapter>): ModuleDb<TSchema> =>
+            createModuleDb(schema, () => txHost.tx.client),
         },
       ],
       exports: [MODULE_DB],

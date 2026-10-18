@@ -83,3 +83,19 @@ export function sortQuery<const Field extends string>(
 
 /** Path parameter schema for an entity id: `@Param('id', { schema: idParam }) id: string`. */
 export const idParam = z.uuid();
+
+/**
+ * Response schema of a list endpoint, for Swagger: the kernel's `Page<T>` shape
+ * around `item`. `@ApiOkResponse({ standardSchema: pageResponse(villageSummary) })`.
+ */
+export function pageResponse<Item extends z.ZodType>(item: Item) {
+  return z.strictObject({
+    content: z.array(item),
+    page: z.strictObject({
+      number: z.int().min(0),
+      size: z.int().min(1).max(MAX_PAGE_SIZE),
+      totalElements: z.int().min(0),
+      totalPages: z.int().min(0),
+    }),
+  });
+}

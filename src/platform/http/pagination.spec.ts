@@ -1,5 +1,6 @@
-import { FieldErrorCode } from '../../shared/kernel';
-import { idParam, paginationQuery, sortQuery } from './pagination';
+import { z } from 'zod';
+import { FieldErrorCode, toPage } from '../../shared/kernel';
+import { idParam, pageResponse, paginationQuery, sortQuery } from './pagination';
 import { RequestValidationException, RequestValidationPipe } from './validation';
 
 const listQuery = paginationQuery.extend({ sort: sortQuery(['name', 'createdAt']) });
@@ -92,5 +93,15 @@ describe('idParam', () => {
   it('accepts a UUID and rejects anything else', () => {
     expect(idParam.safeParse('0192f0c4-8e1a-7c3b-9d2e-5f6a7b8c9d0e').success).toBe(true);
     expect(idParam.safeParse('42').success).toBe(false);
+  });
+});
+
+describe('pageResponse', () => {
+  it('describes the Page<T> that toPage returns', () => {
+    const schema = pageResponse(z.strictObject({ name: z.string() }));
+    expect(
+      schema.safeParse(toPage([{ name: 'Beit Furik' }], 1, { page: 0, size: 20 })).success,
+    ).toBe(true);
+    expect(schema.safeParse({ content: [{ name: 1 }], page: {} }).success).toBe(false);
   });
 });

@@ -2,7 +2,7 @@
  * dependency-cruiser rules for Qaryati. They turn the architecture in
  * docs/architecture.md into failing checks. Every rule is an error.
  *
- * Run: npm run depcruise
+ * Run: npm run depcruise (checks src/ and the reference module in test/reference-module)
  */
 
 /**
@@ -23,6 +23,10 @@ const ALLOWED = {
 };
 
 const MODULES = Object.keys(ALLOWED);
+
+// Root folder of a module: a real one under src/modules, or the test-only
+// reference module (test/reference-module), which follows the same layer rules.
+const MODULE_ROOT = '(src/modules/[^/]+|test/reference-module)';
 
 // Frameworks and drivers that must never reach domain code. The second form
 // matches packages that are not installed yet (resolved by name only).
@@ -58,11 +62,11 @@ module.exports = {
         'domain/ is plain TypeScript: no NestJS, Drizzle, pg, ioredis or Express, ' +
         'and no imports from the outer layers of any module.',
       severity: 'error',
-      from: { path: '^src/modules/[^/]+/domain/' },
+      from: { path: `^${MODULE_ROOT}/domain/` },
       to: {
         path: [
           `^(node_modules/)?${FRAMEWORKS}`,
-          '^src/modules/[^/]+/(web|application|infrastructure)/',
+          `^${MODULE_ROOT}/(web|application|infrastructure)/`,
         ],
       },
     },
@@ -70,8 +74,8 @@ module.exports = {
       name: 'application-not-to-outer-layers',
       comment: 'application/ (use cases) must not depend on web/ or infrastructure/.',
       severity: 'error',
-      from: { path: '^src/modules/[^/]+/application/' },
-      to: { path: '^src/modules/[^/]+/(web|infrastructure)/' },
+      from: { path: `^${MODULE_ROOT}/application/` },
+      to: { path: `^${MODULE_ROOT}/(web|infrastructure)/` },
     },
     {
       name: 'no-cross-module-internals',
@@ -90,7 +94,7 @@ module.exports = {
         'domain/ may use src/shared/kernel (plain TypeScript) and nothing else from ' +
         'src/shared or src/platform: platform code is framework code.',
       severity: 'error',
-      from: { path: '^src/modules/[^/]+/domain/' },
+      from: { path: `^${MODULE_ROOT}/domain/` },
       to: { path: '^src/(shared|platform)/', pathNot: '^src/shared/kernel/' },
     },
     {
@@ -101,6 +105,22 @@ module.exports = {
       severity: 'error',
       from: { path: '^src/shared/kernel/' },
       to: { path: [`^(node_modules/)?${FRAMEWORKS}`, '^node_modules/'] },
+    },
+    {
+      name: 'reference-module-imports-no-module',
+      comment:
+        'The reference module (test/reference-module) is a template: it may use src/shared ' +
+        'and src/platform, never a real module.',
+      severity: 'error',
+      from: { path: '^test/reference-module/' },
+      to: { path: '^src/modules/' },
+    },
+    {
+      name: 'src-not-to-tests',
+      comment: 'Production code never imports test code (test/, the reference module included).',
+      severity: 'error',
+      from: { path: '^src/' },
+      to: { path: '^test/' },
     },
     {
       name: 'shared-is-independent',

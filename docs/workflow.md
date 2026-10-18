@@ -55,7 +55,7 @@ Keep commits focused. Squash merging joins them into one commit on `main`, but r
 - **The PR title is a Conventional Commit** (`feat(village): add village CRUD`), because it becomes the commit title on `main`.
 - Fill in **What**, **Why**, **How it was tested** and **Design decisions**. Lasting decisions also go into the relevant doc or an ADR.
 - Aim for about **400 changed lines** at most. Smaller PRs get better reviews.
-- Before pushing: `npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run test:unit && npm run test:int && npm run test:e2e`. CI runs the same checks ([ci.md](ci.md)). Never disable a check to get green.
+- Before pushing: `npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run openapi:check && npm run test:unit && npm run test:int && npm run test:e2e`. CI runs the same checks ([ci.md](ci.md)). Never disable a check to get green.
 - Docs are part of done (see [CONTEXT.md](../CONTEXT.md)). A PR without its docs is not ready for review.
 - After merge, move to the next issue from an updated `main`. If `main` gained a migration while your branch was open, rebase, delete your migration and regenerate it.
 

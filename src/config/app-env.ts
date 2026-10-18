@@ -20,6 +20,15 @@ export const appEnvSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   /** Runtime role `qaryati_app` (DML only); never the owner role. */
   DATABASE_URL: postgresUrl,
+  /**
+   * Serves Swagger UI and the OpenAPI document. Unset means on, except with
+   * `NODE_ENV=production` (src/platform/http/openapi.ts, isSwaggerEnabled).
+   */
+  SWAGGER_ENABLED: z.preprocess(
+    // An empty value (`SWAGGER_ENABLED=` in .env) means "not set".
+    (value) => (value === '' ? undefined : value),
+    z.stringbool({ error: 'must be true or false' }).optional(),
+  ),
 });
 
 /** Validated API environment, as returned by `ConfigService<AppEnv, true>`. */

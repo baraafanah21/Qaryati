@@ -6,8 +6,11 @@
 - `pagination/`: `Page<T>`, `PageRequest`, `Sort`, `toPage`, `pageOffset` (size capped at 100)
 - `ids/`: `Id<Entity>`, the `IdGenerator` port and `ID_GENERATOR` token, `SequentialIdGenerator` for tests
 - `time/`: the `Clock` port and `CLOCK` token, `SystemClock`, `FixedClock` for tests
+- `versioning/`: `Versioned` (aggregates with an optimistic-lock `version`) and `INITIAL_VERSION`
+- `events/`: `DomainEvent` and the `DomainEventPublisher` port with its `DOMAIN_EVENT_PUBLISHER` token
+- `audit/`: `AuditEntry` and the `AuditRecorder` port with its `AUDIT_RECORDER` token (implemented by the audit module, #20)
 
-#9 part 2 adds domain event types and the `AuditRecorder` port interface (implemented by the audit module). The Nest side (exception filter, validation pipe, UUIDv7 generator, logging) lives in `src/platform`.
+The Nest side (exception filter, validation pipe, UUIDv7 generator, transactions, event delivery, logging) lives in `src/platform`.
 
 ## Rules
 

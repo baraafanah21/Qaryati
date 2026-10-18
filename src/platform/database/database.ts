@@ -13,15 +13,23 @@ export const PG_POOL = Symbol('PG_POOL');
 export const MODULE_DB = Symbol('MODULE_DB');
 
 /**
- * A module's Drizzle instance, typed with that module's schema: `db.query`
+ * A module's Drizzle handle, typed with that module's schema: `db.query`
  * knows exactly the module's tables and relations.
+ *
+ * Queries run in the active `@Transactional()` transaction when there is one,
+ * and on the pool otherwise (module-db.ts). `transaction()` is left out on
+ * purpose: transactions belong to use cases, not repositories. `$client` is
+ * left out because the client changes from call to call.
  *
  * ```ts
  * import * as schema from './schema';
  * export type VillageDb = ModuleDb<typeof schema>;
  * ```
  */
-export type ModuleDb<TSchema extends Record<string, unknown>> = NodePgDatabase<TSchema>;
+export type ModuleDb<TSchema extends Record<string, unknown>> = Omit<
+  NodePgDatabase<TSchema>,
+  'transaction' | '$client'
+>;
 
 /** Injects the module's own Drizzle instance: `@InjectModuleDb() db: VillageDb`. */
 export function InjectModuleDb(): ParameterDecorator & PropertyDecorator {

@@ -65,35 +65,39 @@ The `Dockerfile` builds in two stages. The first compiles TypeScript with dev de
 
 ## npm scripts
 
-| Script         | What it does                                                                                                     | When to use it                    |
-| -------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `start:dev`    | Starts the API with `nest start --watch`; restarts on file changes                                               | Daily development                 |
-| `start:debug`  | Same, with the Node inspector open                                                                               | Debugging in the editor           |
-| `start`        | Compiles and starts once                                                                                         | Quick manual check                |
-| `build`        | Compiles `src/` to `dist/` with `tsconfig.build.json` (tests excluded)                                           | Before `start:prod`; in Docker    |
-| `start:prod`   | Runs `dist/main.js` with source maps enabled                                                                     | Production-like run after `build` |
-| `typecheck`    | `tsc --noEmit` over `src/`, `test/` and root config files                                                        | Before pushing; in CI             |
-| `lint`         | ESLint with type-aware rules over the repository                                                                 | Before pushing; in CI             |
-| `lint:fix`     | ESLint with automatic fixes                                                                                      | After a lint failure              |
-| `format`       | Prettier writes every supported file                                                                             | After a format failure            |
-| `format:check` | Prettier checks every supported file, changes nothing                                                            | Before pushing; in CI             |
-| `depcruise`    | dependency-cruiser checks module and layer boundaries in `src/` ([architecture.md](architecture.md#enforcement)) | Before pushing; in CI             |
-| `test:unit`    | Jest project `unit`: `src/**/*.spec.ts`                                                                          | Constantly; in CI                 |
-| `test:int`     | Jest project `integration`: `test/**/*.int-spec.ts`, real PostGIS via Testcontainers                             | Before pushing; in CI             |
-| `test:e2e`     | Jest project `e2e`: `test/**/*.e2e-spec.ts`, the app over HTTP                                                   | Before pushing; in CI             |
-| `test:cov`     | Unit tests with a coverage report in `coverage/`                                                                 | To find untested code             |
-| `db:generate`  | drizzle-kit writes a SQL migration from the modules' `schema.ts` files ([database.md](database.md#migrations))   | After changing a `schema.ts`      |
-| `db:migrate`   | Applies pending migrations as the owner role (`DATABASE_OWNER_URL`)                                              | After pulling or generating       |
-| `db:check`     | Checks the migration history for conflicts                                                                       | After a rebase; in CI             |
-| `db:drift`     | Fails if a `schema.ts` change has no migration ([ci.md](ci.md#quality))                                          | Before pushing; in CI             |
-| `db:studio`    | Drizzle Studio, a browser UI for the local database                                                              | Looking at data                   |
-| `prepare`      | Installs the Husky Git hooks; npm runs it automatically after install                                            | Never by hand                     |
+| Script             | What it does                                                                                                                                 | When to use it                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `start:dev`        | Starts the API with `nest start --watch`; restarts on file changes                                                                           | Daily development                                    |
+| `start:debug`      | Same, with the Node inspector open                                                                                                           | Debugging in the editor                              |
+| `start`            | Compiles and starts once                                                                                                                     | Quick manual check                                   |
+| `build`            | Compiles `src/` to `dist/` with `tsconfig.build.json` (tests excluded)                                                                       | Before `start:prod`; in Docker                       |
+| `start:prod`       | Runs `dist/main.js` with source maps enabled                                                                                                 | Production-like run after `build`                    |
+| `typecheck`        | `tsc --noEmit` over `src/`, `test/` and root config files                                                                                    | Before pushing; in CI                                |
+| `lint`             | ESLint with type-aware rules over the repository                                                                                             | Before pushing; in CI                                |
+| `lint:fix`         | ESLint with automatic fixes                                                                                                                  | After a lint failure                                 |
+| `format`           | Prettier writes every supported file                                                                                                         | After a format failure                               |
+| `format:check`     | Prettier checks every supported file, changes nothing                                                                                        | Before pushing; in CI                                |
+| `depcruise`        | dependency-cruiser checks module and layer boundaries in `src/` and `test/reference-module` ([architecture.md](architecture.md#enforcement)) | Before pushing; in CI                                |
+| `test:unit`        | Jest project `unit`: `src/**/*.spec.ts` and `test/reference-module/**/*.spec.ts`                                                             | Constantly; in CI                                    |
+| `test:int`         | Jest project `integration`: `test/**/*.int-spec.ts`, real PostGIS via Testcontainers                                                         | Before pushing; in CI                                |
+| `test:e2e`         | Jest project `e2e`: `test/**/*.e2e-spec.ts`, the app over HTTP                                                                               | Before pushing; in CI                                |
+| `test:cov`         | Unit tests with a coverage report in `coverage/`                                                                                             | To find untested code                                |
+| `db:generate`      | drizzle-kit writes a SQL migration from the modules' `schema.ts` files ([database.md](database.md#migrations))                               | After changing a `schema.ts`                         |
+| `db:migrate`       | Applies pending migrations as the owner role (`DATABASE_OWNER_URL`)                                                                          | After pulling or generating                          |
+| `db:check`         | Checks the migration history for conflicts                                                                                                   | After a rebase; in CI                                |
+| `db:drift`         | Fails if a `schema.ts` change has no migration ([ci.md](ci.md#quality))                                                                      | Before pushing; in CI                                |
+| `db:studio`        | Drizzle Studio, a browser UI for the local database                                                                                          | Looking at data                                      |
+| `openapi:generate` | Writes `docs/api/openapi.json` from the code; needs no database or Redis ([kernel.md](kernel.md#documenting-an-endpoint-swagger))            | After changing an endpoint, DTO or Swagger decorator |
+| `openapi:check`    | Regenerates `docs/api/openapi.json` and fails if it differs from the committed file ([ci.md](ci.md#quality))                                 | Before pushing; in CI                                |
+| `prepare`          | Installs the Husky Git hooks; npm runs it automatically after install                                                                        | Never by hand                                        |
 
 Before every push, run the same checks as CI:
 
 ```bash
-npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run test:unit && npm run test:int && npm run test:e2e
+npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run openapi:check && npm run test:unit && npm run test:int && npm run test:e2e
 ```
+
+Swagger UI runs at <http://localhost:3000/api/docs> during `npm run start:dev`. The Docker image runs with `NODE_ENV=production`, so Swagger is off there.
 
 ## Tests
 
@@ -107,6 +111,7 @@ Notes:
 
 - Integration and e2e tests need Docker running. How the test database is built and shared: [database.md](database.md#testing-against-the-database).
 - Tests run under `node --experimental-vm-modules`. NestJS 12 is published as ES modules, while this project compiles to CommonJS; the flag lets Jest load those packages. This is what the official Nest 12 project template does. The flag prints an `ExperimentalWarning` line, which is expected.
+- [`test/reference-module`](../test/reference-module) is a complete example module with all three kinds of tests next to its code; copy it when you start a feature ([kernel.md](kernel.md#build-a-new-endpoint-in-10-steps)).
 - Coverage counts real code only. Nest module classes (`*.module.ts`), `index.ts` files and `main.ts` are wiring and are excluded.
 
 ## Git hooks
@@ -123,23 +128,32 @@ The hooks give fast feedback; CI repeats every check ([ci.md](ci.md)), so skippi
 ```
 src/
   main.ts                 starts the app on PORT
+  generate-openapi.ts     writes docs/api/openapi.json (npm run openapi:generate), no database needed
   app.module.ts           composition root: imports every module
   config/                 environment schemas (zod); the only code that reads process.env
   platform/
-    http/                 configure-app.ts (prefix /api, URI versioning, shutdown hooks, pino logger),
-                          problem-details filter, validation pipe, pagination/sort schemas, request ID
+    http/                 configure-app.ts (prefix /api, URI versioning, shutdown hooks, pino logger, Swagger),
+                          problem-details filter, validation pipe, pagination/sort schemas, request ID,
+                          ETag/If-Match, Swagger helpers (openapi.ts)
+    context/              request context (nestjs-cls): request ID, actor ID
     logging/              pino setup (JSON logs, access log, redaction)
-    database/             DatabaseModule (shared pool, forFeature per module), migrate.ts (migration runner)
+    database/             DatabaseModule (shared pool, forFeature handles per module, @Transactional adapter),
+                          versioned writes, migrate.ts (migration runner)
+    events/               DomainEventPublisher (after-commit delivery), @OnDomainEvent
+    audit/                placeholder AuditRecorder until the audit module lands (#20)
     kernel/               runtime implementations of kernel ports (SystemClock, UUIDv7 ids)
     health/               GET /api/v1/health → { "status": "ok" }; replaced by Terminus in #43
-  shared/kernel/          plain TypeScript kernel: errors and codes, Clock, Id, Page<T> (docs/kernel.md)
+  shared/kernel/          plain TypeScript kernel: errors and codes, Clock, Id, Page<T>, Versioned,
+                          DomainEvent, AuditRecorder port (docs/kernel.md)
   modules/<module>/       9 business modules, see architecture.md
     index.ts              public API
     <module>.module.ts    Nest module
     web/ application/ domain/ infrastructure/
     infrastructure/persistence/schema.ts   the module's tables (all but profile)
     README.md             responsibility, data, API, dependencies
-test/                     integration and e2e tests; support/ starts the test database
+test/                     integration and e2e tests; support/ starts the test database and holds test doubles
+  reference-module/       the example module to copy (Widget), test-only
+docs/api/openapi.json     the generated API contract (committed; CI checks it)
 migrations/               SQL migrations generated by drizzle-kit
 docker/postgres/init/     database init script (creates qaryati_app)
 Dockerfile                API image, also used by the migrate service

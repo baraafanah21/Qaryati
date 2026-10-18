@@ -14,7 +14,8 @@ Append-only audit trail of every write, recorded in the same transaction as the 
 
 Empty for now. Planned:
 
-- Nothing for other modules. Audit implements the `AuditRecorder` port declared in `src/shared` and provides it through Nest DI. **No module imports audit.**
+- Nothing for other modules. Audit implements the `AuditRecorder` port declared in `src/shared/kernel/audit` and provides it globally as `AUDIT_RECORDER`. **No module imports audit.**
+- The port's contract (write in the caller's transaction; fill `actorId`, `requestId`, `occurredAt` from `RequestContext` and the `Clock`) is in [docs/kernel.md](../../../docs/kernel.md#audit-entries). Until #20 lands, `AuditPlaceholderModule` (`src/platform/audit`) binds a logging placeholder; #20 removes it from AppModule and deletes that folder.
 
 ## Dependencies
 

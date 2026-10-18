@@ -6,19 +6,21 @@ GitHub Actions runs [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) on
 
 The jobs run in parallel on `ubuntu-24.04` with the Node version from `.nvmrc`. Each one can be reproduced locally with the commands in its row.
 
-| Job (check name) | What it runs                                                                                                      | Reproduce locally                                                                                                        | Typical time |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| `quality`        | Prettier, ESLint, TypeScript, dependency-cruiser, `drizzle-kit check`, schema drift check                         | `npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift` | ~1 min       |
-| `unit`           | Jest project `unit`                                                                                               | `npm run test:unit`                                                                                                      | < 1 min      |
-| `integration`    | Jest projects `integration` and `e2e` against real PostGIS (Testcontainers on the runner's Docker)                | `npm run test:int && npm run test:e2e` (Docker running)                                                                  | 2–3 min      |
-| `secrets`        | gitleaks over the full Git history                                                                                | see [secrets](#secrets) below                                                                                            | < 1 min      |
-| `docker`         | Builds the image and starts the whole Compose stack from `.env.example`, then checks health and the database role | `cp .env.example .env && docker compose up -d --build --wait && curl localhost:3000/api/v1/health`                       | 2–3 min      |
+| Job (check name) | What it runs                                                                                                                           | Reproduce locally                                                                                                                                 | Typical time |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `quality`        | Prettier, ESLint, TypeScript, dependency-cruiser, `drizzle-kit check`, schema drift check, OpenAPI drift check; uploads `openapi.json` | `npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run openapi:check` | ~1 min       |
+| `unit`           | Jest project `unit`                                                                                                                    | `npm run test:unit`                                                                                                                               | < 1 min      |
+| `integration`    | Jest projects `integration` and `e2e` against real PostGIS (Testcontainers on the runner's Docker)                                     | `npm run test:int && npm run test:e2e` (Docker running)                                                                                           | 2–3 min      |
+| `secrets`        | gitleaks over the full Git history                                                                                                     | see [secrets](#secrets) below                                                                                                                     | < 1 min      |
+| `docker`         | Builds the image and starts the whole Compose stack from `.env.example`, then checks health and the database role                      | `cp .env.example .env && docker compose up -d --build --wait && curl localhost:3000/api/v1/health`                                                | 2–3 min      |
 
 ### quality
 
 - `db:check` (`drizzle-kit check`) catches an inconsistent migration history, for example two branches that both generated migration `0003`.
 - **Schema drift** (`npm run db:drift`, [`scripts/check-schema-drift.sh`](../scripts/check-schema-drift.sh)) runs `drizzle-kit generate` and fails if that writes anything into `migrations/`. It catches a `schema.ts` change that was committed without its migration. Locally, a failure leaves the generated migration in place for you to review and commit. If drizzle-kit has a question (for example "was this column renamed?"), the script fails instead of waiting for input.
-- Neither command connects to a database. The job sets a placeholder `DATABASE_OWNER_URL` because `drizzle.config.ts` validates it.
+- **OpenAPI drift** (`npm run openapi:check`, [`scripts/check-openapi-drift.sh`](../scripts/check-openapi-drift.sh)) regenerates [`docs/api/openapi.json`](api/openapi.json) with `npm run openapi:generate` and fails if the file changed or is missing. It catches an endpoint, DTO or Swagger decorator change committed without the regenerated contract, so every API change shows up in the PR diff. Fix: run `npm run openapi:generate`, review the diff, commit it.
+- **Upload openapi.json** stores the file as the `openapi` artifact of the run (kept 30 days), also when an earlier step failed. Apidog (#59) and the web client (#61) read the committed file; the artifact is for looking at a PR's contract without checking it out.
+- None of these commands connects to a database or Redis. The job sets a placeholder `DATABASE_OWNER_URL` because `drizzle.config.ts` validates it; the OpenAPI generator fills its own placeholders (`src/config/openapi-env.ts`) and builds the app in Nest's preview mode.
 
 ### integration
 
@@ -38,7 +40,7 @@ If gitleaks finds a real secret, **rotate it first**: removing it from Git does 
 
 ### docker
 
-Starts `db`, `redis`, `migrate` and `api` exactly as a teammate does, using the development values from `.env.example`. It fails if a service is unhealthy after 180 seconds, if `/api/v1/health` does not answer, or if the API did not log `Connected to PostgreSQL as qaryati_app`. On failure it prints every container's logs, and it always removes the stack and its volume.
+Starts `db`, `redis`, `migrate` and `api` exactly as a teammate does, using the development values from `.env.example`. It fails if a service is unhealthy after 180 seconds, if `/api/v1/health` does not answer, or if the API did not log `Connected to PostgreSQL as qaryati_app`. The image runs with `NODE_ENV=production`, so Swagger is off there (`/api/docs-json` answers 404). On failure it prints every container's logs, and it always removes the stack and its volume.
 
 ## Workflow security
 

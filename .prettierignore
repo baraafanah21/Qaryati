@@ -3,3 +3,4 @@ coverage/
 node_modules/
 package-lock.json
 migrations/meta/
+docs/api/openapi.json

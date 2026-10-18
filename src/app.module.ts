@@ -9,7 +9,10 @@ import { IamModule } from './modules/iam/iam.module';
 import { PopulationModule } from './modules/population/population.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { VillageModule } from './modules/village/village.module';
+import { AuditPlaceholderModule } from './platform/audit/audit-placeholder.module';
+import { RequestContextModule } from './platform/context/request-context.module';
 import { DatabaseModule } from './platform/database/database.module';
+import { DomainEventsModule } from './platform/events/domain-events.module';
 import { HealthModule } from './platform/health/health.module';
 import { HttpPlatformModule } from './platform/http/http-platform.module';
 import { KernelModule } from './platform/kernel/kernel.module';
@@ -26,9 +29,13 @@ import { LoggingModule } from './platform/logging/logging.module';
   imports: [
     createAppConfigModule(),
     LoggingModule,
+    RequestContextModule,
     HttpPlatformModule,
     KernelModule,
     DatabaseModule,
+    DomainEventsModule,
+    // TODO(#20): replace with the audit module's AUDIT_RECORDER and delete src/platform/audit.
+    AuditPlaceholderModule,
     HealthModule,
     IamModule,
     CurationModule,

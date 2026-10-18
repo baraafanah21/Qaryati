@@ -1,60 +1,26 @@
-import { Injectable, Module } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { relations, sql } from 'drizzle-orm';
-import { integer, pgTable, text } from 'drizzle-orm/pg-core';
-import { Client, type Pool } from 'pg';
+import { sql } from 'drizzle-orm';
+import type { Pool } from 'pg';
 import { createAppConfigModule } from '../src/config/app-config.module';
-import { InjectModuleDb, PG_POOL, type ModuleDb } from '../src/platform/database/database';
+import { RequestContextModule } from '../src/platform/context/request-context.module';
+import { PG_POOL } from '../src/platform/database/database';
 import { DatabaseModule } from '../src/platform/database/database.module';
+import {
+  AlphaModule,
+  AlphaRepository,
+  alphaSchema,
+  BetaModule,
+  BetaRepository,
+  betaSchema,
+  createFakeModuleTables,
+  type AlphaDb,
+  type BetaDb,
+} from './support/fake-modules';
 import {
   CONTAINER_STARTUP_TIMEOUT_MS,
   startTestDatabase,
   type TestDatabase,
 } from './support/test-database';
-
-// Two fake modules, each with its own schema.ts, declared the way a real
-// module would: camelCase properties, snake_case columns, relations.
-const alphaSchema = (() => {
-  const alphaParent = pgTable('alpha_parent', {
-    id: integer().primaryKey(),
-    displayName: text().notNull(),
-  });
-  const alphaChild = pgTable('alpha_child', {
-    id: integer().primaryKey(),
-    parentId: integer().notNull(),
-    label: text().notNull(),
-  });
-  const alphaParentRelations = relations(alphaParent, ({ many }) => ({
-    children: many(alphaChild),
-  }));
-  const alphaChildRelations = relations(alphaChild, ({ one }) => ({
-    parent: one(alphaParent, { fields: [alphaChild.parentId], references: [alphaParent.id] }),
-  }));
-  return { alphaParent, alphaChild, alphaParentRelations, alphaChildRelations };
-})();
-
-const betaSchema = {
-  betaItem: pgTable('beta_item', { id: integer().primaryKey(), title: text().notNull() }),
-};
-
-type AlphaDb = ModuleDb<typeof alphaSchema>;
-type BetaDb = ModuleDb<typeof betaSchema>;
-
-@Injectable()
-class AlphaRepository {
-  constructor(@InjectModuleDb() readonly db: AlphaDb) {}
-}
-
-@Module({ imports: [DatabaseModule.forFeature(alphaSchema)], providers: [AlphaRepository] })
-class AlphaModule {}
-
-@Injectable()
-class BetaRepository {
-  constructor(@InjectModuleDb() readonly db: BetaDb) {}
-}
-
-@Module({ imports: [DatabaseModule.forFeature(betaSchema)], providers: [BetaRepository] })
-class BetaModule {}
 
 describe('DatabaseModule (PostGIS via Testcontainers)', () => {
   let database: TestDatabase;
@@ -64,19 +30,17 @@ describe('DatabaseModule (PostGIS via Testcontainers)', () => {
 
   beforeAll(async () => {
     database = await startTestDatabase();
-    // Created by the owner, the way a migration would create them.
-    const owner = new Client({ connectionString: database.ownerUrl });
-    await owner.connect();
-    await owner.query(`
-      CREATE TABLE alpha_parent (id integer PRIMARY KEY, display_name text NOT NULL);
-      CREATE TABLE alpha_child (id integer PRIMARY KEY, parent_id integer NOT NULL REFERENCES alpha_parent, label text NOT NULL);
-      CREATE TABLE beta_item (id integer PRIMARY KEY, title text NOT NULL);
-    `);
-    await owner.end();
+    await createFakeModuleTables(database.ownerUrl);
 
     process.env.DATABASE_URL = database.appUrl;
     moduleRef = await Test.createTestingModule({
-      imports: [createAppConfigModule(), DatabaseModule, AlphaModule, BetaModule],
+      imports: [
+        createAppConfigModule(),
+        RequestContextModule,
+        DatabaseModule,
+        AlphaModule,
+        BetaModule,
+      ],
     }).compile();
     await moduleRef.init();
     alpha = moduleRef.get(AlphaRepository).db;
@@ -133,13 +97,22 @@ describe('DatabaseModule (PostGIS via Testcontainers)', () => {
     await expect(beta.query.betaItem.findMany()).resolves.toEqual([{ id: 1, title: 'mill' }]);
   });
 
-  it('builds every module instance on the one shared pool', () => {
+  it('runs every module handle on the one shared pool', async () => {
     const pool = moduleRef.get<Pool>(PG_POOL);
     expect(alpha).not.toBe(beta);
-    // drizzle() keeps its client on $client; ModuleDb hides it from modules.
-    const clientOf = (db: object) => (db as { $client: Pool }).$client;
-    const clients = new Set([clientOf(alpha), clientOf(beta)]);
-    expect(clients.size).toBe(1);
-    expect(clientOf(alpha)).toBe(pool);
+    // Outside a transaction both handles send their queries to the pool itself.
+    const query = jest.spyOn(pool, 'query');
+    try {
+      await alpha.select().from(alphaSchema.alphaParent);
+      await beta.select().from(betaSchema.betaItem);
+      expect(query).toHaveBeenCalledTimes(2);
+    } finally {
+      query.mockRestore();
+    }
+  });
+
+  it('refuses db.transaction(): transactions belong to use cases', () => {
+    const db = alpha as unknown as { transaction: () => unknown };
+    expect(() => db.transaction()).toThrow(/@Transactional\(\)/);
   });
 });
