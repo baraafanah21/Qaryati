@@ -38,6 +38,7 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 ## Workflow
 
 - issue -> branch (feature|chore|fix|docs|ci/<issue>-<slug>) -> PR with "Closes #<n>" using the template -> review by Baraa -> squash merge. Never push to main.
+- Only Baraa merges, and he is the only code owner: every team PR needs his approval. His own PRs merge with the admin bypass after CI is green; a review from a teammate, in rotation, is recommended but optional. Dependabot PRs are merged by Baraa only, and a major update needs its own issue before it merges.
 - Conventional Commits with the module as scope, e.g. feat(population): add record rules.
 - Before pushing: npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run test:unit && npm run test:int && npm run test:e2e (the same checks as CI, docs/ci.md). The five CI jobs are required checks on main; renaming a job means updating REQUIRED_CHECKS in scripts/github-bootstrap.sh.
 - Do only what the issue's acceptance criteria ask. Ask before widening scope.

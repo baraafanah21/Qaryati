@@ -72,9 +72,13 @@ scripts/github-bootstrap.sh --only protection             # applies it
 
 | Ecosystem        | Covers                                        | Majors                                             |
 | ---------------- | --------------------------------------------- | -------------------------------------------------- |
-| `npm`            | `package.json`                                | Own PR each                                        |
+| `npm`            | `package.json`                                | Own PR each, except the core packages below        |
 | `github-actions` | the actions in `ci.yml` (SHA pins)            | Own PR each                                        |
 | `docker`         | `node:24-slim` in the `Dockerfile`            | Ignored: a Node major is a planned upgrade         |
 | `docker-compose` | `postgis` and `redis` in `docker-compose.yml` | Ignored: a PostgreSQL major needs a data migration |
 
-Dependabot PRs go through the same checks and the same review as any other PR. Their titles are Conventional Commits (`chore(deps): …`, `ci(deps): …`). A PostGIS image update must also change `POSTGIS_IMAGE` in `test/support/test-database.ts`; the reviewer adds that commit to the PR.
+**Ignored npm majors.** Dependabot opens no major PRs for `@types/node`, `typescript`, `@nestjs/*`, `drizzle-orm`, `drizzle-kit`, `jest`, `ts-jest`, `typescript-eslint` and `eslint`. A major of any of them changes how the whole codebase compiles, runs or is tested, so it is a planned upgrade with its own issue, not a weekly bump. Their minor and patch updates still arrive in the grouped PR.
+
+**Why `@types/node` stays on 24.** The app runs on Node 24 (`.nvmrc`, `engines`, `node:24-slim`). `@types/node` describes the Node API for the compiler, and its major follows the Node major. With `@types/node` 25, TypeScript accepts calls to APIs that exist only in Node 25, so code compiles and then fails at runtime on Node 24. This happened in #74, which was reverted. `@types/node` moves to a new major only together with the Node runtime.
+
+Dependabot PRs go through the same checks as any other PR. Only Baraa approves and merges them ([workflow.md](workflow.md#reviews-and-codeowners)), and a major update needs its own issue before it merges. Their titles are Conventional Commits (`chore(deps): …`, `ci(deps): …`). A PostGIS image update must also change `POSTGIS_IMAGE` in `test/support/test-database.ts`; the reviewer adds that commit to the PR.

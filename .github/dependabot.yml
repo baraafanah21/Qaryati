@@ -20,6 +20,28 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
+    # Majors of these packages are planned upgrades with their own issue, not
+    # weekly bumps (docs/ci.md). @types/node stays on 24 to match the Node 24
+    # runtime: newer types describe APIs that Node 24 does not have.
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      - dependency-name: '@nestjs/*'
+        update-types: [version-update:semver-major]
+      - dependency-name: drizzle-orm
+        update-types: [version-update:semver-major]
+      - dependency-name: drizzle-kit
+        update-types: [version-update:semver-major]
+      - dependency-name: jest
+        update-types: [version-update:semver-major]
+      - dependency-name: ts-jest
+        update-types: [version-update:semver-major]
+      - dependency-name: typescript-eslint
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
