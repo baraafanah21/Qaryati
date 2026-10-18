@@ -28,7 +28,12 @@ export default defineConfig(
   {
     // Business code gets time and ids through the kernel ports (Clock,
     // IdGenerator), so tests can fix both. See docs/kernel.md.
-    files: ['src/modules/*/domain/**/*.ts', 'src/modules/*/application/**/*.ts'],
+    files: [
+      'src/modules/*/domain/**/*.ts',
+      'src/modules/*/application/**/*.ts',
+      'test/reference-module/domain/**/*.ts',
+      'test/reference-module/application/**/*.ts',
+    ],
     ignores: ['**/*.spec.ts'],
     rules: {
       'no-restricted-syntax': [

@@ -1,16 +1,17 @@
 # Documentation index
 
-| Document                             | What it covers                                                                                                        |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| [../CONTEXT.md](../CONTEXT.md)       | Short rules every contributor (and AI assistant) reads first                                                          |
-| [architecture.md](architecture.md)   | Modular monolith, hexagonal layers, module map, dependency rules and how they are enforced                            |
-| [development.md](development.md)     | Prerequisites, setup, running with Docker, every npm script, test types, Git hooks, TypeScript strict flags           |
-| [configuration.md](configuration.md) | Every environment variable, where it comes from, how it is validated                                                  |
-| [kernel.md](kernel.md)               | **Start here when writing an endpoint:** errors, validation, pagination, module database, Clock and ids, logging      |
-| [errors.md](errors.md)               | The error response shape and every error code: meaning, status, when it happens, what the client should do            |
-| [database.md](database.md)           | Roles and grants, extensions, schema per module, the Drizzle instance, migrations, testing against PostGIS            |
-| [ci.md](ci.md)                       | Every CI job, how to reproduce it locally, workflow security, required checks, Dependabot                             |
-| [workflow.md](workflow.md)           | Issue → branch → PR → review → squash merge, naming, labels, board, branch protection and the reason for each setting |
-| [tech-stack.md](tech-stack.md)       | Every technology and tool: version, role, why chosen, alternatives, cost                                              |
-| [adr/](adr/)                         | Architecture Decision Records; [0000-template.md](adr/0000-template.md) is the template                               |
-| [plan/issues.json](plan/issues.json) | The project plan: 64 issues and milestones G0–G5 plus UI, source of the GitHub issues                                 |
+| Document                             | What it covers                                                                                                                                                                                                 |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [../CONTEXT.md](../CONTEXT.md)       | Short rules every contributor (and AI assistant) reads first                                                                                                                                                   |
+| [architecture.md](architecture.md)   | Modular monolith, hexagonal layers, module map, dependency rules and how they are enforced                                                                                                                     |
+| [development.md](development.md)     | Prerequisites, setup, running with Docker, every npm script, test types, Git hooks, TypeScript strict flags                                                                                                    |
+| [configuration.md](configuration.md) | Every environment variable, where it comes from, how it is validated                                                                                                                                           |
+| [kernel.md](kernel.md)               | **Start here when writing an endpoint:** errors, validation, pagination, module database, transactions, optimistic locking, events, audit, Swagger, logging, and a 10-step walkthrough of the reference module |
+| [errors.md](errors.md)               | The error response shape and every error code: meaning, status, when it happens, what the client should do                                                                                                     |
+| [database.md](database.md)           | Roles and grants, extensions, schema per module, the module handle, the transaction design, migrations, testing against PostGIS                                                                                |
+| [api/openapi.json](api/openapi.json) | The generated OpenAPI contract of the API (`npm run openapi:generate`; CI fails if it is stale)                                                                                                                |
+| [ci.md](ci.md)                       | Every CI job, how to reproduce it locally, workflow security, required checks, Dependabot                                                                                                                      |
+| [workflow.md](workflow.md)           | Issue → branch → PR → review → squash merge, naming, labels, board, branch protection and the reason for each setting                                                                                          |
+| [tech-stack.md](tech-stack.md)       | Every technology and tool: version, role, why chosen, alternatives, cost                                                                                                                                       |
+| [adr/](adr/)                         | Architecture Decision Records; [0000-template.md](adr/0000-template.md) is the template                                                                                                                        |
+| [plan/issues.json](plan/issues.json) | The project plan: 64 issues and milestones G0–G5 plus UI, source of the GitHub issues                                                                                                                          |

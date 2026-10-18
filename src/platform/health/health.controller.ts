@@ -1,4 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation } from '@nestjs/swagger';
+import { z } from 'zod';
+import { ApiModule } from '../http/openapi';
+
+const healthStatus = z.strictObject({ status: z.literal('ok') }).meta({ id: 'HealthStatus' });
 
 /** Body returned by the liveness endpoint. */
 export interface HealthStatus {
@@ -12,9 +17,12 @@ export interface HealthStatus {
  * not check the database or Redis yet; readiness checks with Terminus replace
  * it in #43.
  */
+@ApiModule('health')
 @Controller('health')
 export class HealthController {
   @Get()
+  @ApiOperation({ summary: 'Liveness: the process accepts HTTP requests' })
+  @ApiOkResponse({ standardSchema: healthStatus })
   check(): HealthStatus {
     return { status: 'ok' };
   }

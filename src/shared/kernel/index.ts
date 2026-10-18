@@ -24,3 +24,10 @@ export {
   type Sort,
   type SortDirection,
 } from './pagination/page';
+export { INITIAL_VERSION, type Versioned } from './versioning/versioned';
+export {
+  DOMAIN_EVENT_PUBLISHER,
+  type DomainEvent,
+  type DomainEventPublisher,
+} from './events/domain-event';
+export { AUDIT_RECORDER, type AuditEntry, type AuditRecorder } from './audit/audit-recorder';

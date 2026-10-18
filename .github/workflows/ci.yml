@@ -46,6 +46,18 @@ jobs:
         run: npm run db:check
       - name: Schema drift
         run: npm run db:drift
+      # Regenerates docs/api/openapi.json (no database needed) and fails if it
+      # differs from the committed file, so every API change shows in the PR diff.
+      - name: OpenAPI drift
+        run: npm run openapi:check
+      - name: Upload openapi.json
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: openapi
+          path: docs/api/openapi.json
+          if-no-files-found: error
+          retention-days: 30
 
   unit:
     runs-on: ubuntu-24.04

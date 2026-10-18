@@ -27,6 +27,31 @@ describe('appEnvSchema', () => {
     expect(result.error?.issues[0]?.path).toEqual(['PORT']);
   });
 
+  it.each([
+    ['true', true],
+    ['false', false],
+    ['1', true],
+    ['0', false],
+  ])('reads SWAGGER_ENABLED=%s as %p', (value, expected) => {
+    expect(appEnvSchema.parse({ DATABASE_URL, SWAGGER_ENABLED: value }).SWAGGER_ENABLED).toBe(
+      expected,
+    );
+  });
+
+  it('treats an empty SWAGGER_ENABLED as unset', () => {
+    expect(
+      appEnvSchema.parse({ DATABASE_URL, SWAGGER_ENABLED: '' }).SWAGGER_ENABLED,
+    ).toBeUndefined();
+  });
+
+  it('rejects SWAGGER_ENABLED=maybe', () => {
+    const result = appEnvSchema.safeParse({ DATABASE_URL, SWAGGER_ENABLED: 'maybe' });
+    expect(result.error?.issues[0]).toMatchObject({
+      path: ['SWAGGER_ENABLED'],
+      message: 'must be true or false',
+    });
+  });
+
   it('rejects an unknown NODE_ENV', () => {
     expect(appEnvSchema.safeParse({ DATABASE_URL, NODE_ENV: 'staging' }).success).toBe(false);
   });

@@ -54,7 +54,7 @@ Conventions:
 
 ## Querying: the module database
 
-[`DatabaseModule`](../src/platform/database/database.module.ts) owns the one connection pool (connected as `qaryati_app`). Each module asks it for a Drizzle instance that knows **only that module's schema**:
+[`DatabaseModule`](../src/platform/database/database.module.ts) owns the one connection pool (connected as `qaryati_app`). Each module asks it for a Drizzle handle that knows **only that module's schema**:
 
 ```ts
 // village.module.ts
@@ -81,13 +81,13 @@ export class DrizzleVillageRepository {
 }
 ```
 
-`forFeature(schema)` returns a dynamic module that provides the token `MODULE_DB` to the importing module only. `@InjectModuleDb()` injects it, and `ModuleDb<typeof schema>` types it.
+`forFeature(schema)` returns a dynamic module that provides the token `MODULE_DB` to the importing module only. `@InjectModuleDb()` injects it, and `ModuleDb<typeof schema>` types it. The handle resolves its connection on every query: the active transaction's client inside `@Transactional()`, the pool otherwise ([Transactions](#transactions)).
 
 Why one instance per module:
 
 - **Relational queries without N+1.** With a schema (tables plus `relations(...)`), `db.query.village.findMany({ with: { names: true } })` loads a village and its names in one SQL statement. A Drizzle instance without a schema has no `db.query` at all, so a module would either write the joins by hand or, worse, query names once per village.
 - **Isolation between modules.** A single combined schema would put every table of every module on `db.query`, so any repository could read any module's tables without an import that dependency-cruiser could catch. With `forFeature`, `db.query` has only the module's own tables. Another module's table is a compile error (`db.query.populationRecord` does not exist on `VillageDb`) and `undefined` at runtime. `test/database-module.int-spec.ts` checks both with two fake modules.
-- **One pool.** Every instance is built on the same `pg` pool (`PG_POOL`), so the number of connections does not grow with the number of modules. The same test checks that both fake modules share that one pool.
+- **One pool.** Every handle runs on the same `pg` pool (`PG_POOL`), so the number of connections does not grow with the number of modules. The same test checks that both fake modules send their queries to that one pool.
 
 The query builder (`db.select().from(village).innerJoin(...)`) works as before and keeps the SQL visible; use whichever reads better. Tables from another module are still off limits: reach them through that module's `index.ts`.
 
@@ -102,6 +102,44 @@ db.select()
 ```
 
 Never build SQL by string concatenation.
+
+## Transactions
+
+A use case marks its transaction boundary with `@Transactional()` ([kernel.md](kernel.md#transactions)). This section explains the design.
+
+### The problem
+
+Each module has its own Drizzle instance with only its own schema (above). Drizzle's `db.transaction(tx => ...)` gives a `tx` object that belongs to one instance, so it knows only that instance's tables. A use case that writes to two modules (a change and its audit entry, for example) cannot do both through one `tx`. A combined schema would fix that but would put every module's tables on every `db.query`, which is exactly the isolation the per-module instances exist for.
+
+### The design: transactions at the connection level
+
+```mermaid
+flowchart LR
+  uc["@Transactional() use case"] -- "BEGIN / COMMIT / ROLLBACK" --> client["one pg PoolClient<br/>(stored in the CLS context)"]
+  a["village handle"] -- "drizzle(client, villageSchema)<br/>cached per client" --> client
+  b["audit handle"] -- "drizzle(client, auditSchema)<br/>cached per client" --> client
+  client --> pool["shared pg Pool"]
+```
+
+1. `@Transactional()` (from `nestjs-cls` + `@nestjs-cls/transactional`) runs the method through our adapter, [`PgTransactionalAdapter`](../src/platform/database/pg-transactional-adapter.ts). It checks out **one `pg` client** from the shared pool, runs `BEGIN`, and stores the client in the request's CLS context. When the method resolves: `COMMIT`; when it throws: `ROLLBACK`. The client always goes back to the pool (and is destroyed if even `ROLLBACK` failed).
+2. Each module still injects **one handle** from `DatabaseModule.forFeature(schema)` ([`module-db.ts`](../src/platform/database/module-db.ts)). On each use the handle asks "is there an active transaction client?" and builds the module's Drizzle instance, with **only that module's schema**, on that client, or on the pool if there is none.
+3. Instances are cached per client in a `WeakMap`, so they are not rebuilt per query. The pool reuses its clients, so after warm-up the cache holds one instance per client per module.
+4. **Propagation `REQUIRED`:** a `@Transactional()` method called inside another joins the active transaction (one `BEGIN`). Savepoints (`NESTED`) are not supported for now.
+5. **After commit:** the transaction carries a queue of callbacks. Domain events wait there and are delivered after `COMMIT`, or dropped on `ROLLBACK` ([kernel.md](kernel.md#domain-events)).
+
+So repositories never receive or pass a `tx`, every module's queries in one use case share one transaction, and `db.query` inside a transaction still shows only the module's own tables. `db.transaction()` on the handle throws, so nobody opens a second, independent transaction by accident.
+
+What `test/transactions.int-spec.ts` proves against real PostGIS: writes of two modules roll back together; relational queries (`findFirst({ with })`) work inside the transaction on the module's own schema; another module's tables stay invisible there (type-level `@ts-expect-error` and runtime); a nested `@Transactional()` joins (one pool checkout, same `txid_current()`); after rolled-back calls the pool's idle count is back where it started; two concurrent requests get different backends and transactions and do not see each other's uncommitted rows. Making the handle ignore the transaction makes four of those tests fail.
+
+Overhead, measured with a micro-benchmark (no database, 200 000 iterations): resolving the handle and fetching the cached instance adds ~0–25 ns per query builder access, within noise of using a Drizzle instance directly; building a new Drizzle instance costs ~2.2 µs, which the cache avoids. A database round trip is hundreds of microseconds, so the handle is not measurable in practice.
+
+### Alternatives considered
+
+| Option                                                                    | Why not chosen                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A. The official `@nestjs-cls/transactional-adapter-drizzle-orm`           | It wraps `db.transaction()` of one Drizzle instance. With one instance per module, two modules would get two separate transactions (no common rollback). It works only with one instance that has every schema, which breaks module isolation. The adapter's tests would fail test 1 above. |
+| B. One combined transaction instance without relational queries           | One schema-less Drizzle instance for transactions: shared, but `db.query` (relational queries) would not exist inside transactions, so modules would write joins by hand or risk N+1 exactly where they write. Kept as the fallback if C had failed.                                        |
+| **C. Transactions at the connection level, a handle per module (chosen)** | One transaction for all modules, relational queries everywhere, isolation kept. Cost: an adapter and a handle of our own (~170 lines with comments) (both unit- and integration-tested), and a Proxy in front of Drizzle.                                                                   |
 
 ## Migrations
 
@@ -150,6 +188,7 @@ const db = await startTestDatabase(); // { ownerUrl, appUrl, stop() }
 - **Integration tests** (`*.int-spec.ts`) start one container per test file in `beforeAll` and stop it in `afterAll`. Test files stay isolated from each other.
 - **E2E tests** (`*.e2e-spec.ts`) share one container per run, started by `test/support/e2e-global-setup.ts`. `AppModule` validates the environment as soon as it is imported, so `DATABASE_URL` must be set before any e2e test file loads.
 - A test that needs `ConfigService` without the whole app calls `createAppConfigModule()` after setting `process.env.DATABASE_URL` (see `test/database-module.int-spec.ts`).
-- Test tables are created by the owner client, the way a migration would create them, and the code under test uses `qaryati_app`. That keeps the grants under test too.
+- Test tables are created by the owner client, the way a migration would create them, and the code under test uses `qaryati_app`. That keeps the grants under test too. E2E tests find the owner URL in `TEST_DATABASE_OWNER_URL`, set by the global setup (the reference module's `widget` table is created this way and is not in `migrations/`).
+- A test that calls `@Transactional()` code without HTTP wraps each call in `cls.run(...)`, the way the CLS middleware opens one context per request (`test/transactions.int-spec.ts`).
 
 Docker must be running. The first run pulls `postgis/postgis:16-3.5`, which takes a while, and later runs need about 10–20 seconds per container.

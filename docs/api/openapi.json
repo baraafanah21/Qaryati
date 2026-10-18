@@ -1,0 +1,169 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "operationId": "health_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthStatus"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Liveness: the process accepts HTTP requests",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Qaryati API",
+    "description": "Sourced, verifiable knowledge about Palestinian villages. Errors use application/problem+json (docs/errors.md).",
+    "version": "1",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "HealthStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "format": "uri",
+            "description": "Link to the code in docs/errors.md."
+          },
+          "title": {
+            "type": "string",
+            "description": "Short, fixed title of the code."
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599,
+            "description": "The HTTP status, repeated."
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_FAILED",
+              "NOT_FOUND",
+              "DUPLICATE",
+              "REFERENCE_CONFLICT",
+              "CONSTRAINT_VIOLATION",
+              "VERSION_CONFLICT",
+              "PRECONDITION_REQUIRED",
+              "UNAUTHENTICATED",
+              "FORBIDDEN",
+              "RATE_LIMITED",
+              "SERVICE_UNAVAILABLE",
+              "INTERNAL_ERROR"
+            ],
+            "description": "Stable code; branch on this."
+          },
+          "detail": {
+            "type": "string",
+            "description": "What went wrong, for a human."
+          },
+          "instance": {
+            "type": "string",
+            "description": "The request path."
+          },
+          "traceId": {
+            "type": "string",
+            "description": "The request ID; quote it when reporting a problem."
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "errors": {
+            "description": "One entry per invalid field (VALIDATION_FAILED only).",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string",
+                  "description": "Path of the field, e.g. names[0].lang."
+                },
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "REQUIRED",
+                    "UNKNOWN_FIELD",
+                    "INVALID_TYPE",
+                    "NOT_INTEGER",
+                    "INVALID_FORMAT",
+                    "INVALID_VALUE",
+                    "NOT_ALLOWED",
+                    "TOO_SHORT",
+                    "TOO_LONG",
+                    "TOO_SMALL",
+                    "TOO_LARGE",
+                    "TOO_FEW",
+                    "TOO_MANY",
+                    "MUST_NOT_BE_FUTURE"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code",
+          "detail",
+          "instance",
+          "traceId",
+          "timestamp"
+        ],
+        "additionalProperties": false,
+        "description": "RFC 9457 problem details plus code, traceId and timestamp (docs/errors.md)."
+      }
+    }
+  }
+}

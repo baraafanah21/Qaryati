@@ -17,9 +17,11 @@ One entry per technology, library or tool. Each entry gives the version, its rol
 | Testing                    | Jest, ts-jest, Supertest, @nestjs/testing                                                            | In use (#2)                        |
 | Testing (database)         | Testcontainers                                                                                       | In use (#3)                        |
 | Data                       | PostgreSQL 16, PostGIS, pg_trgm, citext, Drizzle ORM, drizzle-kit, node-postgres, two database roles | In use (#3)                        |
+| Transactions               | @nestjs-cls/transactional with our pg adapter                                                        | In use (#9)                        |
 | Cache and queues           | Redis 7                                                                                              | Running (#3), first used in #9/#25 |
 | Configuration              | zod, @nestjs/config                                                                                  | In use (#3)                        |
 | HTTP and observability     | zod request schemas (Standard Schema), nestjs-cls, pino, pino-http, nestjs-pino, pino-pretty         | In use (#9)                        |
+| Events and API docs        | @nestjs/event-emitter, @nestjs/swagger                                                               | In use (#9)                        |
 | Identifiers                | uuid (UUIDv7)                                                                                        | In use (#9)                        |
 | Containers                 | Docker Compose, node:24-slim, postgis/postgis:16-3.5, redis:7.4-alpine                               | In use (#3)                        |
 | CI and supply chain        | GitHub Actions, gitleaks, Dependabot                                                                 | In use (#4)                        |
@@ -265,8 +267,17 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 - **Why:** an SQL-transparent ORM. We see the exact SQL, which matters for the 20% performance study. Constraints, partial indexes and GIN/GiST indexes are declared in TypeScript and land in migrations. Native SQL composes inside normal queries through the `sql` template. Custom types for PostGIS are easy. _Performance, maintainability._
 - **Alternatives:** Prisma: friendlier for beginners, but hides SQL, has no PostGIS types, and partial indexes need hand-edited migrations. TypeORM: weaker result typing and a weaker maintenance history. Kysely: a query builder, and the brief requires an ORM.
 - **Cost:** a steeper learning curve for SQL-shy members, and a smaller community than Prisma.
-- **Why 0.45 and not 1.0:** the newest _stable_ releases are drizzle-orm 0.45.4 and drizzle-kit 0.31.11 (npm `latest`, checked 2026-10-12). 1.0 exists only as a release candidate (`1.0.0-rc.5`). It changes the migration folder layout and the relational query API, and `@nestjs-cls/transactional-adapter-drizzle-orm` (#9) supports both lines. We stay on stable and move to 1.0 when it is released. drizzle-kit can convert the migration folder (`drizzle-kit up`).
+- **Why 0.45 and not 1.0:** the newest _stable_ releases are drizzle-orm 0.45.4 and drizzle-kit 0.31.11 (npm `latest`, checked 2026-10-12). 1.0 exists only as a release candidate (`1.0.0-rc.5`). It changes the migration folder layout and the relational query API. Our transaction adapter works at the `pg` client level, so it does not depend on either line's transaction API. We stay on stable and move to 1.0 when it is released. drizzle-kit can convert the migration folder (`drizzle-kit up`).
 - **Node 24 and CommonJS:** drizzle-orm ships both CommonJS (`.cjs`) and ESM builds, and `pg` is CommonJS. `require('drizzle-orm/node-postgres')` resolves to `index.cjs`, so no flag is needed. drizzle-kit loads `drizzle.config.ts` and its TypeScript imports with its own bundled loader. Verified in #3 by the Compose stack, `npm run db:check` and the Testcontainers tests.
+
+### @nestjs-cls/transactional + our pg adapter
+
+- **Version:** @nestjs-cls/transactional 4.0.1 (on nestjs-cls 7.0.1). Adapter: our own `PgTransactionalAdapter` (no adapter package).
+- **Status:** In use (#9): `src/platform/database/pg-transactional-adapter.ts`, `module-db.ts`; usage in [kernel.md](kernel.md#transactions), design in [database.md](database.md#transactions).
+- **Role:** `@Transactional()` on use cases. The library keeps the active transaction in the CLS context and handles propagation (a nested call joins). Our adapter defines what a transaction is: one `pg` client from the shared pool with `BEGIN`/`COMMIT`/`ROLLBACK`, plus a queue of after-commit callbacks for domain events. Each module's handle builds its schema-limited Drizzle instance on that client.
+- **Why:** declarative transaction boundaries without passing a `tx` through every repository, one transaction across modules, and relational queries inside it, while each module still sees only its own tables. _Correctness, maintainability._
+- **Alternatives:** the official `@nestjs-cls/transactional-adapter-drizzle-orm`: wraps one Drizzle instance's `transaction()`, so it would need one combined schema (no module isolation) or give each module its own transaction (no common rollback); checked against the requirement in #9 and rejected. Passing `tx` by hand: every repository method grows a parameter and forgetting it silently runs outside the transaction. Request-scoped providers holding a client: slower, and the scope spreads.
+- **Cost:** about 170 lines of our own code (adapter and handle, with comments), covered by unit tests and `test/transactions.int-spec.ts`. A Proxy sits in front of Drizzle; measured overhead is within noise ([database.md](database.md#the-design-transactions-at-the-connection-level)). No savepoints yet.
 
 ### Two database roles (owner and `qaryati_app`)
 
@@ -315,15 +326,15 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 - **Decision rule (#9):** choose zod only if `@nestjs/swagger` for Nest 12 generates OpenAPI request and response schemas from it **without a third-party bridge**; otherwise choose class-validator. Checked on 2026-10-14 against the published packages, not the docs alone:
   - `@nestjs/swagger@12.0.2` depends on `@standard-schema/spec` and ships `StandardSchemaOpenApiConverter`. It reads the `schema` of `@Body/@Query/@Param` for requests and `@ApiResponse({ standardSchema })` for responses, and converts by calling the schema's own `~standard.jsonSchema.input|output({ target: 'openapi-3.0' })`. `class-validator` and `class-transformer` are only optional peers.
   - zod 4.6.6 implements `~standard.jsonSchema`: `z.strictObject({ a: z.string().max(3) })` converts to `{ type: 'object', properties: { a: { type: 'string', maxLength: 3 } }, additionalProperties: false }`.
-  - So the condition holds and zod is chosen. Swagger itself is wired in #9 part 2.
+  - So the condition holds and zod is chosen. Swagger is wired in #9 part 2 ([@nestjs/swagger](#nestjsswagger)).
 - **Alternatives:** class-validator + class-transformer, the long-standing Nest default: a second validation library next to zod, and every DTO is a class whose decorators repeat what the type already says. `nestjs-zod` and similar packages: exactly the third-party bridge the rule excludes, now that Nest and Swagger support Standard Schema directly.
 - **Cost:** zod's issue codes and messages are library wording, so `validation.ts` translates them into our field codes (`REQUIRED`, `TOO_LONG`, ...) and keeps a unit test per code. zod reports a missing enum value like a wrong one, so the pipe looks the path up in the input to tell `REQUIRED` apart. Request schemas must use `z.strictObject` (the pipe enforces it).
 
 ### nestjs-cls
 
 - **Version:** 7.0.1
-- **Status:** In use (#9): request context in `src/platform/http/http-platform.module.ts`
-- **Role:** opens an `AsyncLocalStorage` context per request. Its id is the request ID, which the exception filter returns as `traceId`. Part 2 of #9 keeps the current transaction in the same context (`@nestjs-cls/transactional`).
+- **Status:** In use (#9): request context in `src/platform/context/` (`RequestContextModule`, `RequestContext`)
+- **Role:** opens an `AsyncLocalStorage` context per request. Its id is the request ID, which the exception filter returns as `traceId`. The same context holds the actor ID (set by the auth guard, #10), the current transaction (`@nestjs-cls/transactional`) and the events waiting for its commit.
 - **Why:** request-scoped data (request ID now, transaction and current user later) without passing it through every call or making providers request-scoped. _Maintainability, performance._
 - **Alternatives:** `AsyncLocalStorage` by hand: the same mechanism, but we would write the middleware, the Nest integration and the transaction plug-in ourselves. Request-scoped providers (`Scope.REQUEST`): a new provider tree per request, slower, and the scope spreads to everything that injects them.
 - **Cost:** one more concept. Code outside a request (startup, a future job) has no context, so the filter falls back to `req.id`.
@@ -336,6 +347,24 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 - **Why:** JSON lines can be searched by `requestId`, status or route, and pino is the fastest common Node logger, which matters on the hot path of every request. _Observability, performance, security._
 - **Alternatives:** Nest's `ConsoleLogger` with `json: true`: JSON, but no access log, no request ID on each line and no redaction. winston: slower, more configuration, and request context would still need its own wiring.
 - **Cost:** pino's `redact` takes fixed paths only, so a small `redactDeep` formatter covers "any depth". pino runs formatters only on log-call objects, not on `child()` bindings, so bindings must never carry secrets. pino-http is a peer dependency of nestjs-pino and listed in `package.json` for that reason.
+
+### @nestjs/event-emitter
+
+- **Version:** 12.0.1 (EventEmitter2 underneath)
+- **Status:** In use (#9): `src/platform/events/`; usage in [kernel.md](kernel.md#domain-events)
+- **Role:** in-process delivery of domain events. Use cases publish through the kernel's `DomainEventPublisher` port; listeners subscribe with `@OnDomainEvent(name)`. Our publisher holds events until the transaction commits, drops them on rollback, awaits listeners and logs their errors without failing the request.
+- **Why:** modules that may not import each other (`profile` evicting its cache on village changes, #45) can still react, and listeners never see uncommitted changes. The official Nest package, with decorator-based discovery. _Maintainability, correctness._
+- **Alternatives:** a hand-written registry: the same idea, plus our own discovery code. A message broker (Redis streams, RabbitMQ): durability and retries we do not need for in-process reactions, and one more service to run. A transactional outbox: the reliable option, out of scope for this project.
+- **Cost:** events are lost if the process dies between commit and delivery, and a failed listener is not retried. The library's own `@OnEvent` swallows errors by default, so we wrap it as `@OnDomainEvent` (`suppressErrors: false`) to log them our way.
+
+### @nestjs/swagger
+
+- **Version:** 12.0.2 (serves swagger-ui-dist)
+- **Status:** In use (#9): `src/platform/http/openapi.ts`, `src/generate-openapi.ts`, `docs/api/openapi.json`; usage in [kernel.md](kernel.md#documenting-an-endpoint-swagger)
+- **Role:** builds the OpenAPI 3 document from the controllers and the zod schemas (through Standard Schema, see above), serves Swagger UI at `/api/docs` and the JSON at `/api/docs-json` (off by default in production), and lets `npm run openapi:generate` write the committed contract without a database (Nest preview mode). Our helpers add the conventions: `@ApiModule` (tags, `operationId` `<module>_<method>`), `@ApiProblems` (the shared `ProblemDetails` schema), the bearer scheme defined once.
+- **Why:** the API documentation is generated from the same schemas that validate requests, so it cannot drift; the committed `openapi.json` shows API changes in every PR diff and feeds Apidog (#59) and the typed web client (#61). _Maintainability, usability._
+- **Alternatives:** a hand-written OpenAPI file: drifts the day after it is written. `nestjs-zod` or `zod-openapi` bridges: unnecessary since Swagger 12 reads Standard Schema itself. Serving the docs in production: publishes the whole API surface and costs startup time for no user benefit.
+- **Cost:** a few decorators per endpoint, and a generated file to commit when the API changes (CI enforces it). Preview mode builds the route table without providers, so the generator must not rely on anything a provider computes.
 
 ### pino-pretty
 

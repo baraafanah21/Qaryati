@@ -2,7 +2,8 @@ import type { Config } from 'jest';
 
 /**
  * Three Jest projects, selected by the npm scripts with --selectProjects:
- * - unit:        src/**\/*.spec.ts, no framework bootstrapping, no database
+ * - unit:        src/**\/*.spec.ts and the reference module's domain tests
+ *                (test/reference-module/**\/*.spec.ts), no framework, no database
  * - integration: test/**\/*.int-spec.ts, real PostGIS via Testcontainers, one
  *                container per test file
  * - e2e:         test/**\/*.e2e-spec.ts, the Nest app over HTTP with Supertest,
@@ -21,7 +22,11 @@ const shared = {
 
 const config: Config = {
   projects: [
-    { ...shared, displayName: 'unit', testMatch: ['<rootDir>/src/**/*.spec.ts'] },
+    {
+      ...shared,
+      displayName: 'unit',
+      testMatch: ['<rootDir>/src/**/*.spec.ts', '<rootDir>/test/reference-module/**/*.spec.ts'],
+    },
     { ...shared, displayName: 'integration', testMatch: ['<rootDir>/test/**/*.int-spec.ts'] },
     {
       ...shared,
@@ -37,6 +42,7 @@ const config: Config = {
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/main.ts',
+    '!src/generate-openapi.ts',
     '!src/**/*.spec.ts',
     '!src/**/*.module.ts',
     '!src/**/index.ts',

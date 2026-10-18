@@ -85,8 +85,8 @@ The catalogue lives in [`src/shared/kernel/errors/error-codes.ts`](../src/shared
 
 - **Status:** 412 (also 409 when a service raises it as a `ConflictError`)
 - **Meaning:** the resource changed since the client read it (optimistic locking).
-- **When:** the version the client sent no longer matches the stored one.
-- **Client:** fetch the resource again, reapply the change, send it with the new version.
+- **When:** the `If-Match` version of a `PATCH` or `DELETE` no longer matches the stored one: someone else changed the resource since this client read it ([kernel.md](kernel.md#optimistic-locking-version-etag-and-if-match)).
+- **Client:** fetch the resource again (new `ETag`), reapply the change, send it with the new `If-Match`.
 
 <a id="precondition-required"></a>
 
@@ -94,8 +94,8 @@ The catalogue lives in [`src/shared/kernel/errors/error-codes.ts`](../src/shared
 
 - **Status:** 428
 - **Meaning:** this request must say which version it changes, and it did not.
-- **When:** an update without the required version (`If-Match` or `version` field), once optimistic locking lands (#9 part 2).
-- **Client:** read the resource and send its version with the update.
+- **When:** a `PATCH` or `DELETE` of a versioned resource without an `If-Match` header. A malformed `If-Match` (`W/"3"`, `*`, a list, no quotes) is a 400 `VALIDATION_FAILED` with field `If-Match` instead.
+- **Client:** read the resource and send its `ETag` back: `If-Match: "3"`.
 
 <a id="unauthenticated"></a>
 

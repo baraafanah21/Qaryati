@@ -10,13 +10,17 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 
 ## Architecture rules (enforced by dependency-cruiser in CI)
 
-- Modular monolith; modules: village, population, heritage, economy, curation, audit, iam, geo, profile. Kernel in src/shared/kernel (plain TypeScript: errors and error codes, Clock, Id/IdGenerator, Page<T>; domain event types and the AuditRecorder port follow in #9 part 2), technical cross-cutting code in src/platform (http, logging, database, kernel port implementations). How to use them: docs/kernel.md.
+- Modular monolith; modules: village, population, heritage, economy, curation, audit, iam, geo, profile. Kernel in src/shared/kernel (plain TypeScript: errors and error codes, Clock, Id/IdGenerator, Page<T>, Versioned, DomainEvent/DomainEventPublisher, the AuditRecorder port), technical cross-cutting code in src/platform (http, context, logging, database, events, kernel port implementations). How to use them: docs/kernel.md.
 - Module dependency directions (no cycles; see docs/architecture.md): iam -> none; curation -> iam; audit -> none (implements the AuditRecorder port from shared; nobody imports audit); village -> iam, curation; population, heritage, economy, geo -> iam, curation, village; profile -> iam, curation, village, population, heritage, economy (read-only composition; nobody imports profile). Every module may import shared.
 - village never depends on content modules. Curation reaches content tables only through ClaimHandlers that content modules register with it.
 - web/ is a separate client (React, issues #61-#64, milestone UI, not graded). It talks to the API over HTTP only, through a client generated from openapi.json, and never imports from src/. It has its own package.json and CI job, and the backend dependency-cruiser rules do not cover it.
 - Inside a module: web -> application -> domain; infrastructure implements ports declared in domain/application.
 - domain is plain TypeScript: no @nestjs, drizzle-orm, pg, ioredis, express, and no imports from web/application/infrastructure. From src/shared and src/platform it may import only src/shared/kernel, which itself imports no npm package.
 - domain and application never call new Date(), Date.now(), randomUUID() or uuid: inject CLOCK and ID_GENERATOR (ESLint enforces it).
+- Every write use case calls AuditRecorder.record (AUDIT_RECORDER) inside its transaction; the recorder fills actor, request ID and time. Until #20 a placeholder logs entries; tests use test/support/in-memory-audit-recorder.ts.
+- Domain events: publish through DOMAIN_EVENT_PUBLISHER; inside a transaction they are delivered after COMMIT and dropped on rollback; listen with @OnDomainEvent. In-process, not retried.
+- Swagger: @ApiModule('<module>') on every controller (tag = module, operationId = <module>_<method>), @ApiProblems(...) for errors, zod schemas for bodies and responses. After an API change run npm run openapi:generate and commit docs/api/openapi.json (CI checks it).
+- Reference module to copy: test/reference-module (Widget), walkthrough in docs/kernel.md, "Build a new endpoint in 10 steps".
 - Errors: throw the kernel's DomainError subclasses (NotFoundError, ConflictError, ...) with a code from ErrorCode; the global filter returns application/problem+json. A new code gets a section in docs/errors.md in the same PR (a unit test checks it).
 - Requests: zod schemas with z.strictObject, passed as @Body/@Query/@Param({ schema }). Lists use paginationQuery and sortQuery with an allow-list, and return Page<T> via toPage.
 - Cross-module access only through the other module's index.ts or domain events. Never import another module's repositories, tables or internals.
@@ -33,6 +37,8 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 - The app connects as qaryati_app (DML only). Migrations run as the owner role. The API never receives DATABASE_OWNER_URL.
 - Each module imports DatabaseModule.forFeature(schema) with its own schema.ts; repositories inject it with @InjectModuleDb() db: ModuleDb<typeof schema>. db.query (relational queries) sees only the module's own tables, and every instance shares one pool. There is no combined schema.
 - Drizzle uses casing: 'snake_case'. Declare columns in camelCase without explicit names.
+- Transactions: put @Transactional() (from @nestjs-cls/transactional) on the write use case; every module handle then runs in that one transaction. Repositories never take or pass a tx, and db.transaction() is forbidden (docs/database.md, "Transactions").
+- Optimistic locking: versioned tables spread versionColumns(); repositories write with updateWithVersion/softDeleteWithVersion; controllers send @ETag() and read @IfMatch() on PATCH/DELETE (412 stale, 428 missing).
 - Only src/config may read process.env. A new variable goes into the zod schema, .env.example and docs/configuration.md in the same PR.
 
 ## Workflow
@@ -40,7 +46,7 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 - issue -> branch (feature|chore|fix|docs|ci/<issue>-<slug>) -> PR with "Closes #<n>" using the template -> review by Baraa -> squash merge. Never push to main.
 - Only Baraa merges, and he is the only code owner: every team PR needs his approval. His own PRs merge with the admin bypass after CI is green; a review from a teammate, in rotation, is recommended but optional. Dependabot PRs are merged by Baraa only, and a major update needs its own issue before it merges.
 - Conventional Commits with the module as scope, e.g. feat(population): add record rules.
-- Before pushing: npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run test:unit && npm run test:int && npm run test:e2e (the same checks as CI, docs/ci.md). The five CI jobs are required checks on main; renaming a job means updating REQUIRED_CHECKS in scripts/github-bootstrap.sh.
+- Before pushing: npm run format:check && npm run lint && npm run typecheck && npm run depcruise && npm run db:check && npm run db:drift && npm run openapi:check && npm run test:unit && npm run test:int && npm run test:e2e (the same checks as CI, docs/ci.md). The five CI jobs are required checks on main; renaming a job means updating REQUIRED_CHECKS in scripts/github-bootstrap.sh.
 - Do only what the issue's acceptance criteria ask. Ask before widening scope.
 - Never commit secrets or .env files.
 - AI assistants prepare changes locally and never commit, push or run commands that change GitHub. Team members run those commands themselves, so every commit and every GitHub action belongs to a person.
@@ -63,4 +69,5 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 npm run start:dev | build | lint | format | typecheck | depcruise
 npm run test:unit | test:int | test:e2e | test:cov
 npm run db:generate | db:migrate | db:check | db:studio
+npm run openapi:generate | openapi:check
 cp .env.example .env && docker compose up -d --build --wait
