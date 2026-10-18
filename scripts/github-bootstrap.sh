@@ -24,8 +24,8 @@
 #   --repo      target repository (default: baraafanah21/Qaryati)
 #
 # Requires gh (logged in with scopes repo, workflow, project) and jq.
-# Push the bootstrap commit to main before running: branch protection is
-# enforced for admins, so direct pushes are rejected afterwards.
+# Push the bootstrap commit to main before running: branch protection then
+# requires a pull request for every change to main.
 
 set -euo pipefail
 
@@ -446,7 +446,9 @@ step_protection() {
     .required_status_checks.strict,
     ([.required_status_checks.checks[]? | "\(.context)@\(.app_id)"] | sort | join(","))]
     | map(tostring) | join(" ")'
-  wanted="1 true true true true false false true true $(jq -r '[.checks[] | "\(.context)@\(.app_id)"] | sort | join(",")' <<<"$checks")"
+  # enforce_admins is false: Baraa is the only code owner and cannot approve
+  # his own PRs, so he merges them with the admin bypass (docs/workflow.md).
+  wanted="1 true true false true false false true true $(jq -r '[.checks[] | "\(.context)@\(.app_id)"] | sort | join(",")' <<<"$checks")"
   if [[ -n $current && $(jq -r "$summary" <<<"$current") == "$wanted" ]]; then
     info "up to date (required checks: ${REQUIRED_CHECKS[*]})"
     return
@@ -454,7 +456,7 @@ step_protection() {
 
   payload='{
     "required_status_checks": CHECKS,
-    "enforce_admins": true,
+    "enforce_admins": false,
     "required_pull_request_reviews": {
       "required_approving_review_count": 1,
       "dismiss_stale_reviews": true,
@@ -487,7 +489,7 @@ step_protection() {
     fi
     die "branch protection failed: $out"
   fi
-  info "applied: PR required, 1 approval, stale approvals dismissed, Code Owner review, conversations resolved, linear history, no force push or deletion, enforced for admins, required checks: ${REQUIRED_CHECKS[*]} (up to date with main)"
+  info "applied: PR required, 1 approval, stale approvals dismissed, Code Owner review, conversations resolved, linear history, no force push or deletion, admins may bypass, required checks: ${REQUIRED_CHECKS[*]} (up to date with main)"
 }
 
 step_close() {
@@ -517,7 +519,7 @@ Configured:
 - Labels: module:*, type:*, blocker (GitHub defaults removed)
 - Milestones $(jq -r '[.milestones[].title] | join(", ")' "$PLAN") and issues #1-#$(jq '.issues | length' "$PLAN") from the plan
 - Project board \"$PROJECT_TITLE\" with Backlog, Ready, In progress, In review, Done
-- Branch protection on main: pull request required, 1 approval, stale approvals dismissed, Code Owner review, conversation resolution, linear history, no force pushes or deletions, enforced for admins. Required status checks are added in #4.
+- Branch protection on main: pull request required, 1 approval, stale approvals dismissed, Code Owner review, conversation resolution, linear history, no force pushes or deletions, admins may bypass. Required status checks are added in #4.
 
 The script is idempotent; see docs/workflow.md."
 

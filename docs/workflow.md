@@ -61,15 +61,19 @@ Keep commits focused. Squash merging joins them into one commit on `main`, but r
 
 ## Reviews and CODEOWNERS
 
-`.github/CODEOWNERS` lists `@baraafanah21` and `@hamamalkhateeb2005-commits` as owners of every file.
+`.github/CODEOWNERS` lists only `@baraafanah21` as owner of every file. **Only Baraa merges.**
 
-| Who opens the PR         | Who approves | Who merges |
-| ------------------------ | ------------ | ---------- |
-| Hamam, Momen, Yahya, Ali | Baraa        | Baraa      |
-| Baraa                    | Hamam        | Baraa      |
+| Who opens the PR         | Who approves                                    | Who merges | How                           |
+| ------------------------ | ----------------------------------------------- | ---------- | ----------------------------- |
+| Hamam, Momen, Yahya, Ali | Baraa (required, as code owner)                 | Baraa      | Squash merge once CI is green |
+| Baraa                    | A teammate, in rotation (recommended, optional) | Baraa      | Admin bypass once CI is green |
+| Dependabot               | Baraa (required, as code owner)                 | Baraa      | Squash merge once CI is green |
 
-- GitHub never lets the author approve their own PR. Hamam is a code owner **only** so that Baraa's PRs can get the required Code Owner approval.
-- GitHub cannot express "Hamam approves only Baraa's PRs" or "only Baraa merges". These are **team rules**. Branch protection still enforces at least one Code Owner approval on every PR.
+- Every team PR needs Baraa's Code Owner approval; branch protection blocks the merge without it.
+- GitHub never lets the author approve their own PR, so Baraa's PRs cannot get a Code Owner approval. He merges them with the admin bypass ("Enforce for admins" is off), and **only after all required checks pass**. The bypass skips the approval, never CI.
+- A teammate should still review each of Baraa's PRs, in rotation, so everyone reads code outside their own modules. The review is recommended, not required: it does not block the merge.
+- "Only Baraa merges" is a **team rule**: GitHub cannot restrict the merge button on a personal repository.
+- **Dependabot PRs** are merged by Baraa only. A major update is never merged from the weekly PR: it needs its own issue that plans the upgrade ([ci.md](ci.md#dependabot)).
 
 ## Merging
 
@@ -141,12 +145,12 @@ The GitHub Project **Qaryati** is linked to the repository and has one Status fi
 | Require a pull request                 | on                                                                                                 | Nothing reaches `main` without review: no direct pushes.                                                                                                                                    |
 | Required approvals                     | 1                                                                                                  | Every change is seen by a second person.                                                                                                                                                    |
 | Dismiss stale approvals on new commits | on                                                                                                 | An approval covers exactly the code that is merged, not an earlier version.                                                                                                                 |
-| Require review from Code Owners        | on                                                                                                 | Baraa (or Hamam, for Baraa's PRs) must approve.                                                                                                                                             |
+| Require review from Code Owners        | on                                                                                                 | Baraa must approve every team PR.                                                                                                                                                           |
 | Require conversation resolution        | on                                                                                                 | Review comments cannot be ignored.                                                                                                                                                          |
 | Require linear history                 | on                                                                                                 | Matches squash-only merging; history stays a straight line.                                                                                                                                 |
 | Force pushes                           | blocked                                                                                            | History on `main` is never rewritten.                                                                                                                                                       |
 | Deletions                              | blocked                                                                                            | `main` cannot be deleted by accident.                                                                                                                                                       |
-| Enforce for admins                     | on                                                                                                 | The rules apply to the repository owner too.                                                                                                                                                |
+| Enforce for admins                     | off                                                                                                | Baraa cannot approve his own PRs, so he merges them with the admin bypass, only after CI is green ([reviews](#reviews-and-codeowners)).                                                     |
 | Required status checks                 | `quality`, `unit`, `integration`, `secrets`, `docker`, from GitHub Actions only, branch up to date | Nothing merges unless every CI job passed on code that includes the latest `main` ([why strict](#keeping-a-pr-up-to-date-with-main-update-branch), [ci.md](ci.md#required-checks-on-main)). |
 
 ## Repository bootstrap script
@@ -166,7 +170,7 @@ scripts/github-bootstrap.sh --only issues      # one step: settings|labels|miles
 | Required checks as code      | The protection step sets the required checks from `REQUIRED_CHECKS`, the job ids in `.github/workflows/ci.yml`.                                                                                      |
 | Late collaborators           | Issues of someone whose invitation is still pending are created unassigned. Run `--only issues` again after they accept.                                                                             |
 
-Run it only after the bootstrap commit is on `main`: branch protection is enforced for admins and rejects direct pushes afterwards. Requires `gh` (scopes `repo`, `workflow`, `project`) and `jq`.
+Run it only after the bootstrap commit is on `main`: branch protection then requires a pull request for every change. The protection step sets "Enforce for admins" to off, so running it again keeps the admin bypass. Requires `gh` (scopes `repo`, `workflow`, `project`) and `jq`.
 
 Some settings must be checked by hand in the project's **Settings → Workflows**, because the API cannot set them: "Item closed" and "Pull request merged" set Status to **Done**.
 
