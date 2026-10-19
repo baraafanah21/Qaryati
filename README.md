@@ -6,12 +6,13 @@ Qaryati is an API-only backend for structured, sourced knowledge about Palestini
 
 Each member adds their own row in their onboarding pull request (#5 to #8).
 
-| Name  | GitHub                                                                       | Role                                        | Modules                     |
-| ----- | ---------------------------------------------------------------------------- | ------------------------------------------- | --------------------------- |
-| Baraa | [@baraafanah21](https://github.com/baraafanah21)                             | Repository owner, reviewer, platform lead   | platform, shared            |
-| Yahya | [@yahya-ka](https://github.com/yahya-ka)                                     | Sources and verification, audit, population | curation, audit, population |
-| Hamam | [@hamamalkhateeb2005-commits](https://github.com/hamamalkhateeb2005-commits) | IAM, security, economy                      | iam, economy                |
-| Ali   | [@AliKhalilDev](https://github.com/AliKhalilDev)                             | Heritage, geocoding, performance report     | heritage, geo               |
+| Name  | GitHub                                                                       | Role                                         | Modules                     |
+| ----- | ---------------------------------------------------------------------------- | -------------------------------------------- | --------------------------- |
+| Baraa | [@baraafanah21](https://github.com/baraafanah21)                             | Repository owner, reviewer, platform lead    | platform, shared            |
+| Yahya | [@yahya-ka](https://github.com/yahya-ka)                                     | Sources and verification, audit, population  | curation, audit, population |
+| Hamam | [@hamamalkhateeb2005-commits](https://github.com/hamamalkhateeb2005-commits) | IAM, security, economy                       | iam, economy                |
+| Ali   | [@AliKhalilDev](https://github.com/AliKhalilDev)                             | Heritage, geocoding, performance report      | heritage, geo               |
+| Momen | [@momenaydi](https://github.com/momenaydi)                                   | Villages, search, geography, village profile | village, profile            |
 
 ## Getting started
 
