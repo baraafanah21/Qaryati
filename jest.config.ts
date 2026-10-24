@@ -18,6 +18,7 @@ const shared = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   transform: { '^.+\\.ts$': 'ts-jest' },
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/test/support/jwt-env.ts'],
 } satisfies Config;
 
 const config: Config = {

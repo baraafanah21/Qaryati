@@ -24,6 +24,10 @@ The jobs run in parallel on `ubuntu-24.04` with the Node version from `.nvmrc`. 
 
 ### integration
 
+IAM's `test/iam.int-spec.ts` uses real Nest HTTP guards, cryptography and temporary secret files without a database, since #10 has no persistence. The other integration suites and full-app e2e suites continue to use real PostGIS. E2E global setup generates one temporary RSA pair before workers import AppModule and teardown removes it. No key or token is stored in the repository or uploaded as an artifact.
+
+The Docker job generates a disposable RSA pair in the ignored `secrets/` directory before starting Compose and removes it afterward. Those files are mounted only into the API as Compose secrets, never copied into the image. To reproduce the job locally, generate the files using [development.md](development.md#jwt-keys) before running Compose. The OpenAPI quality check needs no real keys: preview mode does not instantiate the key loader.
+
 Testcontainers starts `postgis/postgis:16-3.5` with the real role init script and all migrations ([database.md](database.md#testing-against-the-database)). `test/extensions.int-spec.ts` is the sample that proves PostGIS and pg_trgm work in CI. It runs a distance search and a fuzzy Arabic name search through Drizzle's `sql` template, and checks that the GiST and GIN trigram indexes are used.
 
 ### secrets

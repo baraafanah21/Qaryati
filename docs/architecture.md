@@ -116,6 +116,14 @@ flowchart LR
 
 Why: this keeps the API the only source of truth and avoids hidden coupling. A client that imports backend code would break the module boundaries above and couple both deploys. The cost is a generation step whenever the API contract changes.
 
+## Authentication boundary (#10)
+
+IAM verifies local RS256 access tokens and exports the framework-free `PermissionChecker`, trusted identity/role types, HTTP decorators and a test token issuer through `index.ts`. It imports no business module and owns no tables yet. Account lifecycle (#14) and refresh/logout (#18) remain separate.
+
+Global authentication and role guards are registered by IAM. The verifier adapter loads matching RSA secret files once at startup; the HTTP guard depends on an application port and sets the existing `RequestContext` actor only after verification. One uppercase role is carried by each token, with `ADMIN >= EDITOR >= CONTRIBUTOR`. Role checks return booleans; the HTTP guards raise exceptions mapped by the existing ProblemDetails filter.
+
+The `Public` decorator and its metadata live in platform HTTP so health does not depend on IAM; IAM re-exports the decorator for business modules. OpenAPI reads that shared metadata without importing IAM. The module directions and dependency-cruiser rules are unchanged.
+
 ## Inside a module: hexagonal layers
 
 ```mermaid

@@ -32,6 +32,14 @@ The main decisions and the alternatives we rejected are recorded in [ADR-002](ad
 
 ---
 
+## JWT cryptography: jose
+
+- **Version:** 6.2.13 (exactly pinned in package.json and the lockfile).
+- **Role:** local RS256 signature/claim verification and token signing for other modules' tests. Node crypto parses RSA PEM secret files and checks that the pair matches.
+- **Why:** one focused implementation of JWT verification, explicit algorithm/issuer/time restrictions, TypeScript types and no runtime dependencies. Node 24 supports its ESM package from this CommonJS project; Jest uses the existing VM modules setup.
+- **Alternatives rejected:** Passport plus a JWT strategy adds framework wiring this boundary does not need; `@nestjs/jwt` adds a wrapper without simplifying the required role or request-context policies. Hand-written JWT cryptography would duplicate security-sensitive validation.
+- **Cost:** one new production dependency and compatibility checks for Node/Jest ESM loading. No external identity service, JWKS or secret-management service is introduced.
+
 ## Collaboration
 
 ### GitHub

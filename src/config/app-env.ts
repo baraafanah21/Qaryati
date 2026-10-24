@@ -20,6 +20,10 @@ export const appEnvSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   /** Runtime role `qaryati_app` (DML only); never the owner role. */
   DATABASE_URL: postgresUrl,
+  /** Paths only: key material is read once by IAM at startup. */
+  JWT_PRIVATE_KEY_FILE: z.string({ error: 'is required' }).min(1, 'must not be empty'),
+  JWT_PUBLIC_KEY_FILE: z.string({ error: 'is required' }).min(1, 'must not be empty'),
+  JWT_ISSUER: z.string().min(1, 'must not be empty').default('qaryati'),
   /**
    * Serves Swagger UI and the OpenAPI document. Unset means on, except with
    * `NODE_ENV=production` (src/platform/http/openapi.ts, isSwaggerEnabled).

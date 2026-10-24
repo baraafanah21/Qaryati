@@ -26,6 +26,12 @@ cd Qaryati
 nvm use
 npm ci                  # exact versions from package-lock.json; also installs the Git hooks (prepare → husky)
 cp .env.example .env    # local configuration, see configuration.md
+mkdir -p secrets
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/jwt-private.pem
+openssl pkey -in secrets/jwt-private.pem -pubout -out secrets/jwt-public.pem
+# Linux: grant the container's node user read access to these local files.
+sudo chown 1000 secrets/jwt-private.pem
+chmod 600 secrets/jwt-private.pem
 docker compose up -d --build --wait
 curl localhost:3000/api/v1/health   # {"status":"ok"}
 ```
@@ -38,6 +44,12 @@ npm run start:dev       # reads .env, connects to the Compose database as qaryat
 ```
 
 `npm ci` runs the `prepare` script, which points Git at `.husky/` for hooks. If the hooks do not run on commit, run `npx husky` once.
+
+## JWT keys
+
+Before the first API startup, generate a local RSA pair using the setup commands above. OpenSSL generates PKCS#8 private and SPKI public PEM files. `secrets/`, `*.pem` and `*.key` are ignored; never commit them or tokens. Keep the files outside the image and grant read access only to the user that runs the API. For host development, that is your own user; adapt Linux ownership when switching between host and container execution. On Windows, use directory/file ACLs rather than `chown` and `chmod`.
+
+The key paths and expected issuer are documented in [configuration.md](configuration.md#jwt-secret-files). An absent or invalid pair prevents startup. `GET /api/v1/health` remains explicitly public. #10 introduces authentication infrastructure only; it does not provide a login or token issuance endpoint.
 
 ## Running with Docker
 

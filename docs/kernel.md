@@ -14,6 +14,14 @@ How to do the everyday things in an endpoint: one way each, copy and adapt. New 
 
 Import the kernel through its index: `import { NotFoundError } from '../../../shared/kernel';`.
 
+## Authentication and roles
+
+Business controllers import `Public`, `Roles`, `Role`, `CurrentUser` and `AuthenticatedUser` only from the IAM module's public index. Global guards require an access token unless `@Public()` is present. Use `@Roles(Role.EDITOR)` for a minimum editor role or list alternative requirements; `ADMIN >= EDITOR >= CONTRIBUTOR`. Method-level roles replace controller-level roles. `@CurrentUser()` returns the verified `{ id, role }`; on a public route it is `undefined`, even when a token was sent. Do not combine `@Public()` and `@Roles()`.
+
+The JWT guard calls `RequestContext.setActorId(user.id)` only after verification; existing audit and logging infrastructure then sees the actor. Domain rules stay framework-free. `PermissionChecker` is a framework-free, boolean role-checking API exported by IAM, available through DI in application/web code. Do not import IAM into another module's domain layer. HTTP guards throw Nest `UnauthorizedException`/`ForbiddenException`, which the existing ProblemDetails filter maps to 401/403.
+
+OpenAPI generation reads the shared public-route metadata and documents bearer authentication plus 401 by default, public operations with `security: []`, and 403 through `@Roles()`. Platform routes import `Public` directly from platform HTTP. No platform code imports IAM. See [IAM README](../src/modules/iam/README.md) for the token contract and test issuer.
+
 ## Throwing errors
 
 Throw a kernel error from `domain/` or `application/`. The global filter turns it into an `application/problem+json` response ([errors.md](errors.md)); you never build an error response yourself.
