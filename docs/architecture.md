@@ -2,7 +2,7 @@
 
 Qaryati is a **modular monolith**: one deployable NestJS process, split into business modules with hard boundaries. Each module is built as a small **hexagon** (ports and adapters). This page explains the structure, the rules and how they are enforced.
 
-ADR-001 (#11) records the decision formally. This page describes the result.
+The decision, its context and the alternatives are recorded in [ADR-001](adr/0001-modular-monolith-hexagonal-modules.md). This page describes the result.
 
 ## Why a modular monolith
 
@@ -96,7 +96,7 @@ Searching villages by product (olives, grapes, ...) needs data from `economy`, b
 | A product filter in a `profile` list endpoint                        | `profile` would need its own list route next to `GET /villages`, and it would duplicate search and pagination. It also breaks "profile is read-only composition of one village". |
 | **`village` search takes `villageIds`; `economy` calls it (chosen)** | Uses an already allowed direction (`economy → village`), adds one optional parameter and one route, and keeps search logic in one place.                                         |
 
-Cost: the id list is passed in memory. That is fine at our scale (hundreds of villages per product). If it ever grows large, the same facade can take a subquery instead. ADR-001 (#11) finalises this decision.
+Cost: the id list is passed in memory. That is fine at our scale (hundreds of villages per product). If it ever grows large, the same facade can take a subquery instead. [ADR-001](adr/0001-modular-monolith-hexagonal-modules.md) records this decision.
 
 ## Web client (`web/`)
 
