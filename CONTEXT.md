@@ -57,6 +57,7 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 - Any new dependency or tool gets an entry in docs/tech-stack.md in the same PR: what it does here, why chosen, alternatives rejected, cost accepted.
 - TSDoc on every exported class, function, port and facade method. Comments explain why, not what.
 - When a convention in this file changes, update this file in the same PR.
+- Important decisions are ADRs in docs/adr (index and rules: docs/adr/README.md; ADR-001 architecture, ADR-002 stack). Accepted ADRs are not edited; a change is a new ADR that supersedes the old one.
 
 ## Testing
 
