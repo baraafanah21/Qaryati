@@ -47,3 +47,4 @@ Hot reload on the host, every script and test type: [docs/development.md](docs/d
 - [Git workflow](docs/workflow.md)
 - [CI: jobs, required checks, Dependabot](docs/ci.md)
 - [Technology stack and reasons](docs/tech-stack.md)
+- [Architecture Decision Records (ADRs)](docs/adr/README.md)
