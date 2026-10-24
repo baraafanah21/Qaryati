@@ -20,7 +20,8 @@
         "summary": "Liveness: the process accepts HTTP requests",
         "tags": [
           "health"
-        ]
+        ],
+        "security": []
       }
     }
   },

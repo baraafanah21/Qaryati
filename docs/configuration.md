@@ -26,6 +26,22 @@ Read by the API process and validated at startup by `appEnvSchema` ([`src/config
 | `DATABASE_URL`    | yes      |                                  | `postgres://` URL of the restricted runtime role `qaryati_app`. Never the owner role ([database.md](database.md#roles)).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `SWAGGER_ENABLED` | no       | on, except `NODE_ENV=production` | `true`/`false` (also `1`/`0`, `yes`/`no`). Serves Swagger UI at `/api/docs` and the document at `/api/docs-json`. Unset (or empty) means on in development and test and **off in production**, where it would publish the whole API surface. An explicit value always wins over `NODE_ENV`: `true` turns Swagger on even with `NODE_ENV=production`, `false` turns it off in development. `.env.example` sets `true` for local development only; never set it in a production environment. Compose does not pass it to the `api` container, so the image stays off. `npm run openapi:generate` does not need it ([kernel.md](kernel.md#documenting-an-endpoint-swagger)). |
 
+### JWT secret files
+
+The API also validates these settings at startup:
+
+| Variable               | Required | Default   | Meaning                                       |
+| ---------------------- | -------- | --------- | --------------------------------------------- |
+| `JWT_PRIVATE_KEY_FILE` | yes      |           | Path to a PKCS#8 PEM RSA private key.         |
+| `JWT_PUBLIC_KEY_FILE`  | yes      |           | Path to the matching SPKI PEM RSA public key. |
+| `JWT_ISSUER`           | no       | `qaryati` | Expected `iss` claim of access tokens.        |
+
+Only file paths go in the environment. IAM reads and parses the files once at startup and rejects missing, malformed, mismatched, non-RSA or shorter-than-2048-bit keys. It never logs key material. There are no fallback or embedded keys. Generate local files as shown in [development.md](development.md#jwt-keys).
+
+On the host, `.env.example` points at the ignored `secrets/` directory. Compose reads those host paths and mounts them as `jwt_private_key` and `jwt_public_key` under `/run/secrets/`; only the API service receives them. The files must be readable by the container's `node` user (UID 1000 on Linux). The image never contains the keys. Migrations need no JWT configuration. The OpenAPI generator uses path placeholders because preview mode never instantiates the key provider.
+
+Tests generate temporary files and clean them up. Database-only integration suites use path placeholders because they do not load IAM. The standalone IAM integration suite uses real keys but no database.
+
 ### Migrations
 
 Read by `npm run db:*` (through `drizzle.config.ts`) and by the `migrate` service (`src/platform/database/migrate.ts`). Validated by `migrationEnvSchema` ([`src/config/migration-env.ts`](../src/config/migration-env.ts)).

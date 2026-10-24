@@ -22,6 +22,7 @@ import { AppModule } from '../src/app.module';
 import { InjectModuleDb, type ModuleDb } from '../src/platform/database/database';
 import { DatabaseModule } from '../src/platform/database/database.module';
 import { configureApp } from '../src/platform/http/configure-app';
+import { Public } from '../src/platform/http/public.decorator';
 import { idParam, paginationQuery, sortQuery } from '../src/platform/http/pagination';
 import {
   BusinessRuleViolationError,
@@ -69,6 +70,7 @@ const listQuery = paginationQuery.extend({ sort: sortQuery(['name', 'createdAt']
 const SQL_STATES = new Set(['23505', '23503', '23514', '23502', '57014', '42501']);
 
 @Controller('__probe')
+@Public()
 class ErrorProbeController {
   constructor(@InjectModuleDb() private readonly db: ModuleDb<Record<string, never>>) {}
 

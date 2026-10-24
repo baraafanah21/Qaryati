@@ -125,6 +125,11 @@ jobs:
       - name: Start the stack
         run: |
           cp .env.example .env
+          mkdir -p secrets
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/jwt-private.pem
+          openssl pkey -in secrets/jwt-private.pem -pubout -out secrets/jwt-public.pem
+          # Compose file secrets are bind-mounted; the image runs as node.
+          chmod 644 secrets/jwt-private.pem secrets/jwt-public.pem
           docker compose up --detach --build --wait --wait-timeout 180
           docker compose ps --all
       - name: Health endpoint
@@ -137,3 +142,6 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose down --volumes
+      - name: Remove temporary JWT keys
+        if: always()
+        run: rm -f secrets/jwt-private.pem secrets/jwt-public.pem

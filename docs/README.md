@@ -1,5 +1,7 @@
 # Documentation index
 
+For JWT guards, role hierarchy, current-user access and the test token issuer (#10), see the [IAM public API guide](../src/modules/iam/README.md), [kernel authentication conventions](kernel.md#authentication-and-roles), [JWT configuration](configuration.md#jwt-secret-files) and [local key setup](development.md#jwt-keys).
+
 | Document                             | What it covers                                                                                                                                                                                                 |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [../CONTEXT.md](../CONTEXT.md)       | Short rules every contributor (and AI assistant) reads first                                                                                                                                                   |

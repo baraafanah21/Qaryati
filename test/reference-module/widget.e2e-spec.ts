@@ -8,6 +8,7 @@ import { OnDomainEvent } from '../../src/platform/events/domain-event-publisher'
 import { configureApp } from '../../src/platform/http/configure-app';
 import { AUDIT_RECORDER } from '../../src/shared/kernel';
 import { InMemoryAuditRecorder } from '../support/in-memory-audit-recorder';
+import { createAuthenticatedAgent } from '../support/authenticated-agent';
 import { WIDGET_CREATED, type WidgetCreated } from './domain/widget-events';
 import { createWidgetTable } from './infrastructure/persistence/widget-table';
 import { WidgetModule } from './widget.module';
@@ -41,6 +42,7 @@ interface WidgetBody {
 
 describe('Reference module: /api/v1/widgets (e2e)', () => {
   let app: INestApplication<App>;
+  let agent: Awaited<ReturnType<typeof createAuthenticatedAgent>>;
   const audit = new InMemoryAuditRecorder();
   const probe = new WidgetCreatedProbe();
 
@@ -56,6 +58,7 @@ describe('Reference module: /api/v1/widgets (e2e)', () => {
     app = moduleRef.createNestApplication();
     configureApp(app);
     await app.init();
+    agent = await createAuthenticatedAgent(app);
   });
 
   beforeEach(() => {
@@ -67,7 +70,7 @@ describe('Reference module: /api/v1/widgets (e2e)', () => {
     await app.close();
   });
 
-  const http = () => request(app.getHttpServer());
+  const http = () => agent;
 
   async function create(name: string): Promise<WidgetBody> {
     const res = await http().post(PATH).send({ name }).expect(201);
@@ -295,7 +298,7 @@ describe('Reference module: /api/v1/widgets (e2e)', () => {
         expect.arrayContaining([expect.objectContaining({ name: 'If-Match', in: 'header' })]),
       );
       expect(Object.keys(update.responses).sort()).toEqual(
-        ['200', '400', '404', '409', '412', '422', '428'].sort(),
+        ['200', '400', '401', '404', '409', '412', '422', '428'].sort(),
       );
       expect(update.responses['412']?.content?.['application/problem+json']?.schema).toEqual({
         $ref: '#/components/schemas/ProblemDetails',

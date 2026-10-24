@@ -2,6 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import { z } from 'zod';
 import { ApiModule } from '../http/openapi';
+import { Public } from '../http/public.decorator';
 
 const healthStatus = z.strictObject({ status: z.literal('ok') }).meta({ id: 'HealthStatus' });
 
@@ -18,6 +19,7 @@ export interface HealthStatus {
  * it in #43.
  */
 @ApiModule('health')
+@Public()
 @Controller('health')
 export class HealthController {
   @Get()

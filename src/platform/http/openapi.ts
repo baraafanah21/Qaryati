@@ -1,5 +1,6 @@
 import { applyDecorators, type INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { MetadataScanner, ModulesContainer, Reflector } from '@nestjs/core';
 import {
   ApiResponse,
   ApiTags,
@@ -11,12 +12,13 @@ import { z } from 'zod';
 import type { AppEnv } from '../../config/app-env';
 import { ErrorCode, FieldErrorCode } from '../../shared/kernel';
 import { PROBLEM_CONTENT_TYPE } from './problem-details';
+import { PUBLIC_ROUTE } from './public.decorator';
 
 /** Where Swagger UI is served. The JSON document is at `/api/docs-json`. */
 export const SWAGGER_PATH = 'api/docs';
 export const SWAGGER_JSON_PATH = 'api/docs-json';
 
-/** Name of the bearer security scheme; endpoints opt in with `@ApiBearerAuth()`. */
+/** Name of the bearer scheme required by default by the global auth guard. */
 export const BEARER_SCHEME = 'bearer';
 
 /**
@@ -127,6 +129,37 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   const document = SwaggerModule.createDocument(app, config, {
     operationIdFactory: operationId,
   });
+  // Read only shared HTTP metadata: platform must never depend on IAM.
+  const publicOperations = new Set<string>();
+  const reflector = new Reflector();
+  const scanner = new MetadataScanner();
+  for (const module of app.get(ModulesContainer).values()) {
+    for (const controller of module.controllers.values()) {
+      const type = controller.metatype;
+      if (!type) continue;
+      const prototype = type.prototype as Record<string, (...args: never[]) => unknown>;
+      for (const method of scanner.getAllMethodNames(prototype)) {
+        const handler = prototype[method];
+        if (handler && reflector.getAllAndOverride<boolean>(PUBLIC_ROUTE, [handler, type])) {
+          publicOperations.add(operationId(type.name, method));
+        }
+      }
+    }
+  }
+  for (const path of Object.values(document.paths)) {
+    for (const method of ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'] as const) {
+      const operation = path[method];
+      if (!operation) continue;
+      const isPublic = publicOperations.has(operation.operationId ?? '');
+      operation.security = isPublic ? [] : [{ [BEARER_SCHEME]: [] }];
+      if (!isPublic) {
+        operation.responses['401'] ??= {
+          description: PROBLEM_DESCRIPTIONS[401],
+          content: { [PROBLEM_CONTENT_TYPE]: { schema: { $ref: PROBLEM_REF } } },
+        };
+      }
+    }
+  }
   document.components ??= {};
   document.components.schemas = {
     ...document.components.schemas,
