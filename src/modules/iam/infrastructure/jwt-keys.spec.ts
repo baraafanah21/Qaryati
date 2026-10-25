@@ -6,6 +6,7 @@ import { FixedClock } from '../../../shared/kernel';
 import { Role } from '../domain/authenticated-user';
 import { JoseAccessTokenVerifier } from './jose-access-token-verifier';
 import { loadJwtKeys } from './jwt-keys';
+import { TokenService } from './token.service';
 import { createTestTokenIssuer } from './test-token-issuer';
 
 describe('JWT secret files and public test issuer', () => {
@@ -34,7 +35,7 @@ describe('JWT secret files and public test issuer', () => {
 
   it('loads files and mints tokens with one role using the supplied clock', async () => {
     const loaded = await loadJwtKeys(privateKeyFile, publicKeyFile);
-    const verifier = new JoseAccessTokenVerifier(loaded, 'test', clock);
+    const verifier = new JoseAccessTokenVerifier(new TokenService(loaded, 'test', clock, 900));
     const issuer = await createTestTokenIssuer({
       privateKeyFile,
       publicKeyFile,

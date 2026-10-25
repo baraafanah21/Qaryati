@@ -1,5 +1,8 @@
 import { createHash, generateKeyPairSync } from 'node:crypto';
 import { decodeJwt, decodeProtectedHeader } from 'jose';
+import { appEnvSchema } from '../../../config/app-env';
+import { parseAccessTokenTtl } from '../../../config/access-token-ttl';
+import { TokenService } from './token.service';
 import { FixedClock } from '../../../shared/kernel';
 import { Role } from '../domain/authenticated-user';
 import { Argon2PasswordHasher } from './argon2-password-hasher';
@@ -30,24 +33,42 @@ describe('credential adapters', () => {
     expect(first.raw).not.toBe(second.raw);
     expect(first.hash).not.toBe(second.hash);
   });
-  it('issues the exact RS256 contract accepted by the existing #10 verifier', async () => {
-    const keys = generateKeyPairSync('rsa', { modulusLength: 2048 });
-    const clock = new FixedClock('2026-10-25T10:00:00Z');
-    const issuer = new JoseAccessTokenIssuer(keys, 'test', clock);
-    const verifier = new JoseAccessTokenVerifier(keys, 'test', clock);
-    const identity = { id: '00000000-0000-7000-8000-000000000001', role: Role.CONTRIBUTOR };
-    const result = await issuer.issue(identity);
-    expect(result.expiresIn).toBe(300);
-    expect(decodeProtectedHeader(result.accessToken)).toEqual({ alg: 'RS256', typ: 'JWT' });
-    const claims = decodeJwt(result.accessToken);
-    const now = Math.floor(clock.now().getTime() / 1000);
-    expect(claims).toEqual({
-      sub: identity.id,
-      role: identity.role,
-      iss: 'test',
-      iat: now,
-      exp: now + 300,
-    });
-    await expect(verifier.verify(result.accessToken)).resolves.toEqual(identity);
-  });
+  it.each([
+    [undefined, 900],
+    ['2h', 7200],
+  ] as const)(
+    'shared TokenService honors JWT_ACCESS_TTL=%s (%i seconds) and #10 verification',
+    async (ttl, seconds) => {
+      const keys = generateKeyPairSync('rsa', { modulusLength: 2048 });
+      const clock = new FixedClock('2026-10-25T10:00:00Z');
+      const config = appEnvSchema.parse({
+        DATABASE_URL: 'postgres://test:test@localhost/test',
+        JWT_PRIVATE_KEY_FILE: 'private.pem',
+        JWT_PUBLIC_KEY_FILE: 'public.pem',
+        JWT_ACCESS_TTL: ttl,
+      });
+      const service = new TokenService(
+        keys,
+        'test',
+        clock,
+        parseAccessTokenTtl(config.JWT_ACCESS_TTL),
+      );
+      const issuer = new JoseAccessTokenIssuer(service);
+      const verifier = new JoseAccessTokenVerifier(service);
+      const identity = { id: '00000000-0000-7000-8000-000000000001', role: Role.CONTRIBUTOR };
+      const result = await issuer.issue(identity);
+      expect(result.expiresIn).toBe(seconds);
+      expect(decodeProtectedHeader(result.accessToken)).toEqual({ alg: 'RS256', typ: 'JWT' });
+      const claims = decodeJwt(result.accessToken);
+      const now = Math.floor(clock.now().getTime() / 1000);
+      expect(claims).toEqual({
+        sub: identity.id,
+        role: identity.role,
+        iss: 'test',
+        iat: now,
+        exp: now + seconds,
+      });
+      await expect(verifier.verify(result.accessToken)).resolves.toEqual(identity);
+    },
+  );
 });

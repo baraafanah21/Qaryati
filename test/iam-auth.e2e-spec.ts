@@ -1,5 +1,7 @@
 import { Controller, Get, Module, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
+import { appEnvSchema, type AppEnv } from '../src/config/app-env';
 import { createHash, randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import request from 'supertest';
@@ -59,7 +61,12 @@ describe('IAM registration and login (e2e)', () => {
       .send({ email: address, password: value });
 
   beforeAll(async () => {
+    const config = new ConfigService<AppEnv, true>(
+      appEnvSchema.parse({ ...process.env, JWT_ACCESS_TTL: undefined }),
+    );
     const moduleRef = await Test.createTestingModule({ imports: [AppModule, ProbeModule] })
+      .overrideProvider(ConfigService)
+      .useValue(config)
       .overrideProvider(AUDIT_RECORDER)
       .useValue(audit)
       .overrideProvider(CLOCK)
@@ -110,7 +117,6 @@ describe('IAM registration and login (e2e)', () => {
   it.each([
     { password: 'x'.repeat(9) },
     { password: 'x'.repeat(129) },
-    { role: 'ADMIN' },
     { status: 'DISABLED' },
     { displayName: 'extra' },
     { email: 'invalid' },
@@ -120,6 +126,17 @@ describe('IAM registration and login (e2e)', () => {
       .send({ email: email(), password, ...override })
       .expect(400);
     expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(audit.entries).toHaveLength(0);
+  });
+  it('rejects role: ADMIN at registration with 400 VALIDATION_FAILED and UNKNOWN_FIELD', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/v1/auth/register')
+      .send({ email: email(), password, role: 'ADMIN' })
+      .expect(400);
+    expect(response.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      errors: [expect.objectContaining({ field: 'role', code: 'UNKNOWN_FIELD' })],
+    });
     expect(audit.entries).toHaveLength(0);
   });
   it.each([10, 128])('registers at password boundary %i', async (length) => {
@@ -137,13 +154,13 @@ describe('IAM registration and login (e2e)', () => {
     });
     expect(audit.entries).toHaveLength(1);
   });
-  it('logs in, stores only a digest, audits issuance and passes the existing #10 guards', async () => {
+  it('default JWT_ACCESS_TTL=15m returns expiresIn: 900 and passes the existing #10 guards', async () => {
     const address = email();
     const registered = (await register(address).expect(201)).body as Account;
     audit.clear();
     const response = await login(` ${address.toUpperCase()} `).expect(200);
     const tokens = response.body as Tokens;
-    expect(tokens).toMatchObject({ tokenType: 'Bearer', expiresIn: 300 });
+    expect(tokens).toMatchObject({ tokenType: 'Bearer', expiresIn: 900 });
     expect(tokens.refreshToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(response.headers['cache-control']).toBe('no-store');
     const probe = await request(app.getHttpServer())
@@ -251,5 +268,40 @@ describe('IAM registration and login (e2e)', () => {
     expect(doc.components.schemas).toHaveProperty('UserAccountResponse');
     expect(doc.components.schemas).toHaveProperty('LoginResponse');
     expect(JSON.stringify(doc.components.schemas.UserAccountResponse)).not.toContain('password');
+  });
+  it('custom JWT_ACCESS_TTL=45s is honored by production login and the #10 guard', async () => {
+    const config = new ConfigService<AppEnv, true>(
+      appEnvSchema.parse({ ...process.env, JWT_ACCESS_TTL: '45s' }),
+    );
+    const moduleRef = await Test.createTestingModule({ imports: [AppModule, ProbeModule] })
+      .overrideProvider(ConfigService)
+      .useValue(config)
+      .overrideProvider(AUDIT_RECORDER)
+      .useValue(audit)
+      .overrideProvider(CLOCK)
+      .useValue(clock)
+      .compile();
+    const custom: INestApplication<App> = moduleRef.createNestApplication();
+    try {
+      configureApp(custom);
+      await custom.init();
+      const credentials = { email: email(), password };
+      await request(custom.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send(credentials)
+        .expect(201);
+      const response = await request(custom.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send(credentials)
+        .expect(200);
+      const tokens = response.body as Tokens;
+      expect(tokens.expiresIn).toBe(45);
+      await request(custom.getHttpServer())
+        .get('/api/v1/__auth-probe')
+        .auth(tokens.accessToken, { type: 'bearer' })
+        .expect(200);
+    } finally {
+      await custom.close();
+    }
   });
 });

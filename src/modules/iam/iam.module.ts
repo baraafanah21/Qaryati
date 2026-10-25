@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import type { AppEnv } from '../../config/app-env';
+import { parseAccessTokenTtl } from '../../config/access-token-ttl';
 import { CLOCK, type Clock } from '../../shared/kernel';
 import { DatabaseModule } from '../../platform/database/database.module';
 import { AccessTokenIssuer } from './application/access-token-issuer';
@@ -25,6 +26,7 @@ import { JoseAccessTokenVerifier } from './infrastructure/jose-access-token-veri
 import { loadJwtKeys } from './infrastructure/jwt-keys';
 import { JwtAuthGuard } from './web/jwt-auth.guard';
 import { RolesGuard } from './web/roles.guard';
+import { TokenService } from './infrastructure/token.service';
 
 const JWT_KEYS = Symbol('IAM_JWT_KEYS');
 
@@ -55,16 +57,25 @@ const JWT_KEYS = Symbol('IAM_JWT_KEYS');
         ),
     },
     {
-      provide: AccessTokenVerifier,
+      provide: TokenService,
       inject: [JWT_KEYS, ConfigService, CLOCK],
       useFactory: (keys: JwtKeys, config: ConfigService<AppEnv, true>, clock: Clock) =>
-        new JoseAccessTokenVerifier(keys, config.get('JWT_ISSUER', { infer: true }), clock),
+        new TokenService(
+          keys,
+          config.get('JWT_ISSUER', { infer: true }),
+          clock,
+          parseAccessTokenTtl(config.get('JWT_ACCESS_TTL', { infer: true })),
+        ),
+    },
+    {
+      provide: AccessTokenVerifier,
+      inject: [TokenService],
+      useFactory: (tokens: TokenService) => new JoseAccessTokenVerifier(tokens),
     },
     {
       provide: AccessTokenIssuer,
-      inject: [JWT_KEYS, ConfigService, CLOCK],
-      useFactory: (keys: JwtKeys, config: ConfigService<AppEnv, true>, clock: Clock) =>
-        new JoseAccessTokenIssuer(keys, config.get('JWT_ISSUER', { infer: true }), clock),
+      inject: [TokenService],
+      useFactory: (tokens: TokenService) => new JoseAccessTokenIssuer(tokens),
     },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },

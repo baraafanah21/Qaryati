@@ -37,7 +37,7 @@ describe('authentication use cases', () => {
     };
     const audit = { record: jest.fn<Promise<void>, [AuditEntry]>().mockResolvedValue(undefined) };
     const issuer = {
-      issue: jest.fn(() => Promise.resolve({ accessToken: 'access-value', expiresIn: 300 })),
+      issue: jest.fn(() => Promise.resolve({ accessToken: 'access-value', expiresIn: 900 })),
     };
     const generator = { generate: jest.fn(() => ({ raw: 'raw-refresh', hash: 'refresh-hash' })) };
     return {
@@ -75,7 +75,7 @@ describe('authentication use cases', () => {
       }),
     );
   });
-  it.each(['unknown', 'wrong', 'disabled', 'deleted'])(
+  it.each(['wrong', 'disabled', 'deleted'])(
     'rejects %s uniformly without issuing or storing credentials',
     async (kind) => {
       const unavailable = UserAccount.restore({
@@ -90,20 +90,33 @@ describe('authentication use cases', () => {
         deletedAt: kind === 'deleted' ? clock.now() : null,
       });
       const test = setup(unavailable, kind !== 'wrong');
-      if (kind === 'unknown') test.accounts.findByEmail.mockResolvedValue(undefined);
       await expect(
         test.login.execute({ email: ' A@Example.Test ', password: 'x' }),
       ).rejects.toMatchObject({
         code: 'INVALID_CREDENTIALS',
         message: 'The email or password is incorrect.',
       });
-      if (kind === 'unknown') expect(test.passwords.verifyDummy).toHaveBeenCalledWith('x');
-      else expect(test.passwords.verify).toHaveBeenCalledWith('stored-hash', 'x');
+      expect(test.passwords.verify).toHaveBeenCalledWith('stored-hash', 'x');
       expect(test.issuer.issue).not.toHaveBeenCalled();
       expect(test.refreshTokens.insert).not.toHaveBeenCalled();
       expect(test.audit.record).not.toHaveBeenCalled();
     },
   );
+  it('unknown email invokes dummy Argon2 verification before INVALID_CREDENTIALS', async () => {
+    const test = setup();
+    test.accounts.findByEmail.mockResolvedValue(undefined);
+    await expect(
+      test.login.execute({ email: 'unknown@example.test', password: 'x' }),
+    ).rejects.toMatchObject({
+      code: 'INVALID_CREDENTIALS',
+      message: 'The email or password is incorrect.',
+    });
+    expect(test.passwords.verifyDummy).toHaveBeenCalledTimes(1);
+    expect(test.passwords.verifyDummy).toHaveBeenCalledWith('x');
+    expect(test.passwords.verify).not.toHaveBeenCalled();
+    expect(test.refreshTokens.insert).not.toHaveBeenCalled();
+    expect(test.audit.record).not.toHaveBeenCalled();
+  });
   it('returns raw credentials only in the result and persists a seven-day digest record', async () => {
     const test = setup();
     const result = await test.login.execute({ email: account.email, password: 'correct-password' });
@@ -111,7 +124,7 @@ describe('authentication use cases', () => {
       accessToken: 'access-value',
       refreshToken: 'raw-refresh',
       tokenType: 'Bearer',
-      expiresIn: 300,
+      expiresIn: 900,
     });
     const record = test.refreshTokens.insert.mock.calls[0]?.[0];
     expect(record?.tokenHash).toBe('refresh-hash');
