@@ -10,7 +10,7 @@ x-api-image: &api-image
 services:
   db:
     # Same image as test/support/test-database.ts; keep the two in sync.
-    image: postgis/postgis:16-3.5
+    image: postgis/postgis:16-3.6
     environment:
       # The owner role: owns the database and runs migrations.
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
