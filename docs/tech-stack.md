@@ -35,7 +35,7 @@ The main decisions and the alternatives we rejected are recorded in [ADR-002](ad
 ## JWT cryptography: jose
 
 - **Version:** 6.2.13 (exactly pinned in package.json and the lockfile).
-- **Role:** local RS256 signature/claim verification and token signing for other modules' tests. Node crypto parses RSA PEM secret files and checks that the pair matches.
+- **Role:** local RS256 signature/claim verification, runtime login token signing (#14), and token signing for other modules' tests. Node crypto parses RSA PEM secret files and checks that the pair matches.
 - **Why:** one focused implementation of JWT verification, explicit algorithm/issuer/time restrictions, TypeScript types and no runtime dependencies. Node 24 supports its ESM package from this CommonJS project; Jest uses the existing VM modules setup.
 - **Alternatives rejected:** Passport plus a JWT strategy adds framework wiring this boundary does not need; `@nestjs/jwt` adds a wrapper without simplifying the required role or request-context policies. Hand-written JWT cryptography would duplicate security-sensitive validation.
 - **Cost:** one new production dependency and compatibility checks for Node/Jest ESM loading. No external identity service, JWKS or secret-management service is introduced.
@@ -449,3 +449,12 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 - **Why:** automatic dependency and security updates. _Security._
 - **Alternatives:** manual upgrades.
 - **Cost:** PR noise, handled weekly. Every update PR needs a review like any other PR.
+
+## Password hashing: argon2 (#14)
+
+- **Version:** 0.45.x; exactly 0.45.1 pinned in package.json and the lockfile.
+- **Role:** asynchronous Argon2id PHC hash/verify, with a random salt per password. Explicit policy: memoryCost 19456 KiB, timeCost 2, parallelism 1. Passwords use 10-128 UTF-16 code units without trimming or normalization.
+- **Why:** memory-hard password hashing with an established native implementation and built-in encoded hashes/verification. The adapter hides native code from domain/application.
+- **Alternatives:** bcrypt uses a different algorithm and has a password byte limit; scrypt does not meet the agreed Argon2id requirement. The Node crypto Argon2 API requires additional PHC encoding/verification work rather than this focused password interface. No blacklist dependency is introduced.
+- **Cost:** native prebuild compatibility must be checked on Windows, Ubuntu CI and node:24-slim. Source fallback needs Python/node-gyp/C++ tooling. Each concurrent operation consumes about 19 MiB plus overhead and CPU; no rate limiter or lockout is added before #25. Docker verifies hash/verify with install scripts disabled. No extra typings are needed.
+- **Token policy:** #14 chooses a fixed 300-second access lifetime, using the existing jose RS256 key pair/claims. Refresh tokens are opaque random 256-bit values, SHA-256 hashed, valid seven days. No new environment variables.

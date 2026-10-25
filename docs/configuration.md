@@ -40,7 +40,7 @@ Only file paths go in the environment. IAM reads and parses the files once at st
 
 On the host, `.env.example` points at the ignored `secrets/` directory. Compose reads those host paths and mounts them as `jwt_private_key` and `jwt_public_key` under `/run/secrets/`; only the API service receives them. The files must be readable by the container's `node` user (UID 1000 on Linux). The image never contains the keys. Migrations need no JWT configuration. The OpenAPI generator uses path placeholders because preview mode never instantiates the key provider.
 
-Tests generate temporary files and clean them up. Database-only integration suites use path placeholders because they do not load IAM. The standalone IAM integration suite uses real keys but no database.
+Tests generate temporary files and clean them up. Database-only integration suites use path placeholders because they do not load IAM. The IAM integration suite uses real keys and, since #14, migrated PostGIS to exercise the module persistence wiring. No new environment variables are introduced by #14.
 
 ### Migrations
 

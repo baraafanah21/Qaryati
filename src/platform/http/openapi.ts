@@ -59,7 +59,7 @@ const PROBLEM_REF = '#/components/schemas/ProblemDetails';
 /** Error statuses an endpoint can document, with the codes each one carries. */
 const PROBLEM_DESCRIPTIONS = {
   400: 'VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].',
-  401: 'UNAUTHENTICATED: the access token is missing, invalid or expired.',
+  401: 'UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.',
   403: 'FORBIDDEN: the caller may not do this.',
   404: 'NOT_FOUND: the resource does not exist.',
   409: 'DUPLICATE or REFERENCE_CONFLICT: the change clashes with existing data.',

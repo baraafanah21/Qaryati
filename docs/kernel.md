@@ -70,7 +70,7 @@ if (!(await this.villages.exists(villageId)))
   throw new NotFoundError(`Village ${villageId} does not exist.`);
 ```
 
-Unique, foreign key, check and not-null violations that still reach the database are mapped for you (409/409/422/422; a statement timeout is 503). The SQL and constraint names go to the log only.
+Unique, foreign key, check and not-null violations that still reach the database are mapped for you (409/409/422/422; a statement timeout is 503). Only safe SQLSTATE/constraint/table/column metadata goes to the log; SQL text, row details and query parameters are omitted.
 
 **Don't:** `throw new HttpException(...)` or `NotFoundException` from `domain/` or `application/`. The domain does not know HTTP, and dependency-cruiser rejects `@nestjs` imports in `domain/`.
 
@@ -476,3 +476,9 @@ export class GeocodingClient {
 8. **DTOs and mapper:** zod `strictObject` requests, `paginationQuery` + `sortQuery`, a response schema with an id, a mapper from the aggregate. → [`web/widget.schemas.ts`](../test/reference-module/web/widget.schemas.ts), [`web/widget.mapper.ts`](../test/reference-module/web/widget.mapper.ts)
 9. **Controller and module file:** `@ApiModule`, `@ETag()`/`@IfMatch()`, `@ApiProblems`, one use case per handler; bind the port to the adapter in `<module>.module.ts`. → [`web/widget.controller.ts`](../test/reference-module/web/widget.controller.ts), [`widget.module.ts`](../test/reference-module/widget.module.ts)
 10. **E2E test for every status the endpoint documents,** with `InMemoryAuditRecorder`; then `npm run openapi:generate` and commit `docs/api/openapi.json`. → [`widget.e2e-spec.ts`](../test/reference-module/widget.e2e-spec.ts)
+
+## Credential failures and database logging (#14)
+
+Application code throws `UnauthenticatedError` with `ErrorCode.INVALID_CREDENTIALS` for rejected login credentials. The existing ProblemDetails mapper assigns 401; HTTP guards keep their existing UNAUTHENTICATED behavior.
+
+Database error logs contain allow-listed SQLSTATE/constraint/table/column metadata only. Do not log driver messages, failing row details, query parameters or SQL text that may embed credentials. Password hashes under passwordHash/password_hash are redacted, but entities and credentials must never be logged whole.

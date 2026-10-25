@@ -118,7 +118,7 @@ Why: this keeps the API the only source of truth and avoids hidden coupling. A c
 
 ## Authentication boundary (#10)
 
-IAM verifies local RS256 access tokens and exports the framework-free `PermissionChecker`, trusted identity/role types, HTTP decorators and a test token issuer through `index.ts`. It imports no business module and owns no tables yet. Account lifecycle (#14) and refresh/logout (#18) remain separate.
+IAM verifies local RS256 access tokens and exports the framework-free `PermissionChecker`, trusted identity/role types, HTTP decorators and a test token issuer through `index.ts`. It imports no business module. IAM now owns user_account and refresh_token (#14), with public registration/login; refresh/logout and token rotation remain #18.
 
 Global authentication and role guards are registered by IAM. The verifier adapter loads matching RSA secret files once at startup; the HTTP guard depends on an application port and sets the existing `RequestContext` actor only after verification. One uppercase role is carried by each token, with `ADMIN >= EDITOR >= CONTRIBUTOR`. Role checks return booleans; the HTTP guards raise exceptions mapped by the existing ProblemDetails filter.
 
