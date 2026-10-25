@@ -49,7 +49,7 @@ npm run start:dev       # reads .env, connects to the Compose database as qaryat
 
 Before the first API startup, generate a local RSA pair using the setup commands above. OpenSSL generates PKCS#8 private and SPKI public PEM files. `secrets/`, `*.pem` and `*.key` are ignored; never commit them or tokens. Keep the files outside the image and grant read access only to the user that runs the API. For host development, that is your own user; adapt Linux ownership when switching between host and container execution. On Windows, use directory/file ACLs rather than `chown` and `chmod`.
 
-The key paths and expected issuer are documented in [configuration.md](configuration.md#jwt-secret-files). An absent or invalid pair prevents startup. `GET /api/v1/health` remains explicitly public. #10 introduces authentication infrastructure only; it does not provide a login or token issuance endpoint.
+The key paths and expected issuer are documented in [configuration.md](configuration.md#jwt-secret-files). An absent or invalid pair prevents startup. `GET /api/v1/health` remains explicitly public. #10 provides the authentication boundary; #14 adds public registration and login. See the IAM README for request/response contracts.
 
 ## Running with Docker
 
@@ -187,3 +187,7 @@ drizzle.config.ts         drizzle-kit configuration
 | `forceConsistentCasingInFileNames` | `import './Village'` vs `./village` fails on Linux CI. This flag catches it on case-insensitive laptops too.                 |
 
 `emitDecoratorMetadata` and `experimentalDecorators` are required by NestJS dependency injection.
+
+## Credential native dependency (#14)
+
+`argon2@0.45.1` ships native prebuilds and TypeScript declarations. Node 24 and the existing CommonJS/TypeScript 6 setup are retained. The Docker runtime installation keeps `--ignore-scripts` and runs a real Argon2id hash/verify smoke check during the build. Windows x64 and Ubuntu CI run the same credential adapter tests. If no compatible prebuild exists, a source build needs Python, node-gyp and C/C++ build tools (Visual Studio on Windows, compiler/make on Linux); do not add these tools to the runtime image.

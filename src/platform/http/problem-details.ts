@@ -8,6 +8,7 @@ import {
   NotFoundError,
   PreconditionFailedError,
   ValidationError,
+  UnauthenticatedError,
   type FieldError,
 } from '../../shared/kernel';
 import { RequestValidationException } from './validation';
@@ -31,6 +32,7 @@ export const ERROR_TITLES: Record<ErrorCode, string> = {
   VERSION_CONFLICT: 'Version conflict',
   PRECONDITION_REQUIRED: 'Precondition required',
   UNAUTHENTICATED: 'Unauthenticated',
+  INVALID_CREDENTIALS: 'Invalid credentials',
   FORBIDDEN: 'Forbidden',
   RATE_LIMITED: 'Too many requests',
   SERVICE_UNAVAILABLE: 'Service unavailable',
@@ -74,6 +76,7 @@ const GENERIC_INTERNAL_DETAIL =
 
 // Each DomainError category and its status. The domain never names a status.
 const DOMAIN_STATUS: ReadonlyArray<[abstract new (...args: never[]) => DomainError, number]> = [
+  [UnauthenticatedError, HttpStatus.UNAUTHORIZED],
   [NotFoundError, HttpStatus.NOT_FOUND],
   [ConflictError, HttpStatus.CONFLICT],
   [ValidationError, HttpStatus.UNPROCESSABLE_ENTITY],
@@ -219,7 +222,6 @@ export function mapException(exception: unknown): MappedProblem {
       constraint: pgError.constraint,
       table: pgError.table,
       column: pgError.column,
-      pgDetail: pgError.detail,
     };
     const known = PG_ERRORS[pgError.code];
     if (known) {
@@ -246,19 +248,27 @@ export function mapException(exception: unknown): MappedProblem {
  * What to log for an exception. Drizzle's `DrizzleQueryError` repeats the
  * query parameters in its message and stack, and parameters are positional,
  * so key-based redaction cannot catch an email or a password hash among them.
- * For those, log the driver error, the SQL text and only the parameter count.
+ * For database failures, allow-list metadata only: driver details and SQL may contain row values.
  */
 export function loggableError(exception: unknown): Record<string, unknown> {
-  if (
-    exception instanceof Error &&
-    'query' in exception &&
-    'params' in exception &&
-    Array.isArray(exception.params)
-  ) {
+  const pgError = findPgError(exception);
+  let current: unknown = exception;
+  let isDrizzleError = false;
+  // An outer error can repeat a wrapped Drizzle message, including its parameters.
+  for (let depth = 0; depth < 10 && current !== null && typeof current === 'object'; depth += 1) {
+    if ('query' in current && 'params' in current) {
+      isDrizzleError = true;
+      break;
+    }
+    current = 'cause' in current ? current.cause : undefined;
+  }
+  if (pgError || isDrizzleError) {
     return {
-      err: exception.cause ?? exception.name,
-      query: exception.query,
-      paramCount: exception.params.length,
+      err: 'Database operation failed',
+      sqlState: pgError?.code,
+      constraint: pgError?.constraint,
+      table: pgError?.table,
+      column: pgError?.column,
     };
   }
   return { err: exception };

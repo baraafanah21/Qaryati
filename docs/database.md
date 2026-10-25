@@ -192,3 +192,11 @@ const db = await startTestDatabase(); // { ownerUrl, appUrl, stop() }
 - A test that calls `@Transactional()` code without HTTP wraps each call in `cls.run(...)`, the way the CLS middleware opens one context per request (`test/transactions.int-spec.ts`).
 
 Docker must be running. The first run pulls `postgis/postgis:16-3.5`, which takes a while, and later runs need about 10–20 seconds per container.
+
+## IAM credential tables (#14)
+
+IAM owns `user_account` and `refresh_token`. Email uses a local Drizzle citext custom type; the baseline already enables the extension. A full unique index reserves email case-insensitively even for disabled or soft-deleted accounts. The application trims and lowercases email but the database is the uniqueness authority, including concurrent registration.
+
+Accounts use versionColumns(), explicit Clock timestamps, and CHECK constraints for the existing three roles, ACTIVE/DISABLED status and positive version. IDs come from IdGenerator (UUIDv7), not database defaults. No account administration or deletion endpoint is added.
+
+Refresh rows contain a SHA-256 hex digest, user FK (ON DELETE RESTRICT), family UUID, createdAt and expiresAt. Token digests are unique; the user FK is indexed. Raw 256-bit opaque tokens never enter persistence. A CHECK enforces lowercase 64-character hex digests and expiry after creation; the application sets expiry to seven days. Family identity prepares for #18 only: there is no revokedAt, rotation or reuse behavior in #14.

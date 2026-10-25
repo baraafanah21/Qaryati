@@ -17,6 +17,14 @@ function captureLogger() {
 }
 
 describe('log redaction', () => {
+  it('redacts password hashes in both credential naming conventions', () => {
+    const { logger, lines } = captureLogger();
+    logger.info({ account: { passwordHash: 'camel-hash', password_hash: 'snake-hash' } });
+    expect(lines[0]).toMatchObject({
+      account: { passwordHash: REDACTED, password_hash: REDACTED },
+    });
+    expect(JSON.stringify(lines)).not.toMatch(/camel-hash|snake-hash/);
+  });
   it('redacts credentials at any depth, keeping everything else', () => {
     const { logger, lines } = captureLogger();
     logger.info(

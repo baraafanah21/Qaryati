@@ -3,13 +3,14 @@ import { SignJWT } from 'jose';
 import { FixedClock } from '../../../shared/kernel';
 import { Role } from '../domain/authenticated-user';
 import { JoseAccessTokenVerifier } from './jose-access-token-verifier';
+import { TokenService } from './token.service';
 
 describe('RS256 access token verification', () => {
   const keys = generateKeyPairSync('rsa', { modulusLength: 2048 });
   const clock = new FixedClock('2026-10-24T10:00:00Z');
   const now = Math.floor(clock.now().getTime() / 1000);
   const id = '00000000-0000-7000-8000-000000000001';
-  const verifier = new JoseAccessTokenVerifier(keys, 'qaryati-test', clock);
+  const verifier = new JoseAccessTokenVerifier(new TokenService(keys, 'qaryati-test', clock, 900));
   const valid = { sub: id, role: Role.CONTRIBUTOR, iss: 'qaryati-test', iat: now, exp: now + 300 };
   const sign = (
     payload: Record<string, unknown>,
@@ -73,9 +74,7 @@ describe('RS256 access token verification', () => {
   it('uses the injected clock at the expiration boundary', async () => {
     const token = await sign(valid);
     const later = new JoseAccessTokenVerifier(
-      keys,
-      'qaryati-test',
-      new FixedClock(new Date((now + 300) * 1000)),
+      new TokenService(keys, 'qaryati-test', new FixedClock(new Date((now + 300) * 1000)), 900),
     );
     await expect(later.verify(token)).rejects.toThrow();
   });

@@ -29,11 +29,11 @@ Keys are read once at startup from `JWT_PRIVATE_KEY_FILE` (PKCS#8 PEM) and `JWT_
 
 ## Testing
 
-Unit tests cover roles, claims, signature validation, secret files and the test issuer. `test/iam.int-spec.ts` exercises real Nest guards, HTTP, ProblemDetails, Swagger and concurrent request contexts using temporary keys, without persistence. Existing e2e suites still use real PostGIS. The reference template does not import IAM; its test agent wiring lives in `test/support/authenticated-agent.ts`.
+Unit tests cover roles, claims, signature validation, secret files and the test issuer. `test/iam.int-spec.ts` exercises real Nest guards, HTTP, ProblemDetails, Swagger and concurrent request contexts using temporary keys and, since #14, migrated PostGIS for the expanded module wiring. Existing e2e suites still use real PostGIS. The reference template does not import IAM; its test agent wiring lives in `test/support/authenticated-agent.ts`.
 
 Other modules' tests import `createTestTokenIssuer` from this module's index, pass `{ privateKeyFile, publicKeyFile, issuer, clock }`, then call `mint({ id, role })`. The default lifetime is 300 seconds. No fixed keys or tokens are committed. The helper is not a runtime DI provider and has no HTTP endpoint.
 
-Account storage, registration/login (#14), refresh tokens/logout (#18), role assignment and resource ownership policies remain outside #10. There are no IAM tables or production endpoints yet.
+Account storage and registration/login are implemented in #14. Rotation/logout/me remain #18; rate limiting and temporary lockout remain #25; user administration remains #32.
 
 ## Dependencies
 
@@ -52,3 +52,17 @@ dependency-cruiser enforces these directions (`module-dependency-direction`), an
 | `application/`    | Use cases; the transaction boundary                                                 |
 | `domain/`         | Entities, value objects, rules and repository ports; plain TypeScript, no framework |
 | `infrastructure/` | Adapters: Drizzle repositories and schema, Redis, HTTP clients                      |
+
+## Registration and login (#14)
+
+- `POST /api/v1/auth/register`: public strict body { email, password }; returns 201 with { id, email, role, status, version, createdAt, updatedAt } and ETag. New accounts are always CONTRIBUTOR/ACTIVE. Unknown role/status fields are rejected (400), duplicate email is 409 DUPLICATE. No automatic login, Location or extra profile fields.
+- `POST /api/v1/auth/login`: public strict body { email, password }; returns 200 with { accessToken, refreshToken, tokenType: "Bearer", expiresIn: 900 }. Auth responses use Cache-Control: no-store. Wrong email/password, DISABLED and deleted accounts return the same 401 INVALID_CREDENTIALS detail. Nonempty short wrong passwords still execute verification; malformed bodies return 400.
+- Registration intentionally returns 409 DUPLICATE for an existing email, revealing that it is registered. This is the #14 API trade-off; rate limiting in #25 is the later mitigation. Login still hides account existence with INVALID_CREDENTIALS.
+- Email is trimmed/lowercased in the application; citext uniqueness is authoritative. No provider-specific alias rewriting. Passwords use 10-128 JavaScript UTF-16 code units at registration, without normalization/trimming; Argon2id m=19456 KiB, t=2, p=1. No blacklist.
+- Unknown email executes Argon2 verification against a fixed valid dummy hash with identical costs, reducing timing differences without promising identical timing. Existing accounts, including unavailable ones, are verified before the login decision.
+- Runtime AccessTokenIssuer uses jose and the same once-loaded RSA pair, configured issuer, typ JWT, UUID sub, one role and integer iat/exp as #10. Runtime lifetime comes from JWT_ACCESS_TTL (default 15m / 900 seconds); expiresIn reflects its validated seconds. TokenService owns the shared signing/verification contract and both adapters delegate to its single instance. The test helper uses the same signing construction while preserving its explicit lifetime overrides and 300-second test default. Guards are unchanged. Existing access tokens remain valid until expiry; account status is checked at login, not by adding database reads to #10 guards.
+- RefreshTokenGenerator creates 32 random bytes encoded as base64url. Only SHA-256 hex is stored with userId, familyId, createdAt and seven-day expiresAt. The raw credential is returned only by login. No rotation, reuse detection, revocation, revokedAt, refresh/logout/me routes or family lifecycle behavior.
+- Both write use cases use @Transactional and the existing AuditRecorder. Registration audits user_account.created with only email/role/status. Login audits refresh_token.issued with only userId/familyId/createdAt/expiresAt. No passwords, password hashes, raw tokens or token hashes in audit. Public routes keep the anonymous actor; the affected user is explicit in entityId/userId. The existing placeholder remains until #20.
+- Internal entities, repositories, schemas and runtime signing ports are not exported from index.ts. Versioned account columns follow the reference module; no administration/delete behavior is added.
+
+Tests cover pure rules and decisions, native hashing and RS256 compatibility, migrated PostGIS constraints/adapters, and HTTP registration/login with #10 guards, rollback and Swagger. Integration/e2e require Docker.

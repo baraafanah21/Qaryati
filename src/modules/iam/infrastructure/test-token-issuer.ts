@@ -1,7 +1,9 @@
-import { SignJWT } from 'jose';
 import type { Clock } from '../../../shared/kernel';
 import type { AuthenticatedUser } from '../domain/authenticated-user';
 import { loadJwtKeys } from './jwt-keys';
+import { TokenService } from './token.service';
+
+const DEFAULT_TEST_LIFETIME_SECONDS = 300;
 
 /** Explicit test configuration; no environment reads or embedded test secrets. */
 export interface TestTokenIssuerOptions {
@@ -22,16 +24,15 @@ export async function createTestTokenIssuer(
   options: TestTokenIssuerOptions,
 ): Promise<TestTokenIssuer> {
   const keys = await loadJwtKeys(options.privateKeyFile, options.publicKeyFile);
+  const tokens = new TokenService(
+    keys,
+    options.issuer,
+    options.clock,
+    DEFAULT_TEST_LIFETIME_SECONDS,
+  );
   return {
-    mint(user, lifetimeSeconds = 300) {
-      const issuedAt = Math.floor(options.clock.now().getTime() / 1000);
-      return new SignJWT({ role: user.role })
-        .setProtectedHeader({ alg: 'RS256', typ: 'JWT' })
-        .setSubject(user.id)
-        .setIssuer(options.issuer)
-        .setIssuedAt(issuedAt)
-        .setExpirationTime(issuedAt + lifetimeSeconds)
-        .sign(keys.privateKey);
+    mint(user, lifetimeSeconds = DEFAULT_TEST_LIFETIME_SECONDS) {
+      return tokens.sign(user, lifetimeSeconds);
     },
   };
 }
