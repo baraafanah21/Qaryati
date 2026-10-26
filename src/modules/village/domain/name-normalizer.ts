@@ -1,3 +1,4 @@
+const FORMAT_CHARACTERS = /\p{Cf}/gu;
 const ARABIC_MARKS = /[\u064B-\u065F\u0670\u06D6-\u06ED]/gu;
 const TATWEEL = /\u0640/gu;
 const ALEF_VARIANTS = /[أإآٱ]/gu;
@@ -9,16 +10,16 @@ const ARABIC_INDIC_DIGITS = /[\u0660-\u0669]/gu;
 const PERSIAN_DIGITS = /[\u06F0-\u06F9]/gu;
 const LATIN_TEXT = /[\p{Script=Latin}\u0300-\u036F]+/gu;
 const LATIN_ACCENTS = /[\u0300-\u036F]/gu;
-const TRANSLITERATION_MARKS = /[\u02BF\u02BE'’‘`]/gu;
-const NAME_SEPARATORS = /[-_.]/gu;
+const TRANSLITERATION_MARKS = /[\u02BB\u02BC\u02BE\u02BF'’‘`]/gu;
+const NAME_SEPARATORS = /[-_.\u2010-\u2015]/gu;
 const WHITESPACE = /\s+/gu;
 
 /**
  * Normalizes Arabic and Latin names for consistent comparison and search.
  *
- * It applies NFKC, removes Arabic marks and Latin accents, unifies common
- * Arabic letter and digit variants, normalizes separators and whitespace,
- * and lowercases Latin text. It preserves the Arabic article and word
+ * It applies NFKC, removes invisible format characters, Arabic marks and
+ * Latin accents, unifies common Arabic letter and digit variants, normalizes
+ * separators and whitespace, and lowercases Latin text. It preserves the Arabic article and word
  * boundaries, and is idempotent. For string input, this function never throws.
  *
  * @param input - The original Arabic, Latin, or mixed-script name.
@@ -27,6 +28,7 @@ const WHITESPACE = /\s+/gu;
 export function normalizeName(input: string): string {
   return input
     .normalize('NFKC')
+    .replace(FORMAT_CHARACTERS, '')
     .replace(ARABIC_MARKS, '')
     .replace(TATWEEL, '')
     .replace(ALEF_VARIANTS, 'ا')

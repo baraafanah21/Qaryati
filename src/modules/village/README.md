@@ -26,21 +26,22 @@ normalization for Arabic, Latin and mixed-script names. It never throws for
 string input and returns an empty string for empty or whitespace-only input.
 The rules run in this order:
 
-| #   | Rule                                                                           | Example                      |
-| --- | ------------------------------------------------------------------------------ | ---------------------------- |
-| 1   | Apply Unicode NFKC to normalize compatibility forms and full-width characters. | `ﺑﻴﺖ` → `بيت`                |
-| 2   | Remove tashkeel and Quranic marks (U+064B–U+065F, U+0670, U+06D6–U+06ED).      | `صَفُّورِيَّة` → `صفوريه`    |
-| 3   | Remove tatweel (U+0640).                                                       | `قريــة` → `قريه`            |
-| 4   | Map alef variants أ, إ, آ and ٱ to ا.                                          | `إذنا` → `اذنا`              |
-| 5   | Map ة to ه.                                                                    | `قلقيلية` → `قلقيليه`        |
-| 6   | Map ى to ي.                                                                    | `مصلى` → `مصلي`              |
-| 7   | Map Persian/Urdu ک to ك and ی to ي.                                            | `کفر یاسيف` → `كفر ياسيف`    |
-| 8   | Map Arabic-Indic and Persian digits to ASCII digits.                           | `٤٥` → `45`                  |
-| 9   | Remove Latin accents using NFD and strip U+0300–U+036F combining marks.        | `Fūrīk` → `Furik`            |
-| 10  | Remove transliteration marks ʿ, ʾ, straight/curly apostrophes and backticks.   | `ʿAnabta` → `Anabta`         |
-| 11  | Replace hyphens, underscores and dots with spaces.                             | `Beit-Furik` → `Beit Furik`  |
-| 12  | Lowercase text.                                                                | `Beit Furik` → `beit furik`  |
-| 13  | Collapse repeated whitespace and trim the result.                              | ` بيت   فوريك` → `بيت فوريك` |
+| #   | Rule                                                                               | Example                      |
+| --- | ---------------------------------------------------------------------------------- | ---------------------------- |
+| 1   | Apply Unicode NFKC to normalize compatibility forms and full-width characters.     | `ﺑﻴﺖ` → `بيت`                |
+| 2   | Remove invisible format characters (Unicode category Cf), such as RLM and ZWNJ.    | `Fu`+U+00AD+`rik` → `Furik`  |
+| 3   | Remove tashkeel and Quranic marks (U+064B–U+065F, U+0670, U+06D6–U+06ED).          | `صَفُّورِيَّة` → `صفوريه`    |
+| 4   | Remove tatweel (U+0640).                                                           | `قريــة` → `قريه`            |
+| 5   | Map alef variants أ, إ, آ and ٱ to ا.                                              | `إذنا` → `اذنا`              |
+| 6   | Map ة to ه.                                                                        | `قلقيلية` → `قلقيليه`        |
+| 7   | Map ى to ي.                                                                        | `مصلى` → `مصلي`              |
+| 8   | Map Persian/Urdu ک to ك and ی to ي.                                                | `کفر یاسيف` → `كفر ياسيف`    |
+| 9   | Map Arabic-Indic and Persian digits to ASCII digits.                               | `٤٥` → `45`                  |
+| 10  | Remove Latin accents using NFD and strip U+0300–U+036F combining marks.            | `Fūrīk` → `Furik`            |
+| 11  | Remove transliteration marks ʿ, ʾ, ʻ, ʼ, straight/curly apostrophes and backticks. | `ʻAnan` → `Anan`             |
+| 12  | Replace hyphens, dashes (U+2010–U+2015), underscores and dots with spaces.         | `Beit–Furik` → `Beit Furik`  |
+| 13  | Lowercase text.                                                                    | `Beit Furik` → `beit furik`  |
+| 14  | Collapse repeated whitespace and trim the result.                                  | ` بيت   فوريك` → `بيت فوريك` |
 
 The normalizer deliberately does not strip the Arabic definite article `ال` or
 merge words separated by spaces: `بيرزيت` remains distinct from `بير زيت`.
