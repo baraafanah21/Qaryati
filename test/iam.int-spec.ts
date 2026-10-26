@@ -23,6 +23,13 @@ import { HttpPlatformModule } from '../src/platform/http/http-platform.module';
 import { ApiModule } from '../src/platform/http/openapi';
 import { KernelModule } from '../src/platform/kernel/kernel.module';
 import { LoggingModule } from '../src/platform/logging/logging.module';
+import { AuditPlaceholderModule } from '../src/platform/audit/audit-placeholder.module';
+import { DatabaseModule } from '../src/platform/database/database.module';
+import {
+  startTestDatabase,
+  type TestDatabase,
+  CONTAINER_STARTUP_TIMEOUT_MS,
+} from './support/test-database';
 import { CLOCK, FixedClock } from '../src/shared/kernel';
 import { createTestJwtKeys, type TestJwtKeys } from './support/jwt-test-keys';
 
@@ -98,16 +105,25 @@ class PublicClassController {
 }
 
 @Module({
-  imports: [LoggingModule, RequestContextModule, HttpPlatformModule, KernelModule, IamModule],
+  imports: [
+    LoggingModule,
+    RequestContextModule,
+    HttpPlatformModule,
+    KernelModule,
+    DatabaseModule,
+    AuditPlaceholderModule,
+    IamModule,
+  ],
   controllers: [IamProbeController, ClassRoleController, PublicClassController],
 })
 class IamTestModule {}
 
-// Real Nest/HTTP, cryptography and secret files. No persistence is involved in #10.
+// Real Nest/HTTP and #10 guards, with the persistence wiring introduced by #14.
 describe('IAM guards and public API (integration)', () => {
   let app: INestApplication<App>;
   let keys: TestJwtKeys;
   let issuer: TestTokenIssuer;
+  let database: TestDatabase;
   const clock = new FixedClock('2026-10-24T10:00:00Z');
   const id = '00000000-0000-7000-8000-000000000001';
   const secondId = '00000000-0000-7000-8000-000000000002';
@@ -116,9 +132,10 @@ describe('IAM guards and public API (integration)', () => {
   let admin: string;
 
   beforeAll(async () => {
+    database = await startTestDatabase();
     keys = await createTestJwtKeys();
     const env = appEnvSchema.parse({
-      DATABASE_URL: 'postgres://unused:unused@localhost/unused',
+      DATABASE_URL: database.appUrl,
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
       JWT_PRIVATE_KEY_FILE: keys.privateKeyFile,
@@ -147,11 +164,12 @@ describe('IAM guards and public API (integration)', () => {
     contributor = await issuer.mint({ id, role: Role.CONTRIBUTOR });
     editor = await issuer.mint({ id, role: Role.EDITOR });
     admin = await issuer.mint({ id, role: Role.ADMIN });
-  });
+  }, CONTAINER_STARTUP_TIMEOUT_MS);
 
   afterAll(async () => {
     await app?.close();
     await keys?.cleanup();
+    await database?.stop();
   });
 
   it.each([

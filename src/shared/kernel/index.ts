@@ -9,6 +9,7 @@ export {
   NotFoundError,
   PreconditionFailedError,
   ValidationError,
+  UnauthenticatedError,
   type DomainErrorOptions,
 } from './errors/domain-error';
 export { CLOCK, FixedClock, SystemClock, type Clock } from './time/clock';

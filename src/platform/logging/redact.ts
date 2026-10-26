@@ -4,7 +4,8 @@ export const REDACTED = '[REDACTED]';
 // Key names whose values never reach a log, at any depth and in any case:
 // password, newPassword, token, accessToken, refreshToken, secret, clientSecret,
 // and the credential headers.
-const SENSITIVE_KEY = /(password|secret|token)$|^(authorization|cookie|set-cookie)$/i;
+const SENSITIVE_KEY =
+  /(password|secret|token)$|^password_?hash$|^(authorization|cookie|set-cookie)$/i;
 
 const MAX_DEPTH = 10;
 

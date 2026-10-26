@@ -178,7 +178,7 @@ describe('mapException', () => {
       });
     });
 
-    it('keeps constraint, table and SQL details out of the response but in the log context', () => {
+    it('keeps row details out of both the response and the log context', () => {
       const mapped = mapException(drizzleWrapped(pgError('23505')));
       expect(mapped.detail).not.toMatch(/village|slug|insert|beit-furik/);
       expect(mapped.logContext).toEqual({
@@ -186,7 +186,6 @@ describe('mapException', () => {
         constraint: 'village_slug_key',
         table: 'village',
         column: undefined,
-        pgDetail: 'Key (slug)=(beit-furik) already exists.',
       });
     });
 
@@ -277,6 +276,28 @@ describe('catalogue helpers', () => {
 });
 
 describe('loggableError', () => {
+  it('never logs driver row values, including through wrapped or non-driver Drizzle errors', () => {
+    const driver = Object.assign(new Error('invalid row contains secret-hash'), {
+      code: '23514',
+      severity: 'ERROR',
+      detail: 'Failing row contains (secret-hash, raw-token)',
+      where: 'SQL with secret-hash',
+      table: 'user_account',
+    });
+    for (const error of [
+      driver,
+      new Error('outer secret-hash', { cause: driver }),
+      new DrizzleQueryError('SQL raw-token', ['secret-hash'], new Error('raw-token')),
+      new Error('wrapped SQL raw-token', {
+        cause: new DrizzleQueryError('SQL raw-token', ['secret-hash'], new Error('raw-token')),
+      }),
+    ]) {
+      const logged = loggableError(error);
+      expect(JSON.stringify({ ...logged, context: mapException(error).logContext })).not.toMatch(
+        /secret-hash|raw-token|Failing row|SQL/,
+      );
+    }
+  });
   it('never logs the parameters of a failed Drizzle query', () => {
     const cause = pgError('23505');
     const error = new DrizzleQueryError(
@@ -285,8 +306,8 @@ describe('loggableError', () => {
       cause,
     );
     const logged = loggableError(error);
-    expect(logged).toEqual({ err: cause, query: error.query, paramCount: 2 });
-    expect(JSON.stringify({ ...logged, err: cause.stack })).not.toMatch(/a@example\.org|argon2/);
+    expect(logged).toMatchObject({ err: 'Database operation failed', sqlState: '23505' });
+    expect(JSON.stringify(logged)).not.toMatch(/a@example\.org|argon2|beit-furik|insert into/);
   });
 
   it('logs any other error as it is', () => {

@@ -1,4 +1,5 @@
 import { appEnvSchema } from './app-env';
+import { parseAccessTokenTtl } from './access-token-ttl';
 
 const DATABASE_URL = 'postgres://qaryati_app:secret@localhost:5432/qaryati';
 const JWT = { JWT_PRIVATE_KEY_FILE: 'private.pem', JWT_PUBLIC_KEY_FILE: 'public.pem' };
@@ -12,7 +13,36 @@ describe('appEnvSchema', () => {
       DATABASE_URL,
       ...JWT,
       JWT_ISSUER: 'qaryati',
+      JWT_ACCESS_TTL: '15m',
     });
+  });
+
+  it.each([
+    ['15m', 900],
+    ['45s', 45],
+    ['2h', 7200],
+  ])('parses JWT_ACCESS_TTL=%s into %i seconds', (value, seconds) => {
+    const ttl = appEnvSchema.parse({ DATABASE_URL, ...JWT, JWT_ACCESS_TTL: value }).JWT_ACCESS_TTL;
+    expect(ttl).toBe(value);
+    expect(parseAccessTokenTtl(ttl)).toBe(seconds);
+  });
+
+  it.each([
+    '',
+    '0m',
+    '-1m',
+    '1.5m',
+    '15',
+    '15ms',
+    '1d',
+    '15M',
+    ' 15m ',
+    'Infinity',
+    '9007199254740991h',
+  ])('rejects invalid JWT_ACCESS_TTL=%j', (value) => {
+    const result = appEnvSchema.safeParse({ DATABASE_URL, ...JWT, JWT_ACCESS_TTL: value });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['JWT_ACCESS_TTL']);
   });
 
   it('rejects an unknown LOG_LEVEL', () => {

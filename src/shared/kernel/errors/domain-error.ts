@@ -82,3 +82,10 @@ export class BusinessRuleViolationError extends DomainError {
     super(message, ErrorCode.CONSTRAINT_VIOLATION, options);
   }
 }
+
+/** Credentials failed without disclosing whether an account exists. */
+export class UnauthenticatedError extends DomainError {
+  constructor(message: string, options?: DomainErrorOptions) {
+    super(message, ErrorCode.UNAUTHENTICATED, options);
+  }
+}

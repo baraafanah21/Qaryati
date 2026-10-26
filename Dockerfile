@@ -18,6 +18,8 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+# Verify the packaged native binary works even when install scripts are disabled.
+RUN node -e "const a=require('argon2'); a.hash('build-smoke',{type:a.argon2id,memoryCost:19456,timeCost:2,parallelism:1}).then(async h=>{if(!await a.verify(h,'build-smoke'))process.exit(1)})"
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 # The image's unprivileged user; the process cannot modify its own code.

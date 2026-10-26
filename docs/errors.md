@@ -28,7 +28,7 @@ Every error the API returns has the same shape ([RFC 9457](https://www.rfc-edito
 | `timestamp` | When the error was produced (ISO 8601, UTC).                                                                                              |
 | `errors`    | Only on validation failures: one entry per invalid field (see [Field codes](#field-codes)).                                               |
 
-Responses never contain stack traces, SQL, table names or constraint names. Those go to the server log, under the same `traceId`.
+Responses never contain stack traces, SQL, table names or constraint names. Database logs retain safe SQLSTATE/constraint/table/column metadata under the same `traceId`, without SQL text, query parameters or failing-row details.
 
 The catalogue lives in [`src/shared/kernel/errors/error-codes.ts`](../src/shared/kernel/errors/error-codes.ts). A unit test fails if a code there has no section here. How to throw each error from code: [kernel.md](kernel.md#throwing-errors).
 
@@ -169,3 +169,12 @@ Entries of `errors[]` have `field` (the full path, like `names[0].lang`; an empt
 2. For an `ErrorCode`, add its title to `ERROR_TITLES` in [`problem-details.ts`](../src/platform/http/problem-details.ts) (the compiler insists).
 3. Add a section here with `<a id="...">` (the code in lowercase kebab case) and the four bullets, or a row in the field code table.
 4. `npm run test:unit` checks that step 3 is done.
+
+<a id="invalid-credentials"></a>
+
+### `INVALID_CREDENTIALS`
+
+- **Status:** 401
+- **Meaning:** login failed. Unknown email, wrong password, disabled and deleted accounts all return the same public detail: `The email or password is incorrect.`
+- **Client:** check the credentials. This response does not disclose account existence. Malformed request bodies still return 400 `VALIDATION_FAILED`.
+- **Implementation:** `UnauthenticatedError` is the kernel category mapped to 401; pass `ErrorCode.INVALID_CREDENTIALS` for login. Existing bearer failures remain `UNAUTHENTICATED`.
