@@ -5,4 +5,4 @@
  * listed in docs/architecture.md (enforced by dependency-cruiser). Export
  * facades, DTOs and event types here; never repositories, tables or entities.
  */
-export {};
+export { normalizeName } from './domain/name-normalizer';
