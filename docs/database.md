@@ -175,6 +175,20 @@ How migrations are applied:
 - **Tests:** `runMigrations()` from the same file.
 - Applied migrations are recorded in `drizzle.__drizzle_migrations`, so a second run does nothing. Pending migrations are applied in one transaction: either all of them apply, or none do.
 
+## What the database enforces
+
+The project rule is that the database guards data shape and integrity, while domain code owns business rules. A business rule changing must never require a migration.
+
+1. Primary keys, foreign keys with an explicit `ON DELETE`, and `NOT NULL` on columns that must always exist.
+2. Uniqueness that the code cannot guarantee under concurrency, such as a village slug or administrative-unit code.
+3. Indexes needed by known queries.
+
+The database does not use `CHECK` constraints for allowed values, ranges, lengths, formats or workflow rules. Those columns are plain `text`, and their allowed values live in module domain code as `as const` arrays with unit tests.
+
+## Cross-module foreign keys
+
+- `village.created_by → user_account.id`, `ON DELETE RESTRICT`, added as raw SQL in the village migration. This constraint is not declared through IAM's Drizzle schema because modules must not import another module's table definitions.
+
 ## Testing against the database
 
 Integration and e2e tests use a real PostGIS container through [Testcontainers](https://testcontainers.com/). The database is never mocked (CONTEXT.md).

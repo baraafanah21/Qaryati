@@ -6,3 +6,17 @@
  * facades, DTOs and event types here; never repositories, tables or entities.
  */
 export { normalizeName } from './domain/name-normalizer';
+export {
+  SETTLEMENT_STATUSES,
+  PUBLICATION_STATUSES,
+  type SettlementStatus,
+  type PublicationStatus,
+} from './domain/village-values';
+export {
+  ADMIN_UNIT_TYPES,
+  AUTHORITY_TYPES,
+  ADMIN_ERAS,
+  type AdminUnitType,
+  type AuthorityType,
+  type AdminEra,
+} from './domain/admin-unit-values';
