@@ -10,6 +10,17 @@ The core village record: identity and slug, names and name origins, administrati
 
 `village`, `village_name`, `name_origin`, `admin_unit`, `village_affiliation`, `village_relation`. Tables are declared only in `infrastructure/persistence/schema.ts` of this module, which `drizzle.config.ts` picks up. No other module edits them. See [docs/database.md](../../../docs/database.md).
 
+## Data model
+
+Issue #15 adds the two identity/reference tables that are not claims:
+
+- `village` stores the stable identity, unique slug, settlement and publication statuses, display-name and location projections, creator, and kernel version/timestamps. It has no `deleted_at`; archived villages use `publication_status = 'ARCHIVED'`.
+- `admin_unit` stores a unique stable code, self-parent hierarchy, unit and authority types, era, and Arabic/English names.
+
+The `display_name_ar`, `display_name_en`, and `location` columns are projections. They are maintained only when the preferred current name or location claim changes. The local Drizzle geography custom type maps PostgreSQL `geography(Point,4326)` without modifying platform database code.
+
+Allowed values live in `domain/village-values.ts` and `domain/admin-unit-values.ts`. Pure validation lives in those files; see the exported value arrays from `index.ts` for other modules and API schemas.
+
 ## Public API (`index.ts`)
 
 The module exports `normalizeName` for consistent comparison of Arabic and
