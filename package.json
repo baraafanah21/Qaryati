@@ -24,12 +24,14 @@
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --selectProjects e2e",
     "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --selectProjects unit --coverage",
     "db:generate": "drizzle-kit generate",
+    "db:generate:custom": "drizzle-kit generate --custom",
     "db:migrate": "drizzle-kit migrate",
     "db:check": "drizzle-kit check",
     "db:drift": "scripts/check-schema-drift.sh",
     "db:studio": "drizzle-kit studio",
     "openapi:generate": "node -r ts-node/register/transpile-only src/generate-openapi.ts",
     "openapi:check": "scripts/check-openapi-drift.sh",
+    "keys:dev": "node scripts/generate-dev-jwt-keys.mjs",
     "prepare": "husky"
   },
   "dependencies": {

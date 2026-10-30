@@ -1,5 +1,4 @@
-// Reference: copy the module schema: camelCase columns without names, versionColumns(), constraints in the schema (here a partial unique index).
-import { sql } from 'drizzle-orm';
+// Reference: copy the module schema: camelCase columns without names, versionColumns(), keys, NOT NULL, uniqueness and indexes only (value rules live in the domain, never in a CHECK).
 import { pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { versionColumns } from '../../../../src/platform/database/versioning';
 
@@ -16,9 +15,7 @@ export const widget = pgTable(
     ...versionColumns(),
   },
   (table) => [
-    // Names are unique among live widgets; a deleted widget frees its name.
-    uniqueIndex('widget_name_key')
-      .on(table.name)
-      .where(sql`${table.deletedAt} IS NULL`),
+    // Two concurrent creates with one name: only a unique index stops the second.
+    uniqueIndex('widget_name_key').on(table.name),
   ],
 );

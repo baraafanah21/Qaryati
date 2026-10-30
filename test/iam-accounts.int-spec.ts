@@ -67,19 +67,38 @@ describe('IAM persistence (real migrated PostGIS)', () => {
     expect(await hasher.verify(first.passwordHash, 'correct-password')).toBe(true);
     expect(await hasher.verify(first.passwordHash, 'wrong-password')).toBe(false);
   });
-  it('enforces role, status and version constraints in PostgreSQL', async () => {
+  it('stores role and status as plain text and refuses to restore an unknown value', async () => {
     const first = await account();
-    await expect(
-      pool.query('UPDATE user_account SET role = $1 WHERE id = $2', ['ROOT', first.id]),
-    ).rejects.toMatchObject({ code: '23514', constraint: 'user_account_role_check' });
-    await expect(
-      pool.query('UPDATE user_account SET status = $1 WHERE id = $2', ['LOCKED', first.id]),
-    ).rejects.toMatchObject({ code: '23514', constraint: 'user_account_status_check' });
-    await expect(
-      pool.query('UPDATE user_account SET version = $1 WHERE id = $2', [0, first.id]),
-    ).rejects.toMatchObject({ code: '23514', constraint: 'user_account_version_check' });
+    // No CHECK: the database accepts any text; the repository is the guard on read.
+    await pool.query('UPDATE user_account SET role = $1 WHERE id = $2', ['ROOT', first.id]);
+    await expect(accounts.findByEmail(first.email)).rejects.toThrow(/unknown role/);
+    await pool.query('UPDATE user_account SET role = $1, status = $2 WHERE id = $3', [
+      'CONTRIBUTOR',
+      'LOCKED',
+      first.id,
+    ]);
+    await expect(accounts.findByEmail(first.email)).rejects.toThrow(/unknown status/);
+    const constraints = await pool.query(
+      `SELECT conname FROM pg_constraint
+       WHERE conrelid IN ('user_account'::regclass, 'refresh_token'::regclass) AND contype = 'c'`,
+    );
+    expect(constraints.rows).toEqual([]);
+    const columns = await pool.query(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_name = 'user_account' ORDER BY column_name`,
+    );
+    expect(columns.rows.map((row: { column_name: string }) => row.column_name)).toEqual([
+      'created_at',
+      'email',
+      'id',
+      'password_hash',
+      'role',
+      'status',
+      'updated_at',
+      'version',
+    ]);
   });
-  it('enforces refresh FK, uniqueness, hash format and expiry, without storing a raw credential', async () => {
+  it('enforces refresh FK and uniqueness, and the domain hash and expiry rules, without storing a raw credential', async () => {
     const user = await account();
     const credential = new CryptoRefreshTokenGenerator().generate();
     const record = {
@@ -111,7 +130,7 @@ describe('IAM persistence (real migrated PostGIS)', () => {
     ).rejects.toMatchObject({ cause: expect.objectContaining({ code: '23503' }) as unknown });
     await expect(
       tokens.insert({ ...record, id: ids.next<'RefreshToken'>(), tokenHash: 'raw-token' }),
-    ).rejects.toMatchObject({ cause: expect.objectContaining({ code: '23514' }) as unknown });
+    ).rejects.toThrow(/64 lowercase hex/);
     await expect(
       tokens.insert({
         ...record,
@@ -119,6 +138,8 @@ describe('IAM persistence (real migrated PostGIS)', () => {
         tokenHash: 'b'.repeat(64),
         expiresAt: now,
       }),
-    ).rejects.toMatchObject({ cause: expect.objectContaining({ code: '23514' }) as unknown });
+    ).rejects.toThrow(/expire after/);
+    const { rows } = await pool.query('SELECT count(*)::int AS n FROM refresh_token');
+    expect(rows).toEqual([{ n: 1 }]);
   });
 });

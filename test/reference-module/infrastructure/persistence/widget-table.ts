@@ -8,10 +8,9 @@ export const CREATE_WIDGET_TABLE = `
     name text NOT NULL,
     version integer DEFAULT 1 NOT NULL,
     created_at timestamp with time zone NOT NULL,
-    updated_at timestamp with time zone NOT NULL,
-    deleted_at timestamp with time zone
+    updated_at timestamp with time zone NOT NULL
   );
-  CREATE UNIQUE INDEX IF NOT EXISTS widget_name_key ON widget (name) WHERE deleted_at IS NULL;
+  CREATE UNIQUE INDEX IF NOT EXISTS widget_name_key ON widget (name);
 `;
 
 /** Creates the widget table as the owner role, the way a migration would. */

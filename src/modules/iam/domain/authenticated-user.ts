@@ -8,6 +8,11 @@ export const Role = {
 /** Stable role values carried by access tokens. */
 export type Role = (typeof Role)[keyof typeof Role];
 
+/** The database stores roles as plain text, so values read back are checked here. */
+export function isRole(value: string): value is Role {
+  return (Object.values(Role) as string[]).includes(value);
+}
+
 /** Trusted identity exposed to HTTP handlers after signature and claim validation. */
 export interface AuthenticatedUser {
   readonly id: string;

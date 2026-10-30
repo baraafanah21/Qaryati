@@ -1,11 +1,8 @@
 // Reference: copy the repository adapter: module handle, row↔aggregate mapping, sort allow-list as columns, versioned writes, native SQL via the sql template.
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 import { InjectModuleDb } from '../../../src/platform/database/database';
-import {
-  softDeleteWithVersion,
-  updateWithVersion,
-} from '../../../src/platform/database/versioning';
+import { deleteWithVersion, updateWithVersion } from '../../../src/platform/database/versioning';
 import {
   asId,
   CLOCK,
@@ -24,8 +21,6 @@ type WidgetRow = typeof widget.$inferSelect;
 
 // The sort allow-list again, now as columns: the only way a sort field reaches SQL.
 const SORT_COLUMNS = { name: widget.name, createdAt: widget.createdAt } as const;
-
-const live = isNull(widget.deletedAt);
 
 function toDomain(row: WidgetRow): Widget {
   return Widget.restore({
@@ -65,7 +60,7 @@ export class DrizzleWidgetRepository implements WidgetRepository {
   }
 
   async findById(id: Id<'Widget'>): Promise<Widget | undefined> {
-    const row = await this.db.query.widget.findFirst({ where: and(eq(widget.id, id), live) });
+    const row = await this.db.query.widget.findFirst({ where: eq(widget.id, id) });
     return row && toDomain(row);
   }
 
@@ -77,16 +72,13 @@ export class DrizzleWidgetRepository implements WidgetRepository {
       this.db
         .select()
         .from(widget)
-        .where(live)
         // id last, so rows with equal sort keys keep a stable order across pages.
         .orderBy(...order, asc(widget.id))
         .limit(query.size)
         .offset(pageOffset(query)),
       // Native SQL through the sql template: tables, columns and values are
       // interpolated as identifiers and parameters, never concatenated.
-      this.db.execute<{ total: number }>(
-        sql`SELECT count(*)::int AS total FROM ${widget} WHERE ${widget.deletedAt} IS NULL`,
-      ),
+      this.db.execute<{ total: number }>(sql`SELECT count(*)::int AS total FROM ${widget}`),
     ]);
     return toPage(rows.map(toDomain), totals.rows[0]?.total ?? 0, query);
   }
@@ -98,7 +90,7 @@ export class DrizzleWidgetRepository implements WidgetRepository {
     return toDomain(row);
   }
 
-  async softDelete(id: Id<'Widget'>, expectedVersion: number): Promise<void> {
-    await softDeleteWithVersion(this, widget, id, expectedVersion);
+  async delete(id: Id<'Widget'>, expectedVersion: number): Promise<Widget> {
+    return toDomain(await deleteWithVersion(this, widget, id, expectedVersion));
   }
 }
