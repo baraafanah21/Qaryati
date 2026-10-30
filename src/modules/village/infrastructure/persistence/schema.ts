@@ -13,15 +13,6 @@ const geographyPoint = customType<{ data: string; driverData: string }>({
   dataType: () => 'geography(Point,4326)',
 });
 
-const villageKernelVersionColumns = (() => {
-  const columns = versionColumns();
-  return {
-    version: columns.version,
-    createdAt: columns.createdAt,
-    updatedAt: columns.updatedAt,
-  };
-})();
-
 /** Village identity and the display projections maintained with preferred claims. */
 export const village = pgTable(
   'village',
@@ -37,7 +28,7 @@ export const village = pgTable(
     /** Projection of the preferred location claim; written only by claim preference hooks. */
     location: geographyPoint(),
     createdBy: uuid().notNull(),
-    ...villageKernelVersionColumns,
+    ...versionColumns(),
   },
   (table) => [
     uniqueIndex('village_slug_key').on(table.slug),
@@ -50,7 +41,7 @@ export const village = pgTable(
   ],
 );
 
-/** Administrative reference units, including self-parented historical units. */
+/** Administrative reference units, including self-parented historical units. Admin-managed, so edits need If-Match. */
 export const adminUnit = pgTable(
   'admin_unit',
   {
@@ -62,6 +53,7 @@ export const adminUnit = pgTable(
     era: text().notNull().default('CURRENT'),
     nameAr: text().notNull(),
     nameEn: text(),
+    ...versionColumns(),
   },
   (table) => [
     uniqueIndex('admin_unit_code_key').on(table.code),

@@ -15,7 +15,7 @@ An ADR records one important decision: the context, what we chose, what else we 
 | ----------------------------------------------------- | --------------------------------------- | -------- | ----- | ----- |
 | [ADR-001](0001-modular-monolith-hexagonal-modules.md) | Modular monolith with hexagonal modules | Accepted | Baraa | #11   |
 | [ADR-002](0002-technology-stack.md)                   | Technology stack                        | Accepted | Baraa | #11   |
-| ADR-003                                               | Claims model                            | Planned  | Yahya | #26   |
+| [ADR-003](0003-claims-data-model.md)                  | Claims data model                       | Accepted | Baraa | #26   |
 | ADR-004                                               | Token design                            | Planned  | Hamam | #29   |
 | ADR-005                                               | Geocoding integration                   | Planned  | Ali   | #46   |
 | ADR-006                                               | Village details cache                   | Planned  | Momen | #45   |

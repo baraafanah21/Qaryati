@@ -8,10 +8,10 @@ It is **test-only**:
 - AppModule does not import `WidgetModule`, so it is not in the running API or in `docs/api/openapi.json`;
 - dependency-cruiser and ESLint check it like a module under `src/modules` (layer rules, no `new Date()` in domain/application), and it may not import any real module.
 
-| Folder               | Shows                                                                                                                                      |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `domain/`            | `Widget` with one invariant (name 1–80 characters), the repository port, the `widget.created` event, a unit test                           |
-| `application/`       | create, get, list, update, delete; every write `@Transactional()` and audited; create publishes `WidgetCreated`                            |
-| `infrastructure/`    | Drizzle schema with `versionColumns()`, the repository adapter on the module handle, `updateWithVersion`, native SQL, its integration test |
-| `web/`               | zod DTOs, pagination with a sort allow-list, `@ETag()`/`@IfMatch()`, `@ApiModule`/`@ApiProblems`, the mapper to the response               |
-| `widget.e2e-spec.ts` | every status code of every endpoint, audit and events over HTTP, and the generated OpenAPI document                                        |
+| Folder               | Shows                                                                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `domain/`            | `Widget` with one invariant (name 1–80 characters), the repository port, the `widget.created` event, a unit test                                               |
+| `application/`       | create, get, list, update, delete (a real, audited `DELETE`); every write `@Transactional()` and audited; create publishes `WidgetCreated`                     |
+| `infrastructure/`    | Drizzle schema with `versionColumns()`, the repository adapter on the module handle, `updateWithVersion`/`deleteWithVersion`, native SQL, its integration test |
+| `web/`               | zod DTOs, pagination with a sort allow-list, `@ETag()`/`@IfMatch()`, `@ApiModule`/`@ApiProblems`, the mapper to the response                                   |
+| `widget.e2e-spec.ts` | every status code of every endpoint, audit and events over HTTP, and the generated OpenAPI document                                                            |

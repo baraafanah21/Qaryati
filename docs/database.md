@@ -50,7 +50,8 @@ Conventions:
 
 - **Casing.** Drizzle runs with `casing: 'snake_case'`, both in `drizzle.config.ts` and in `DatabaseModule`. Declare properties in camelCase without explicit column names. `displayName: text()` becomes the column `display_name`.
 - **Only the owning module edits its `schema.ts`.** Other modules reach the data through the owner's `index.ts` facade. dependency-cruiser rejects imports of another module's internals, `schema.ts` included.
-- **Constraints belong in the schema**, not only in application code: `notNull`, `unique`, `check`, foreign keys, partial and GIN/GiST indexes.
+- **The schema guards shape and integrity only:** keys, foreign keys with an explicit `ON DELETE`, `notNull`, concurrency-critical uniqueness and the indexes known queries need. Allowed values, ranges, lengths and formats are domain rules, not `check`s. See [What the database enforces](#what-the-database-enforces).
+- **Rows are never flagged as deleted.** A row leaves public reads through a status (`ARCHIVED`, `DISABLED`, `WITHDRAWN`) or, for admin removal of spam or personal data, through an audited hard delete with `deleteWithVersion` ([kernel.md](kernel.md#optimistic-locking-version-etag-and-if-match)).
 
 ## Querying: the module database
 
@@ -145,14 +146,14 @@ Overhead, measured with a micro-benchmark (no database, 200 000 iterations): res
 
 Migrations live in [`migrations/`](../migrations/). Drizzle-kit generates them, they are reviewed like code, and they are applied in order.
 
-| Command                                    | What it does                                                                                   |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `npm run db:generate`                      | Compares the `schema.ts` files with `migrations/meta` and writes a new SQL migration.          |
-| `npm run db:generate -- --custom --name=x` | Writes an empty migration for hand-written SQL (extensions, data fixes).                       |
-| `npm run db:migrate`                       | Applies pending migrations to the database in `DATABASE_OWNER_URL` (the Compose database).     |
-| `npm run db:check`                         | Checks that the migration history is consistent (for example after a merge).                   |
-| `npm run db:drift`                         | Fails if a `schema.ts` change has no generated migration. CI runs it ([ci.md](ci.md#quality)). |
-| `npm run db:studio`                        | Opens Drizzle Studio on the owner connection, for browsing data locally.                       |
+| Command                                  | What it does                                                                                        |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `npm run db:generate`                    | Compares the `schema.ts` files with `migrations/meta` and writes a new SQL migration.               |
+| `npm run db:generate:custom -- --name=x` | Writes an empty migration for hand-written SQL (cross-module foreign keys, extensions, data fixes). |
+| `npm run db:migrate`                     | Applies pending migrations to the database in `DATABASE_OWNER_URL` (the Compose database).          |
+| `npm run db:check`                       | Checks that the migration history is consistent (for example after a merge).                        |
+| `npm run db:drift`                       | Fails if a `schema.ts` change has no generated migration. CI runs it ([ci.md](ci.md#quality)).      |
+| `npm run db:studio`                      | Opens Drizzle Studio on the owner connection, for browsing data locally.                            |
 
 All four read `DATABASE_OWNER_URL` from `.env`, so copy `.env.example` first.
 
@@ -180,14 +181,43 @@ How migrations are applied:
 The project rule is that the database guards data shape and integrity, while domain code owns business rules. A business rule changing must never require a migration.
 
 1. Primary keys, foreign keys with an explicit `ON DELETE`, and `NOT NULL` on columns that must always exist.
-2. Uniqueness that the code cannot guarantee under concurrency, such as a village slug or administrative-unit code.
+2. Uniqueness that the code cannot guarantee under concurrency, such as a village slug, an administrative-unit code or an email.
 3. Indexes needed by known queries.
+4. The few structural or core `CHECK`s that [data-model.md](data-model.md#what-the-database-enforces-and-what-the-code-enforces) lists for `claim` and the fact tables (a fact row's constant `claim_type`; preferred means verified; verified means sourced). Nothing else.
 
-The database does not use `CHECK` constraints for allowed values, ranges, lengths, formats or workflow rules. Those columns are plain `text`, and their allowed values live in module domain code as `as const` arrays with unit tests.
+The database does not use `CHECK` constraints for allowed values, ranges, lengths, formats or workflow rules. Those columns are plain `text`, and their allowed values live in module domain code as `as const` arrays with unit tests. A business rule changing must never require a migration. No kernel helper adds a `CHECK`, `versionColumns()` included.
+
+Every foreign key has an index on its column and an explicit `ON DELETE` (`RESTRICT` unless the data model says otherwise).
 
 ## Cross-module foreign keys
 
-- `village.created_by → user_account.id`, `ON DELETE RESTRICT`, added as raw SQL in the village migration. This constraint is not declared through IAM's Drizzle schema because modules must not import another module's table definitions.
+A module never imports another module's Drizzle tables, so a foreign key that crosses a module boundary cannot be declared in `schema.ts`. It is written in raw SQL in a custom migration of the module that owns the referencing column, and listed here.
+
+| From                                        | To                       | Owner (migration)                                   | `ON DELETE` |
+| ------------------------------------------- | ------------------------ | --------------------------------------------------- | ----------- |
+| `village.created_by`                        | `user_account.id`        | village (`0003_village_created_by_cross_module_fk`) | RESTRICT    |
+| `claim.village_id`                          | `village.id`             | curation (#16, planned)                             | RESTRICT    |
+| `claim.source_id`                           | `source.id`              | curation (#16, planned)                             | RESTRICT    |
+| `claim.created_by`, `claim.reviewed_by`     | `user_account.id`        | curation (#16, planned)                             | RESTRICT    |
+| every fact table's `(claim_id, claim_type)` | `claim (id, claim_type)` | the fact table's module (planned)                   | CASCADE     |
+
+### Writing a cross-module foreign key
+
+1. Declare the column in your `schema.ts` with its index (`index('<table>_<column>_idx').on(table.<column>)`), but no `foreignKey(...)`. Run `npm run db:generate` for the table itself.
+2. Create an empty migration for the constraint: `npm run db:generate:custom -- --name=<table>_cross_module_fks`.
+3. Write the constraint in it, named `<table>_<column>_fk`:
+
+   ```sql
+   ALTER TABLE "village" ADD CONSTRAINT "village_created_by_user_account_fk"
+     FOREIGN KEY ("created_by") REFERENCES "public"."user_account"("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
+   ```
+
+   [`0003_village_created_by_cross_module_fk.sql`](../migrations/0003_village_created_by_cross_module_fk.sql) is the example on `main` (its name predates the `<table>_<column>_fk` convention). A composite key works the same way: `FOREIGN KEY ("claim_id", "claim_type") REFERENCES "public"."claim"("id", "claim_type") ON DELETE CASCADE`.
+
+4. Check that the column has an index (step 1), and that an integration test inserts a row with an unknown id and expects SQLSTATE `23503`.
+5. Add the line to the table above.
+
+`npm run db:drift` stays green with custom migrations: drizzle-kit records them in the journal and the next snapshot, and a hand-written constraint is invisible to the schema diff ([ci.md](ci.md#quality)).
 
 ## Testing against the database
 
@@ -209,8 +239,10 @@ Docker must be running. The first run pulls `postgis/postgis:16-3.5`, which take
 
 ## IAM credential tables (#14)
 
-IAM owns `user_account` and `refresh_token`. Email uses a local Drizzle citext custom type; the baseline already enables the extension. A full unique index reserves email case-insensitively even for disabled or soft-deleted accounts. The application trims and lowercases email but the database is the uniqueness authority, including concurrent registration.
+IAM owns `user_account` and `refresh_token`. Email uses a local Drizzle citext custom type; the baseline already enables the extension. A full unique index reserves email case-insensitively, also for disabled accounts. The application trims and lowercases email but the database is the uniqueness authority, including concurrent registration.
 
-Accounts use versionColumns(), explicit Clock timestamps, and CHECK constraints for the existing three roles, ACTIVE/DISABLED status and positive version. IDs come from IdGenerator (UUIDv7), not database defaults. No account administration or deletion endpoint is added.
+Accounts use `versionColumns()` and explicit Clock timestamps; an account that may not log in is `DISABLED`. `role` and `status` are plain `text` without a `CHECK`. Their values are `Role` and `AccountStatus` in the domain (`isRole`, `isAccountStatus`), and the repository throws an internal error (500) when it reads an unknown value instead of accepting it silently. IDs come from IdGenerator (UUIDv7), not database defaults. No account administration or deletion endpoint is added.
 
-Refresh rows contain a SHA-256 hex digest, user FK (ON DELETE RESTRICT), family UUID, createdAt and expiresAt. Token digests are unique; the user FK is indexed. Raw 256-bit opaque tokens never enter persistence. A CHECK enforces lowercase 64-character hex digests and expiry after creation; the application sets expiry to seven days. Family identity prepares for #18 only: there is no revokedAt, rotation or reuse behavior in #14.
+Refresh rows contain a SHA-256 hex digest, user FK (ON DELETE RESTRICT), family UUID, createdAt and expiresAt. Token digests are unique; the user FK is indexed. Raw 256-bit opaque tokens never enter persistence. The digest format (64 lowercase hex characters) and expiry after creation are domain rules (`domain/refresh-token-rules.ts`), checked by the repository before every insert; the application sets expiry to seven days. Family identity prepares for #18 only: there is no revokedAt, rotation or reuse behavior in #14.
+
+Migration `0004_iam_minimal_db_rules` removed the earlier deletion-timestamp column and the five value `CHECK`s.

@@ -4,9 +4,19 @@ import { FieldErrorCode, ValidationError } from '../../../shared/kernel';
 export const SETTLEMENT_STATUSES = ['INHABITED', 'DEPOPULATED', 'MERGED'] as const;
 export type SettlementStatus = (typeof SETTLEMENT_STATUSES)[number];
 
+/** The database stores settlement status as plain text; this is the only allowed-values check. */
+export function isSettlementStatus(value: string): value is SettlementStatus {
+  return (SETTLEMENT_STATUSES as readonly string[]).includes(value);
+}
+
 /** Publication workflow states supported by village records. */
 export const PUBLICATION_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
 export type PublicationStatus = (typeof PUBLICATION_STATUSES)[number];
+
+/** The database stores publication status as plain text; this is the only allowed-values check. */
+export function isPublicationStatus(value: string): value is PublicationStatus {
+  return (PUBLICATION_STATUSES as readonly string[]).includes(value);
+}
 
 /** Validates the stable slug format used by village identities and admin unit codes. */
 export function validateSlug(slug: string): string {

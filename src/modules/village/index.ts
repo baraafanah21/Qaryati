@@ -9,6 +9,8 @@ export { normalizeName } from './domain/name-normalizer';
 export {
   SETTLEMENT_STATUSES,
   PUBLICATION_STATUSES,
+  isSettlementStatus,
+  isPublicationStatus,
   type SettlementStatus,
   type PublicationStatus,
 } from './domain/village-values';
@@ -16,6 +18,9 @@ export {
   ADMIN_UNIT_TYPES,
   AUTHORITY_TYPES,
   ADMIN_ERAS,
+  isAdminUnitType,
+  isAuthorityType,
+  isAdminEra,
   type AdminUnitType,
   type AuthorityType,
   type AdminEra,

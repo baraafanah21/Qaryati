@@ -12,7 +12,6 @@ export interface UserAccountProps {
   version: number;
   createdAt: Date;
   updatedAt: Date;
-  deletedAt: Date | null;
 }
 
 /** Credentials never belong in public responses or audit snapshots. */
@@ -35,7 +34,6 @@ export class UserAccount implements Versioned {
       version: INITIAL_VERSION,
       createdAt: input.now,
       updatedAt: input.now,
-      deletedAt: null,
     });
   }
 
@@ -67,11 +65,9 @@ export class UserAccount implements Versioned {
   get updatedAt() {
     return this.props.updatedAt;
   }
-  get deletedAt() {
-    return this.props.deletedAt;
-  }
+  /** An account that may not log in is `DISABLED`; there is no other way to block it. */
   get canLogin(): boolean {
-    return this.status === AccountStatus.ACTIVE && this.deletedAt === null;
+    return this.status === AccountStatus.ACTIVE;
   }
 
   /** Deliberate allow-list; never serialize the entity for audit. */

@@ -78,15 +78,19 @@ describe('DrizzleWidgetRepository (PostGIS via Testcontainers)', () => {
     );
   });
 
-  it('soft-deletes: the widget disappears and its name becomes free again', async () => {
+  it('deletes: a stale version keeps the widget; then it disappears and its name becomes free again', async () => {
     const stored = await repository.insert(newWidget('Press'));
-    await repository.softDelete(stored.id, 1);
+    await expect(repository.delete(stored.id, 2)).rejects.toBeInstanceOf(PreconditionFailedError);
+    await expect(repository.delete(stored.id, 1)).resolves.toMatchObject({
+      id: stored.id,
+      name: 'Press',
+    });
     await expect(repository.findById(stored.id)).resolves.toBeUndefined();
-    await expect(repository.softDelete(stored.id, 2)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(repository.delete(stored.id, 1)).rejects.toBeInstanceOf(NotFoundError);
     await expect(repository.insert(newWidget('Press'))).resolves.toMatchObject({ name: 'Press' });
   });
 
-  it('rejects a duplicate live name through the partial unique index (SQLSTATE 23505)', async () => {
+  it('rejects a duplicate name through the unique index (SQLSTATE 23505)', async () => {
     await repository.insert(newWidget('Unique'));
     await expect(repository.insert(newWidget('Unique'))).rejects.toMatchObject({
       cause: expect.objectContaining({ code: '23505' }) as unknown,
@@ -99,7 +103,7 @@ describe('DrizzleWidgetRepository (PostGIS via Testcontainers)', () => {
       size: 2,
       sort: [{ field: 'name', direction: 'asc' }],
     });
-    // Live: Olive press, Water mill, Press, Unique (one Press was deleted).
+    // Stored: Olive press, Water mill, Press, Unique (the first Press was deleted for good).
     expect(page.page).toEqual({ number: 0, size: 2, totalElements: 4, totalPages: 2 });
     expect(page.content.map((w) => w.name)).toEqual(['Olive press', 'Press']);
   });

@@ -14,12 +14,12 @@ The core village record: identity and slug, names and name origins, administrati
 
 Issue #15 adds the two identity/reference tables that are not claims:
 
-- `village` stores the stable identity, unique slug, settlement and publication statuses, display-name and location projections, creator, and kernel version/timestamps. It has no `deleted_at`; archived villages use `publication_status = 'ARCHIVED'`.
+- `village` stores the stable identity, unique slug, settlement and publication statuses, display-name and location projections, creator, and kernel version/timestamps. Rows are never flagged as deleted: archived villages use `publication_status = 'ARCHIVED'`.
 - `admin_unit` stores a unique stable code, self-parent hierarchy, unit and authority types, era, and Arabic/English names.
 
 The `display_name_ar`, `display_name_en`, and `location` columns are projections. They are maintained only when the preferred current name or location claim changes. The local Drizzle geography custom type maps PostgreSQL `geography(Point,4326)` without modifying platform database code.
 
-Allowed values live in `domain/village-values.ts` and `domain/admin-unit-values.ts`. Pure validation lives in those files; see the exported value arrays from `index.ts` for other modules and API schemas.
+Allowed values live in `domain/village-values.ts` and `domain/admin-unit-values.ts` as `as const` arrays, with exact, case-sensitive membership checks (`isSettlementStatus`, `isPublicationStatus`, `isAdminUnitType`, `isAdminEra`, `isAuthorityType`); the tables have no CHECK, so these are the only guard. `validateAdminUnit` applies them and then the conditional authority and hierarchy rules. `index.ts` exports the arrays and checks for other modules and API schemas.
 
 ## Public API (`index.ts`)
 
@@ -61,7 +61,7 @@ introducing false matches by deleting meaningful text or boundaries. The
 letters ؤ and ئ are preserved for the same reason.
 
 Village names will be stored with this normalized form in
-`village_name.name_normalized` (#15). Search (#30) will normalize the query
+`village_name.name_normalized` (#27). Search (#30) will normalize the query
 with the same function before comparing it, so stored names and queries use
 matching rules.
 

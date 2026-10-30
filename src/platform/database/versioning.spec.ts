@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { getTableConfig, pgTable, text, uuid } from 'drizzle-orm/pg-core';
 import { FixedClock, NotFoundError, PreconditionFailedError } from '../../shared/kernel';
-import { softDeleteWithVersion, updateWithVersion, versionColumns } from './versioning';
+import { deleteWithVersion, updateWithVersion, versionColumns } from './versioning';
 
 const note = pgTable('village_note', {
   id: uuid().primaryKey(),
@@ -28,17 +28,31 @@ function setup(results: unknown[][][]) {
   return { ctx: { db, clock: new FixedClock(NOW) }, queries };
 }
 
-// id, body, version, created_at, updated_at, deleted_at
-const stored = ['n1', 'new', 4, NOW, NOW, null];
-const row = { id: 'n1', body: 'new', version: 4, createdAt: NOW, updatedAt: NOW, deletedAt: null };
+// id, body, version, created_at, updated_at
+const stored = ['n1', 'new', 4, NOW, NOW];
+const row = { id: 'n1', body: 'new', version: 4, createdAt: NOW, updatedAt: NOW };
+
+describe('versionColumns', () => {
+  it('adds version and the two timestamps only, and no CHECK', () => {
+    const config = getTableConfig(note);
+    expect(config.columns.map((column) => column.name)).toEqual([
+      'id',
+      'body',
+      'version',
+      'createdAt',
+      'updatedAt',
+    ]);
+    expect(config.checks).toEqual([]);
+  });
+});
 
 describe('updateWithVersion', () => {
-  it('sends one UPDATE that checks id, version and deleted_at and bumps the version', async () => {
+  it('sends one UPDATE that checks id and version and bumps the version', async () => {
     const { ctx, queries } = setup([[stored]]);
     await expect(updateWithVersion(ctx, note, 'n1', 3, { body: 'new' })).resolves.toEqual(row);
     expect(queries).toHaveLength(1);
     expect(queries[0]?.text).toMatch(
-      /^update "village_note" set "body" = \$1, "version" = "village_note"\."version" \+ 1, "updated_at" = \$2 where \("village_note"\."id" = \$3 and "village_note"\."version" = \$4 and "village_note"\."deleted_at" is null\) returning /,
+      /^update "village_note" set "body" = \$1, "version" = "village_note"\."version" \+ 1, "updated_at" = \$2 where \("village_note"\."id" = \$3 and "village_note"\."version" = \$4\) returning /,
     );
     expect(queries[0]?.values).toEqual(['new', NOW.toISOString(), 'n1', 3]);
   });
@@ -50,15 +64,8 @@ describe('updateWithVersion', () => {
     );
   });
 
-  it('reports a soft-deleted row as NotFoundError', async () => {
-    const { ctx } = setup([[], [[4, NOW]]]);
-    await expect(updateWithVersion(ctx, note, 'n1', 4, { body: 'x' })).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
-  });
-
   it('reports a row at another version as PreconditionFailedError', async () => {
-    const { ctx } = setup([[], [[5, null]]]);
+    const { ctx } = setup([[], [[5]]]);
     const error = await updateWithVersion(ctx, note, 'n1', 3, { body: 'x' }).catch(
       (e: unknown) => e,
     );
@@ -67,13 +74,26 @@ describe('updateWithVersion', () => {
   });
 });
 
-describe('softDeleteWithVersion', () => {
-  it('sets deleted_at from the clock with the same version check', async () => {
-    const { ctx, queries } = setup([[[...stored.slice(0, 5), NOW]]]);
-    await softDeleteWithVersion(ctx, note, 'n1', 3);
+describe('deleteWithVersion', () => {
+  it('sends one DELETE that checks id and version and returns the deleted row', async () => {
+    const { ctx, queries } = setup([[stored]]);
+    await expect(deleteWithVersion(ctx, note, 'n1', 4)).resolves.toEqual(row);
+    expect(queries).toHaveLength(1);
     expect(queries[0]?.text).toMatch(
-      /^update "village_note" set "version" = .*, "updated_at" = \$1, "deleted_at" = \$2 where .*"version" = \$4 and "village_note"\."deleted_at" is null\)/,
+      /^delete from "village_note" where \("village_note"\."id" = \$1 and "village_note"\."version" = \$2\) returning /,
     );
-    expect(queries[0]?.values).toEqual([NOW.toISOString(), NOW.toISOString(), 'n1', 3]);
+    expect(queries[0]?.values).toEqual(['n1', 4]);
+  });
+
+  it('reports a missing row as NotFoundError', async () => {
+    const { ctx } = setup([[], []]);
+    await expect(deleteWithVersion(ctx, note, 'n1', 3)).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('reports a row at another version as PreconditionFailedError', async () => {
+    const { ctx } = setup([[], [[5]]]);
+    await expect(deleteWithVersion(ctx, note, 'n1', 3)).rejects.toBeInstanceOf(
+      PreconditionFailedError,
+    );
   });
 });

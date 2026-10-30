@@ -11,8 +11,8 @@ export interface WidgetListQuery extends PageRequest {
 }
 
 /**
- * Persistence port of the widget aggregate. Soft-deleted widgets do not
- * exist for any method. Writes run in the caller's transaction, if any.
+ * Persistence port of the widget aggregate. Writes run in the caller's
+ * transaction, if any.
  */
 export interface WidgetRepository {
   /** Stores a new widget and returns it as stored. */
@@ -24,8 +24,11 @@ export interface WidgetRepository {
    * its new version. Throws `NotFoundError` or `PreconditionFailedError`.
    */
   update(widget: Widget, expectedVersion: number): Promise<Widget>;
-  /** Soft-deletes the widget if it is still at `expectedVersion`; same errors as `update`. */
-  softDelete(id: Id<'Widget'>, expectedVersion: number): Promise<void>;
+  /**
+   * Deletes the widget for good if it is still at `expectedVersion` and
+   * returns it as it was; same errors as `update`.
+   */
+  delete(id: Id<'Widget'>, expectedVersion: number): Promise<Widget>;
 }
 
 /** Injection token of the {@link WidgetRepository}. */

@@ -257,7 +257,7 @@ describe('Reference module: /api/v1/widgets (e2e)', () => {
   });
 
   describe('DELETE /widgets/:id', () => {
-    it('204: soft-deletes with If-Match and audits; the widget is then gone', async () => {
+    it('204: deletes with If-Match and audits the deleted widget; it is then gone', async () => {
       const created = await create('Doomed');
       audit.clear();
       await http().delete(`${PATH}/${created.id}`).set('If-Match', '"1"').expect(204);
@@ -275,6 +275,17 @@ describe('Reference module: /api/v1/widgets (e2e)', () => {
         'VERSION_CONFLICT',
       );
       await expectProblem(http().delete(`${PATH}/${created.id}`), 428, 'PRECONDITION_REQUIRED');
+      await http().get(`${PATH}/${created.id}`).expect(200);
+    });
+
+    it('404 for an unknown widget, with nothing audited', async () => {
+      audit.clear();
+      await expectProblem(
+        http().delete(`${PATH}/00000000-0000-7000-8000-0000000000ff`).set('If-Match', '"1"'),
+        404,
+        'NOT_FOUND',
+      );
+      expect(audit.entries).toEqual([]);
     });
   });
 
