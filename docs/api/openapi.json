@@ -256,7 +256,7 @@
         },
         "responses": {
           "201": {
-            "description": "Source created successfully.",
+            "description": "Source created successfully with Location and version ETag headers.",
             "content": {
               "application/json": {
                 "schema": {
