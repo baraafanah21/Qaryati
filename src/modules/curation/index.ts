@@ -1,8 +1,7 @@
 /**
  * Public API of the curation module.
- *
- * Other modules may import only from this file, and only in the directions
- * listed in docs/architecture.md (enforced by dependency-cruiser). Export
- * facades, DTOs and event types here; never repositories, tables or entities.
+ * Other modules must import curation services from this entry point.
  */
-export {};
+export { SourceQueries } from './application/source-queries';
+export { SOURCE_TYPES } from './domain/source-values';
+export type { SourceType } from './domain/source-values';

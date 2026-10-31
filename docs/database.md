@@ -196,6 +196,7 @@ A module never imports another module's Drizzle tables, so a foreign key that cr
 | From                                        | To                       | Owner (migration)                                   | `ON DELETE` |
 | ------------------------------------------- | ------------------------ | --------------------------------------------------- | ----------- |
 | `village.created_by`                        | `user_account.id`        | village (`0003_village_created_by_cross_module_fk`) | RESTRICT    |
+| `source.created_by`                         | `user_account.id`        | curation (`0007_source_cross_module_fks`)           | RESTRICT    |
 | `claim.village_id`                          | `village.id`             | curation (#16, planned)                             | RESTRICT    |
 | `claim.source_id`                           | `source.id`              | curation (#16, planned)                             | RESTRICT    |
 | `claim.created_by`, `claim.reviewed_by`     | `user_account.id`        | curation (#16, planned)                             | RESTRICT    |

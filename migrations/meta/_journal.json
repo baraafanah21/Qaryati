@@ -43,6 +43,20 @@
       "when": 1793400115631,
       "tag": "0005_admin_unit_version_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793455836484,
+      "tag": "0006_serious_dust",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793455983322,
+      "tag": "0007_source_cross_module_fks",
+      "breakpoints": true
     }
   ]
 }
