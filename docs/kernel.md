@@ -7,7 +7,7 @@ How to do the everyday things in an endpoint: one way each, copy and adapt. New 
 | [`src/shared/kernel`](../src/shared/kernel/index.ts) | Plain TypeScript: errors and codes, `Clock`, `Id`/`IdGenerator`, `Page<T>`, `Versioned`, `DomainEvent` + `DomainEventPublisher`, `AuditRecorder` port           | every layer, **including `domain/`**  |
 | `@nestjs-cls/transactional`                          | `@Transactional()`                                                                                                                                              | `application/` (use cases)            |
 | [`src/platform/http`](../src/platform/http)          | Nest pieces: problem filter, validation pipe, `paginationQuery`, `sortQuery`, `pageResponse`, request ID, `@ETag()`, `@IfMatch()`, `@ApiModule`, `@ApiProblems` | `web/` (controllers)                  |
-| [`src/platform/database`](../src/platform/database)  | `DatabaseModule.forFeature`, `@InjectModuleDb()`, `ModuleDb<S>`, `versionColumns()`, `updateWithVersion`, `softDeleteWithVersion`                               | the module file and `infrastructure/` |
+| [`src/platform/database`](../src/platform/database)  | `DatabaseModule.forFeature`, `@InjectModuleDb()`, `ModuleDb<S>`, `versionColumns()`, `updateWithVersion`, `deleteWithVersion`                                   | the module file and `infrastructure/` |
 | [`src/platform/events`](../src/platform/events)      | `@OnDomainEvent(name)` for listeners                                                                                                                            | `infrastructure/` (listeners)         |
 | [`src/platform/context`](../src/platform/context)    | `RequestContext`: request ID and actor ID                                                                                                                       | platform code, the auth guard (#10)   |
 | [`src/platform/logging`](../src/platform/logging)    | pino setup (nothing to import day to day)                                                                                                                       | AppModule only                        |
@@ -245,7 +245,7 @@ Every aggregate a client can change carries `version: number` (`Versioned` in th
 export const village = pgTable('village', {
   id: uuid().primaryKey(),
   slug: text().notNull(),
-  ...versionColumns(), // version (default 1), createdAt, updatedAt, deletedAt
+  ...versionColumns(), // version (default 1), createdAt, updatedAt; nothing else, no CHECK
 });
 
 // infrastructure/drizzle-village.repository.ts
@@ -260,8 +260,9 @@ export class DrizzleVillageRepository implements VillageRepository {
     return toDomain(await updateWithVersion(this, village, entity.id, expectedVersion, { slug: entity.slug }));
   }
 
-  async softDelete(id: Id<'Village'>, expectedVersion: number): Promise<void> {
-    await softDeleteWithVersion(this, village, id, expectedVersion);
+  // Admin-only removal of spam or personal data: a real DELETE, audited by the use case.
+  async delete(id: Id<'Village'>, expectedVersion: number): Promise<Village> {
+    return toDomain(await deleteWithVersion(this, village, id, expectedVersion));
   }
 }
 
@@ -283,16 +284,24 @@ remove(@Param('id', { schema: idParam }) id: string, @IfMatch() expectedVersion:
 
 ```sql
 UPDATE village SET slug = $3, version = version + 1, updated_at = <clock>
-WHERE id = $1 AND version = $2 AND deleted_at IS NULL RETURNING *
+WHERE id = $1 AND version = $2 RETURNING *
 ```
 
 | Outcome                             | Result                                             |
 | ----------------------------------- | -------------------------------------------------- |
 | one row                             | the updated row, with the new version              |
-| no row; the id is missing/deleted   | `NotFoundError` → 404 `NOT_FOUND`                  |
+| no row; the id is missing           | `NotFoundError` → 404 `NOT_FOUND`                  |
 | no row; the row has another version | `PreconditionFailedError` → 412 `VERSION_CONFLICT` |
 
-`softDeleteWithVersion` does the same with `deleted_at = <clock>`. Of two concurrent writes with the same version, exactly one wins: the second waits for the first's row lock, then matches nothing.
+`deleteWithVersion(ctx, table, id, expectedVersion)` is the same check on a real delete:
+
+```sql
+DELETE FROM village WHERE id = $1 AND version = $2 RETURNING *
+```
+
+It returns the deleted row, which the use case records as the audit entry's `before`, with the same 404/412 split. A row that others still reference fails with the foreign key's `ON DELETE RESTRICT` (409 `REFERENCE_CONFLICT`). Of two concurrent writes with the same version, exactly one wins: the second waits for the first's row lock, then matches nothing.
+
+**Rows are never flagged as deleted** ([data-model.md](data-model.md)). Do not add a deletion-timestamp column. A row that should disappear from public reads gets a status (a village is `ARCHIVED`, an account `DISABLED`, a claim `WITHDRAWN` or `REJECTED`) and stays readable as history; only an admin removing spam or personal data deletes, with `deleteWithVersion` and an audit entry.
 
 | HTTP                                                                  | Response                                        |
 | --------------------------------------------------------------------- | ----------------------------------------------- |
@@ -464,13 +473,13 @@ export class GeocodingClient {
 
 ## Build a new endpoint in 10 steps
 
-[`test/reference-module`](../test/reference-module) is a complete small module (`Widget`: create, get, list, rename, delete) that uses every helper on this page. It is test-only: its table is created by the tests and AppModule does not import it, so it is neither in the migrations nor in the API. dependency-cruiser and ESLint check it like a real module. Each file starts with a comment saying what to copy. To add a write endpoint to your module:
+[`test/reference-module`](../test/reference-module) is a complete small module (`Widget`: create, get, list, rename, hard delete) that uses every helper on this page. It is test-only: its table is created by the tests and AppModule does not import it, so it is neither in the migrations nor in the API. dependency-cruiser and ESLint check it like a real module. Each file starts with a comment saying what to copy. To add a write endpoint to your module:
 
 1. **Entity and rule:** an aggregate with a private constructor, `create()` that enforces the invariants and takes `id` and `now` as arguments, `restore()` for rows, `snapshot()` for audit. → [`domain/widget.ts`](../test/reference-module/domain/widget.ts)
 2. **Domain unit test:** every invariant, with `FixedClock` and `SequentialIdGenerator`. → [`domain/widget.spec.ts`](../test/reference-module/domain/widget.spec.ts)
 3. **Repository port:** an interface and a token in `domain/`, in terms of aggregates. → [`domain/widget.repository.ts`](../test/reference-module/domain/widget.repository.ts)
-4. **Table:** your module's `schema.ts` with `...versionColumns()` and the constraints, then `npm run db:generate` and review the SQL. → [`infrastructure/persistence/schema.ts`](../test/reference-module/infrastructure/persistence/schema.ts)
-5. **Repository adapter:** the module handle, row↔aggregate mapping, the sort allow-list as columns, `updateWithVersion`/`softDeleteWithVersion`, native SQL through `sql`. → [`infrastructure/drizzle-widget.repository.ts`](../test/reference-module/infrastructure/drizzle-widget.repository.ts)
+4. **Table:** your module's `schema.ts` with `...versionColumns()`, keys, foreign keys with `onDelete`, `notNull`, unique and query indexes, then `npm run db:generate` and review the SQL. Value rules (allowed values, ranges, lengths, formats) go in the domain with unit tests, **not in a `check`** ([database.md](database.md#what-the-database-enforces)). A foreign key to another module's table goes in a custom migration ([database.md](database.md#writing-a-cross-module-foreign-key)). → [`infrastructure/persistence/schema.ts`](../test/reference-module/infrastructure/persistence/schema.ts)
+5. **Repository adapter:** the module handle, row↔aggregate mapping, the sort allow-list as columns, `updateWithVersion`/`deleteWithVersion`, native SQL through `sql`. → [`infrastructure/drizzle-widget.repository.ts`](../test/reference-module/infrastructure/drizzle-widget.repository.ts)
 6. **Repository integration test** against PostGIS. → [`infrastructure/drizzle-widget.repository.int-spec.ts`](../test/reference-module/infrastructure/drizzle-widget.repository.int-spec.ts)
 7. **Use case:** `@Transactional()`, `CLOCK`/`ID_GENERATOR`, the repository port, `AuditRecorder.record` on every write, a domain event if others care. → [`application/create-widget.use-case.ts`](../test/reference-module/application/create-widget.use-case.ts), [`update-widget.use-case.ts`](../test/reference-module/application/update-widget.use-case.ts)
 8. **DTOs and mapper:** zod `strictObject` requests, `paginationQuery` + `sortQuery`, a response schema with an id, a mapper from the aggregate. → [`web/widget.schemas.ts`](../test/reference-module/web/widget.schemas.ts), [`web/widget.mapper.ts`](../test/reference-module/web/widget.mapper.ts)

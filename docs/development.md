@@ -26,12 +26,9 @@ cd Qaryati
 nvm use
 npm ci                  # exact versions from package-lock.json; also installs the Git hooks (prepare → husky)
 cp .env.example .env    # local configuration, see configuration.md
-mkdir -p secrets
-openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/jwt-private.pem
-openssl pkey -in secrets/jwt-private.pem -pubout -out secrets/jwt-public.pem
-# Linux: grant the container's node user read access to these local files.
+npm run keys:dev        # writes secrets/jwt-private.pem (600) and secrets/jwt-public.pem
+# Linux, if the script asks: grant the container's node user (uid 1000) read access.
 sudo chown 1000 secrets/jwt-private.pem
-chmod 600 secrets/jwt-private.pem
 docker compose up -d --build --wait
 curl localhost:3000/api/v1/health   # {"status":"ok"}
 ```
@@ -47,7 +44,7 @@ npm run start:dev       # reads .env, connects to the Compose database as qaryat
 
 ## JWT keys
 
-Before the first API startup, generate a local RSA pair using the setup commands above. OpenSSL generates PKCS#8 private and SPKI public PEM files. `secrets/`, `*.pem` and `*.key` are ignored; never commit them or tokens. Keep the files outside the image and grant read access only to the user that runs the API. For host development, that is your own user; adapt Linux ownership when switching between host and container execution. On Windows, use directory/file ACLs rather than `chown` and `chmod`.
+Before the first API startup, generate a local RSA pair with `npm run keys:dev` ([`scripts/generate-dev-jwt-keys.mjs`](../scripts/generate-dev-jwt-keys.mjs)). It uses Node's `crypto`, so no OpenSSL is needed, and writes a 2048-bit PKCS#8 private and SPKI public PEM file. It refuses to overwrite an existing pair; `npm run keys:dev -- --force` replaces it (tokens signed with the old key stop working). `secrets/`, `*.pem` and `*.key` are ignored; never commit them or tokens. Keep the files outside the image and grant read access only to the user that runs the API. For host development, that is your own user; adapt Linux ownership when switching between host and container execution. On Windows, use directory/file ACLs rather than `chown` and `chmod`.
 
 The key paths and expected issuer are documented in [configuration.md](configuration.md#jwt-secret-files). An absent or invalid pair prevents startup. `GET /api/v1/health` remains explicitly public. #10 provides the authentication boundary; #14 adds public registration and login. See the IAM README for request/response contracts.
 
@@ -77,31 +74,33 @@ The `Dockerfile` builds in two stages. The first compiles TypeScript with dev de
 
 ## npm scripts
 
-| Script             | What it does                                                                                                                                 | When to use it                                       |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `start:dev`        | Starts the API with `nest start --watch`; restarts on file changes                                                                           | Daily development                                    |
-| `start:debug`      | Same, with the Node inspector open                                                                                                           | Debugging in the editor                              |
-| `start`            | Compiles and starts once                                                                                                                     | Quick manual check                                   |
-| `build`            | Compiles `src/` to `dist/` with `tsconfig.build.json` (tests excluded)                                                                       | Before `start:prod`; in Docker                       |
-| `start:prod`       | Runs `dist/main.js` with source maps enabled                                                                                                 | Production-like run after `build`                    |
-| `typecheck`        | `tsc --noEmit` over `src/`, `test/` and root config files                                                                                    | Before pushing; in CI                                |
-| `lint`             | ESLint with type-aware rules over the repository                                                                                             | Before pushing; in CI                                |
-| `lint:fix`         | ESLint with automatic fixes                                                                                                                  | After a lint failure                                 |
-| `format`           | Prettier writes every supported file                                                                                                         | After a format failure                               |
-| `format:check`     | Prettier checks every supported file, changes nothing                                                                                        | Before pushing; in CI                                |
-| `depcruise`        | dependency-cruiser checks module and layer boundaries in `src/` and `test/reference-module` ([architecture.md](architecture.md#enforcement)) | Before pushing; in CI                                |
-| `test:unit`        | Jest project `unit`: `src/**/*.spec.ts` and `test/reference-module/**/*.spec.ts`                                                             | Constantly; in CI                                    |
-| `test:int`         | Jest project `integration`: `test/**/*.int-spec.ts`, real PostGIS via Testcontainers                                                         | Before pushing; in CI                                |
-| `test:e2e`         | Jest project `e2e`: `test/**/*.e2e-spec.ts`, the app over HTTP                                                                               | Before pushing; in CI                                |
-| `test:cov`         | Unit tests with a coverage report in `coverage/`                                                                                             | To find untested code                                |
-| `db:generate`      | drizzle-kit writes a SQL migration from the modules' `schema.ts` files ([database.md](database.md#migrations))                               | After changing a `schema.ts`                         |
-| `db:migrate`       | Applies pending migrations as the owner role (`DATABASE_OWNER_URL`)                                                                          | After pulling or generating                          |
-| `db:check`         | Checks the migration history for conflicts                                                                                                   | After a rebase; in CI                                |
-| `db:drift`         | Fails if a `schema.ts` change has no migration ([ci.md](ci.md#quality))                                                                      | Before pushing; in CI                                |
-| `db:studio`        | Drizzle Studio, a browser UI for the local database                                                                                          | Looking at data                                      |
-| `openapi:generate` | Writes `docs/api/openapi.json` from the code; needs no database or Redis ([kernel.md](kernel.md#documenting-an-endpoint-swagger))            | After changing an endpoint, DTO or Swagger decorator |
-| `openapi:check`    | Regenerates `docs/api/openapi.json` and fails if it differs from the committed file ([ci.md](ci.md#quality))                                 | Before pushing; in CI                                |
-| `prepare`          | Installs the Husky Git hooks; npm runs it automatically after install                                                                        | Never by hand                                        |
+| Script               | What it does                                                                                                                                                                                          | When to use it                                       |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `start:dev`          | Starts the API with `nest start --watch`; restarts on file changes                                                                                                                                    | Daily development                                    |
+| `start:debug`        | Same, with the Node inspector open                                                                                                                                                                    | Debugging in the editor                              |
+| `start`              | Compiles and starts once                                                                                                                                                                              | Quick manual check                                   |
+| `build`              | Compiles `src/` to `dist/` with `tsconfig.build.json` (tests excluded)                                                                                                                                | Before `start:prod`; in Docker                       |
+| `start:prod`         | Runs `dist/main.js` with source maps enabled                                                                                                                                                          | Production-like run after `build`                    |
+| `typecheck`          | `tsc --noEmit` over `src/`, `test/` and root config files                                                                                                                                             | Before pushing; in CI                                |
+| `lint`               | ESLint with type-aware rules over the repository                                                                                                                                                      | Before pushing; in CI                                |
+| `lint:fix`           | ESLint with automatic fixes                                                                                                                                                                           | After a lint failure                                 |
+| `format`             | Prettier writes every supported file                                                                                                                                                                  | After a format failure                               |
+| `format:check`       | Prettier checks every supported file, changes nothing                                                                                                                                                 | Before pushing; in CI                                |
+| `depcruise`          | dependency-cruiser checks module and layer boundaries in `src/` and `test/reference-module` ([architecture.md](architecture.md#enforcement))                                                          | Before pushing; in CI                                |
+| `test:unit`          | Jest project `unit`: `src/**/*.spec.ts` and `test/reference-module/**/*.spec.ts`                                                                                                                      | Constantly; in CI                                    |
+| `test:int`           | Jest project `integration`: `test/**/*.int-spec.ts`, real PostGIS via Testcontainers                                                                                                                  | Before pushing; in CI                                |
+| `test:e2e`           | Jest project `e2e`: `test/**/*.e2e-spec.ts`, the app over HTTP                                                                                                                                        | Before pushing; in CI                                |
+| `test:cov`           | Unit tests with a coverage report in `coverage/`                                                                                                                                                      | To find untested code                                |
+| `keys:dev`           | Writes the local JWT key pair to `secrets/` with Node's `crypto`; `-- --force` replaces an existing pair ([JWT keys](#jwt-keys))                                                                      | Once, after cloning                                  |
+| `db:generate`        | drizzle-kit writes a SQL migration from the modules' `schema.ts` files ([database.md](database.md#migrations))                                                                                        | After changing a `schema.ts`                         |
+| `db:generate:custom` | drizzle-kit writes an empty, numbered migration for hand-written SQL: `npm run db:generate:custom -- --name=<table>_cross_module_fks` ([database.md](database.md#writing-a-cross-module-foreign-key)) | A foreign key to another module's table              |
+| `db:migrate`         | Applies pending migrations as the owner role (`DATABASE_OWNER_URL`)                                                                                                                                   | After pulling or generating                          |
+| `db:check`           | Checks the migration history for conflicts                                                                                                                                                            | After a rebase; in CI                                |
+| `db:drift`           | Fails if a `schema.ts` change has no migration ([ci.md](ci.md#quality))                                                                                                                               | Before pushing; in CI                                |
+| `db:studio`          | Drizzle Studio, a browser UI for the local database                                                                                                                                                   | Looking at data                                      |
+| `openapi:generate`   | Writes `docs/api/openapi.json` from the code; needs no database or Redis ([kernel.md](kernel.md#documenting-an-endpoint-swagger))                                                                     | After changing an endpoint, DTO or Swagger decorator |
+| `openapi:check`      | Regenerates `docs/api/openapi.json` and fails if it differs from the committed file ([ci.md](ci.md#quality))                                                                                          | Before pushing; in CI                                |
+| `prepare`            | Installs the Husky Git hooks; npm runs it automatically after install                                                                                                                                 | Never by hand                                        |
 
 Before every push, run the same checks as CI:
 

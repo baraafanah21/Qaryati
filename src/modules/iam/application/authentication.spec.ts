@@ -75,7 +75,7 @@ describe('authentication use cases', () => {
       }),
     );
   });
-  it.each(['wrong', 'disabled', 'deleted'])(
+  it.each(['wrong', 'disabled'])(
     'rejects %s uniformly without issuing or storing credentials',
     async (kind) => {
       const unavailable = UserAccount.restore({
@@ -87,7 +87,6 @@ describe('authentication use cases', () => {
         version: 1,
         createdAt: clock.now(),
         updatedAt: clock.now(),
-        deletedAt: kind === 'deleted' ? clock.now() : null,
       });
       const test = setup(unavailable, kind !== 'wrong');
       await expect(

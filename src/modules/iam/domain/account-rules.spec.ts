@@ -1,4 +1,6 @@
 import { SequentialIdGenerator, ValidationError } from '../../../shared/kernel';
+import { AccountStatus, isAccountStatus } from './account-status';
+import { isRole, Role } from './authenticated-user';
 import { normalizeEmail } from './email';
 import { validatePassword } from './password-policy';
 import { UserAccount } from './user-account';
@@ -49,5 +51,33 @@ describe('account rules', () => {
       status: 'ACTIVE',
     });
     expect(JSON.stringify(account.snapshot())).not.toContain('sensitive');
+  });
+  it.each(['CONTRIBUTOR', 'EDITOR', 'ADMIN'])('accepts the role %s', (role) => {
+    expect(isRole(role)).toBe(true);
+  });
+  it.each(['ROOT', 'admin', ''])('rejects the role %p', (role) => {
+    expect(isRole(role)).toBe(false);
+  });
+  it.each(['ACTIVE', 'DISABLED'])('accepts the status %s', (status) => {
+    expect(isAccountStatus(status)).toBe(true);
+  });
+  it.each(['LOCKED', 'DELETED', 'active', ''])('rejects the status %p', (status) => {
+    expect(isAccountStatus(status)).toBe(false);
+  });
+  it('lets only an ACTIVE account log in', () => {
+    const now = new Date(0);
+    const restore = (status: AccountStatus) =>
+      UserAccount.restore({
+        id: new SequentialIdGenerator().next<'UserAccount'>(),
+        email: 'a@example.test',
+        passwordHash: 'hash',
+        role: Role.CONTRIBUTOR,
+        status,
+        version: 1,
+        createdAt: now,
+        updatedAt: now,
+      });
+    expect(restore(AccountStatus.ACTIVE).canLogin).toBe(true);
+    expect(restore(AccountStatus.DISABLED).canLogin).toBe(false);
   });
 });

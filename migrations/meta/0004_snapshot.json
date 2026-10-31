@@ -1,219 +1,9 @@
 {
-  "id": "5da14efc-56c1-40e9-ab55-115f92a93d16",
+  "id": "ed53ee4b-2249-48f2-88ee-0852570d9011",
   "prevId": "34a6ed0f-3b03-498f-b4b1-7aaf12f5ced3",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.source": {
-      "name": "source",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "source_type": {
-          "name": "source_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "author": {
-          "name": "author",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "publisher": {
-          "name": "publisher",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "published_year": {
-          "name": "published_year",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "url": {
-          "name": "url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "isbn": {
-          "name": "isbn",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "reliability": {
-          "name": "reliability",
-          "type": "smallint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "notes": {
-          "name": "notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_by": {
-          "name": "updated_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "version": {
-          "name": "version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "source_url_key": {
-          "name": "source_url_key",
-          "columns": [
-            {
-              "expression": "url",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"source\".\"url\" IS NOT NULL AND \"source\".\"deleted_at\" IS NULL",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "source_isbn_key": {
-          "name": "source_isbn_key",
-          "columns": [
-            {
-              "expression": "isbn",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"source\".\"isbn\" IS NOT NULL AND \"source\".\"deleted_at\" IS NULL",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "source_type_idx": {
-          "name": "source_type_idx",
-          "columns": [
-            {
-              "expression": "source_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "source_title_trgm_idx": {
-          "name": "source_title_trgm_idx",
-          "columns": [
-            {
-              "expression": "\"title\" gin_trgm_ops",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "source_type_check": {
-          "name": "source_type_check",
-          "value": "\"source\".\"source_type\" IN (\n        'BOOK', 'ARTICLE', 'CENSUS', 'GOV_DATASET',\n        'ARCHIVE', 'ORAL_HISTORY', 'WEBSITE', 'EXTERNAL_API'\n      )"
-        },
-        "source_title_check": {
-          "name": "source_title_check",
-          "value": "char_length(\"source\".\"title\") BETWEEN 1 AND 300"
-        },
-        "source_reliability_check": {
-          "name": "source_reliability_check",
-          "value": "\"source\".\"reliability\" BETWEEN 1 AND 5"
-        },
-        "source_published_year_check": {
-          "name": "source_published_year_check",
-          "value": "\"source\".\"published_year\" BETWEEN 1000 AND 2100"
-        },
-        "source_url_length_check": {
-          "name": "source_url_length_check",
-          "value": "char_length(\"source\".\"url\") <= 2048"
-        },
-        "source_url_scheme_check": {
-          "name": "source_url_scheme_check",
-          "value": "\"source\".\"url\" ~* '^https?://'"
-        },
-        "source_notes_check": {
-          "name": "source_notes_check",
-          "value": "char_length(\"source\".\"notes\") <= 2000"
-        },
-        "source_isbn_check": {
-          "name": "source_isbn_check",
-          "value": "\"source\".\"isbn\" ~ '^([0-9]{9}[0-9X]|[0-9]{13})$'"
-        },
-        "source_version_check": {
-          "name": "source_version_check",
-          "value": "\"source\".\"version\" >= 1"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.refresh_token": {
       "name": "refresh_token",
       "schema": "",
@@ -305,16 +95,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "refresh_token_token_hash_check": {
-          "name": "refresh_token_token_hash_check",
-          "value": "\"refresh_token\".\"token_hash\" ~ '^[0-9a-f]{64}$'"
-        },
-        "refresh_token_expiry_check": {
-          "name": "refresh_token_expiry_check",
-          "value": "\"refresh_token\".\"expires_at\" > \"refresh_token\".\"created_at\""
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.user_account": {
@@ -371,12 +152,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
-        },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -400,20 +175,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "user_account_role_check": {
-          "name": "user_account_role_check",
-          "value": "\"user_account\".\"role\" IN ('CONTRIBUTOR', 'EDITOR', 'ADMIN')"
-        },
-        "user_account_status_check": {
-          "name": "user_account_status_check",
-          "value": "\"user_account\".\"status\" IN ('ACTIVE', 'DISABLED')"
-        },
-        "user_account_version_check": {
-          "name": "user_account_version_check",
-          "value": "\"user_account\".\"version\" >= 1"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.admin_unit": {

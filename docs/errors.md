@@ -67,7 +67,7 @@ The catalogue lives in [`src/shared/kernel/errors/error-codes.ts`](../src/shared
 
 - **Status:** 409
 - **Meaning:** the change would break a reference between records.
-- **When:** the database rejects a foreign key (SQLSTATE `23503`): deleting a record others still point to, or pointing to a record that does not exist. Services check a missing parent first and answer `NOT_FOUND`, so clients normally see this code only for the delete case.
+- **When:** the database rejects a foreign key (SQLSTATE `23503`): deleting a record others still point to, or pointing to a record that does not exist. Services check a missing parent first and answer `NOT_FOUND`, so clients normally see this code only for the delete case. The delete case includes an admin hard delete (`deleteWithVersion`) of a row that others still reference through `ON DELETE RESTRICT`, for example a village that still has claims; cross-module foreign keys (`claim` → `village`, `source`, `user_account`) answer the same way.
 - **Client:** remove or change the dependent records first.
 
 <a id="constraint-violation"></a>
@@ -76,7 +76,7 @@ The catalogue lives in [`src/shared/kernel/errors/error-codes.ts`](../src/shared
 
 - **Status:** 422
 - **Meaning:** the data breaks a rule: a business rule in the domain (`BusinessRuleViolationError`), or a database check or not-null constraint (SQLSTATE `23514`, `23502`).
-- **When:** for example a value outside the range a check constraint allows. Modules may add more specific codes for rules clients must tell apart.
+- **When:** usually a domain rule. Value rules (allowed values, ranges, lengths, formats) are never database checks: they return 400 `VALIDATION_FAILED` from the request schema or 422 from the domain. SQLSTATE `23514` now comes only from the structural checks of `claim` and the fact tables ([data-model.md](data-model.md#what-the-database-enforces-and-what-the-code-enforces)), for example a preferred claim that is not verified. Modules may add more specific codes for rules clients must tell apart.
 - **Client:** change the data; `detail` says which rule failed when the domain raised it.
 
 <a id="version-conflict"></a>
@@ -175,6 +175,6 @@ Entries of `errors[]` have `field` (the full path, like `names[0].lang`; an empt
 ### `INVALID_CREDENTIALS`
 
 - **Status:** 401
-- **Meaning:** login failed. Unknown email, wrong password, disabled and deleted accounts all return the same public detail: `The email or password is incorrect.`
+- **Meaning:** login failed. Unknown email, wrong password and disabled accounts all return the same public detail: `The email or password is incorrect.`
 - **Client:** check the credentials. This response does not disclose account existence. Malformed request bodies still return 400 `VALIDATION_FAILED`.
 - **Implementation:** `UnauthenticatedError` is the kernel category mapped to 401; pass `ErrorCode.INVALID_CREDENTIALS` for login. Existing bearer failures remain `UNAUTHENTICATED`.

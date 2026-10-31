@@ -34,12 +34,13 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 ## Data access
 
 - Drizzle ORM for normal reads and writes; native SQL via Drizzle's sql template for trigram search, PostGIS and statistics. Never build SQL by string concatenation.
-- Migrations: change schema.ts, run npm run db:generate, review the generated SQL, commit it. Never edit a migration that is already on main. If main gained a migration while your branch was open, rebase, delete yours, regenerate.
+- Migrations: change schema.ts, run npm run db:generate, review the generated SQL, commit it. Hand-written SQL (cross-module foreign keys) goes in npm run db:generate:custom -- --name=<table>_cross_module_fks (docs/database.md). Never edit a migration that is already on main. If main gained a migration while your branch was open, rebase, delete yours, regenerate.
 - The app connects as qaryati_app (DML only). Migrations run as the owner role. The API never receives DATABASE_OWNER_URL.
 - Each module imports DatabaseModule.forFeature(schema) with its own schema.ts; repositories inject it with @InjectModuleDb() db: ModuleDb<typeof schema>. db.query (relational queries) sees only the module's own tables, and every instance shares one pool. There is no combined schema.
 - Drizzle uses casing: 'snake_case'. Declare columns in camelCase without explicit names.
 - Transactions: put @Transactional() (from @nestjs-cls/transactional) on the write use case; every module handle then runs in that one transaction. Repositories never take or pass a tx, and db.transaction() is forbidden (docs/database.md, "Transactions").
-- Optimistic locking: versioned tables spread versionColumns(); repositories write with updateWithVersion/softDeleteWithVersion; controllers send @ETag() and read @IfMatch() on PATCH/DELETE (412 stale, 428 missing).
+- Optimistic locking: versioned tables spread versionColumns() (version, createdAt, updatedAt); repositories write with updateWithVersion / deleteWithVersion; controllers send @ETag() and read @IfMatch() on PATCH/DELETE (412 stale, 428 missing).
+- No soft delete: archive with a status column; admin removal is an audited hard delete.
 - Only src/config may read process.env. A new variable goes into the zod schema, .env.example and docs/configuration.md in the same PR.
 
 ## Workflow
@@ -70,6 +71,6 @@ Qaryati is an API-only NestJS backend for sourced, verifiable knowledge about Pa
 
 npm run start:dev | build | lint | format | typecheck | depcruise
 npm run test:unit | test:int | test:e2e | test:cov
-npm run db:generate | db:migrate | db:check | db:studio
+npm run db:generate | db:generate:custom | db:migrate | db:check | db:drift | db:studio
 npm run openapi:generate | openapi:check
-cp .env.example .env && docker compose up -d --build --wait
+cp .env.example .env && npm run keys:dev && docker compose up -d --build --wait

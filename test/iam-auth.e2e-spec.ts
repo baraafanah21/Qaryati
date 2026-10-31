@@ -201,7 +201,7 @@ describe('IAM registration and login (e2e)', () => {
     const again = (await login(address).expect(200)).body as Tokens;
     expect(again.refreshToken).not.toBe(tokens.refreshToken);
   });
-  it('returns identical public failures for unknown email, wrong password and disabled/deleted accounts', async () => {
+  it('returns identical public failures for unknown email, wrong password and a disabled account', async () => {
     const address = email();
     const account = (await register(address).expect(201)).body as Account;
     audit.clear();
@@ -209,18 +209,12 @@ describe('IAM registration and login (e2e)', () => {
     const wrong = await login(address, 'x').expect(401);
     await pool.query('UPDATE user_account SET status = $1 WHERE id = $2', ['DISABLED', account.id]);
     const disabled = await login(address).expect(401);
-    await pool.query('UPDATE user_account SET status = $1, deleted_at = $2 WHERE id = $3', [
-      'ACTIVE',
-      clock.now(),
-      account.id,
-    ]);
-    const deleted = await login(address).expect(401);
     const publicFields = (body: Record<string, unknown>) => {
       return Object.fromEntries(
         Object.entries(body).filter(([key]) => key !== 'traceId' && key !== 'timestamp'),
       );
     };
-    for (const response of [unknown, wrong, disabled, deleted]) {
+    for (const response of [unknown, wrong, disabled]) {
       expect(response.headers['content-type']).toMatch(/^application\/problem\+json/);
       expect(response.body).toMatchObject({
         code: 'INVALID_CREDENTIALS',

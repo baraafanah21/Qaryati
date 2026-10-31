@@ -6,13 +6,13 @@ Qaryati is an API-only backend for structured, sourced knowledge about Palestini
 
 Each member adds their own row in their onboarding pull request (#5 to #8).
 
-| Name  | GitHub                                                                       | Role                                         | Modules                     |
-| ----- | ---------------------------------------------------------------------------- | -------------------------------------------- | --------------------------- |
-| Baraa | [@baraafanah21](https://github.com/baraafanah21)                             | Repository owner, reviewer, platform lead    | platform, shared            |
-| Yahya | [@yahya-ka](https://github.com/yahya-ka)                                     | Sources and verification, audit, population  | curation, audit, population |
-| Hamam | [@hamamalkhateeb2005-commits](https://github.com/hamamalkhateeb2005-commits) | IAM, security, economy                       | iam, economy                |
-| Ali   | [@AliKhalilDev](https://github.com/AliKhalilDev)                             | Heritage, geocoding, performance report      | heritage, geo               |
-| Momen | [@momenaydi](https://github.com/momenaydi)                                   | Villages, search, geography, village profile | village, profile            |
+| Name  | GitHub                                           | Role                                         | Modules                     |
+| ----- | ------------------------------------------------ | -------------------------------------------- | --------------------------- |
+| Baraa | [@baraafanah21](https://github.com/baraafanah21) | Repository owner, reviewer, platform lead    | platform, shared            |
+| Yahya | [@yahya-ka](https://github.com/yahya-ka)         | Sources and verification, audit, population  | curation, audit, population |
+| Hamam | [@hamam-kha25](https://github.com/hamam-kha25)   | IAM, security, economy                       | iam, economy                |
+| Ali   | [@AliKhalilDev](https://github.com/AliKhalilDev) | Heritage, geocoding, performance report      | heritage, geo               |
+| Momen | [@momenaydi](https://github.com/momenaydi)       | Villages, search, geography, village profile | village, profile            |
 
 ## Getting started
 
@@ -22,6 +22,8 @@ Prerequisites: **Node.js 24** (`nvm use` reads `.nvmrc`), Git and **Docker** wit
 nvm use
 npm ci                 # exact dependency versions; also installs the Git hooks
 cp .env.example .env   # local configuration
+npm run keys:dev       # local JWT key pair in secrets/ (git-ignored, never commit it)
+sudo chown 1000 secrets/jwt-private.pem  # Linux only, if the script asks: the API container reads it
 docker compose up -d --build --wait  # PostGIS, Redis, migrations, API
 curl localhost:3000/api/v1/health    # {"status":"ok"}
 ```
@@ -30,7 +32,7 @@ Checks to run before every push (CI runs the same):
 
 ```bash
 npm run format:check && npm run lint && npm run typecheck && npm run depcruise
-npm run db:check && npm run db:drift
+npm run db:check && npm run db:drift && npm run openapi:check
 npm run test:unit && npm run test:int && npm run test:e2e
 ```
 

@@ -4,6 +4,11 @@ import { FieldErrorCode, ValidationError } from '../../../shared/kernel';
 export const ADMIN_UNIT_TYPES = ['GOVERNORATE', 'SUB_DISTRICT', 'LOCAL_AUTHORITY'] as const;
 export type AdminUnitType = (typeof ADMIN_UNIT_TYPES)[number];
 
+/** Exact, case-sensitive membership: `'governorate'` is not a unit type. */
+export function isAdminUnitType(value: string): value is AdminUnitType {
+  return (ADMIN_UNIT_TYPES as readonly string[]).includes(value);
+}
+
 /** Authority kinds that apply only to local authorities. */
 export const AUTHORITY_TYPES = [
   'MUNICIPALITY',
@@ -13,9 +18,19 @@ export const AUTHORITY_TYPES = [
 ] as const;
 export type AuthorityType = (typeof AUTHORITY_TYPES)[number];
 
+/** Exact, case-sensitive membership in {@link AUTHORITY_TYPES}. */
+export function isAuthorityType(value: string): value is AuthorityType {
+  return (AUTHORITY_TYPES as readonly string[]).includes(value);
+}
+
 /** Historical eras represented by administrative units. */
 export const ADMIN_ERAS = ['CURRENT', 'BRITISH_MANDATE', 'OTTOMAN'] as const;
 export type AdminEra = (typeof ADMIN_ERAS)[number];
+
+/** Exact, case-sensitive membership in {@link ADMIN_ERAS}. */
+export function isAdminEra(value: string): value is AdminEra {
+  return (ADMIN_ERAS as readonly string[]).includes(value);
+}
 
 export interface AdminUnitValidationInput {
   id: string;
@@ -26,8 +41,41 @@ export interface AdminUnitValidationInput {
   parentEra?: string | null;
 }
 
-/** Validates conditional authority and hierarchy rules for an administrative unit. */
+/**
+ * Validates an administrative unit: allowed values (the table has no CHECK), then the
+ * conditional authority and hierarchy rules.
+ */
 export function validateAdminUnit(input: AdminUnitValidationInput): void {
+  if (!isAdminUnitType(input.unitType)) {
+    throw new ValidationError('The administrative unit type is not allowed.', [
+      {
+        field: 'unitType',
+        code: FieldErrorCode.INVALID_VALUE,
+        message: `Use one of ${ADMIN_UNIT_TYPES.join(', ')}.`,
+      },
+    ]);
+  }
+
+  if (!isAdminEra(input.era)) {
+    throw new ValidationError('The administrative unit era is not allowed.', [
+      {
+        field: 'era',
+        code: FieldErrorCode.INVALID_VALUE,
+        message: `Use one of ${ADMIN_ERAS.join(', ')}.`,
+      },
+    ]);
+  }
+
+  if (input.authorityType != null && !isAuthorityType(input.authorityType)) {
+    throw new ValidationError('The authority type is not allowed.', [
+      {
+        field: 'authorityType',
+        code: FieldErrorCode.INVALID_VALUE,
+        message: `Use one of ${AUTHORITY_TYPES.join(', ')}.`,
+      },
+    ]);
+  }
+
   if (input.unitType === 'LOCAL_AUTHORITY' && !input.authorityType) {
     throw new ValidationError('A local authority requires an authority type.', [
       {

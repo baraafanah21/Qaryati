@@ -9,7 +9,7 @@ import { RequestContextModule } from '../src/platform/context/request-context.mo
 import { InjectModuleDb, type ModuleDb } from '../src/platform/database/database';
 import { DatabaseModule } from '../src/platform/database/database.module';
 import {
-  softDeleteWithVersion,
+  deleteWithVersion,
   updateWithVersion,
   versionColumns,
 } from '../src/platform/database/versioning';
@@ -49,8 +49,8 @@ class NoteWriter {
   }
 
   @Transactional()
-  softDelete(id: string, version: number) {
-    return softDeleteWithVersion(this, schema.note, id, version);
+  delete(id: string, version: number) {
+    return deleteWithVersion(this, schema.note, id, version);
   }
 }
 
@@ -60,7 +60,7 @@ class NoteWriter {
 })
 class NoteModule {}
 
-describe('updateWithVersion / softDeleteWithVersion (PostGIS via Testcontainers)', () => {
+describe('updateWithVersion / deleteWithVersion (PostGIS via Testcontainers)', () => {
   let database: TestDatabase;
   let moduleRef: TestingModule;
   let writer: NoteWriter;
@@ -77,7 +77,7 @@ describe('updateWithVersion / softDeleteWithVersion (PostGIS via Testcontainers)
       CREATE TABLE note (
         id uuid PRIMARY KEY, body text NOT NULL,
         version integer NOT NULL DEFAULT 1, created_at timestamptz NOT NULL,
-        updated_at timestamptz NOT NULL, deleted_at timestamptz
+        updated_at timestamptz NOT NULL
       )`);
     process.env.DATABASE_URL = database.appUrl;
     moduleRef = await Test.createTestingModule({
@@ -109,7 +109,6 @@ describe('updateWithVersion / softDeleteWithVersion (PostGIS via Testcontainers)
       body: 'second',
       version: 2,
       updatedAt: new Date('2026-10-18T10:00:00Z'),
-      deletedAt: null,
     });
   });
 
@@ -128,15 +127,18 @@ describe('updateWithVersion / softDeleteWithVersion (PostGIS via Testcontainers)
     );
   });
 
-  it('soft-deletes with the version check, after which the row is not found', async () => {
-    await expect(asRequest(() => writer.softDelete(ID, 2))).rejects.toBeInstanceOf(
+  it('deletes the row with the version check and returns it; a stale version is kept', async () => {
+    await expect(asRequest(() => writer.delete(ID, 2))).rejects.toBeInstanceOf(
       PreconditionFailedError,
     );
-    const deleted = await asRequest(() => writer.softDelete(ID, 1));
-    expect(deleted).toMatchObject({ version: 2, deletedAt: new Date('2026-10-18T10:00:00Z') });
+    expect((await owner.query('SELECT id FROM note')).rows).toEqual([{ id: ID }]);
 
-    await expect(asRequest(() => writer.update(ID, 2, 'x'))).rejects.toBeInstanceOf(NotFoundError);
-    await expect(asRequest(() => writer.softDelete(ID, 2))).rejects.toBeInstanceOf(NotFoundError);
+    const deleted = await asRequest(() => writer.delete(ID, 1));
+    expect(deleted).toMatchObject({ id: ID, body: 'first', version: 1 });
+    expect((await owner.query('SELECT id FROM note')).rows).toEqual([]);
+
+    await expect(asRequest(() => writer.update(ID, 1, 'x'))).rejects.toBeInstanceOf(NotFoundError);
+    await expect(asRequest(() => writer.delete(ID, 1))).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('lets exactly one of two concurrent updates with the same version win', async () => {

@@ -1,4 +1,8 @@
-import { Client } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { Client, Pool } from 'pg';
+import { village } from '../src/modules/village/infrastructure/persistence/schema';
+import { updateWithVersion } from '../src/platform/database/versioning';
+import { FixedClock, PreconditionFailedError } from '../src/shared/kernel';
 import {
   CONTAINER_STARTUP_TIMEOUT_MS,
   startTestDatabase,
@@ -48,11 +52,11 @@ describe('village and admin_unit tables (integration)', () => {
   });
 
   it('rejects a duplicate admin unit code', async () => {
-    await owner.query(`INSERT INTO admin_unit (id, code, parent_id, unit_type, authority_type, era, name_ar)
-      VALUES ('00000000-0000-7000-8000-000000000011', 'nablus', NULL, 'GOVERNORATE', NULL, 'CURRENT', 'نابلس')`);
+    await owner.query(`INSERT INTO admin_unit (id, code, parent_id, unit_type, authority_type, era, name_ar, created_at, updated_at)
+      VALUES ('00000000-0000-7000-8000-000000000011', 'nablus', NULL, 'GOVERNORATE', NULL, 'CURRENT', 'نابلس', now(), now())`);
     await expect(
-      owner.query(`INSERT INTO admin_unit (id, code, parent_id, unit_type, authority_type, era, name_ar)
-      VALUES ('00000000-0000-7000-8000-000000000012', 'nablus', NULL, 'GOVERNORATE', NULL, 'CURRENT', 'نابلس ثانية')`),
+      owner.query(`INSERT INTO admin_unit (id, code, parent_id, unit_type, authority_type, era, name_ar, created_at, updated_at)
+      VALUES ('00000000-0000-7000-8000-000000000012', 'nablus', NULL, 'GOVERNORATE', NULL, 'CURRENT', 'نابلس ثانية', now(), now())`),
     ).rejects.toMatchObject({ code: '23505' });
   });
 
@@ -62,8 +66,8 @@ describe('village and admin_unit tables (integration)', () => {
 
   it('rejects an admin unit with a missing parent', async () => {
     await expect(
-      owner.query(`INSERT INTO admin_unit (id, code, parent_id, unit_type, authority_type, era, name_ar)
-      VALUES ('00000000-0000-7000-8000-000000000013', 'orphan-unit', '00000000-0000-7000-8000-000000000099', 'GOVERNORATE', NULL, 'CURRENT', 'يتيم')`),
+      owner.query(`INSERT INTO admin_unit (id, code, parent_id, unit_type, authority_type, era, name_ar, created_at, updated_at)
+      VALUES ('00000000-0000-7000-8000-000000000013', 'orphan-unit', '00000000-0000-7000-8000-000000000099', 'GOVERNORATE', NULL, 'CURRENT', 'يتيم', now(), now())`),
     ).rejects.toMatchObject({ code: '23503' });
   });
 
@@ -101,22 +105,55 @@ describe('village and admin_unit tables (integration)', () => {
     });
   });
 
-  it('temporarily detects a broken unique index constraint and restores it', async () => {
-    await owner.query('DROP INDEX village_slug_key');
+  it('enforces the migrated unique indexes village_slug_key and admin_unit_code_key', async () => {
+    // Both indexes come from the migrations; the test only reads them and never recreates one.
+    await insertVillage('migrated-unique-slug');
+    await expect(insertVillage('migrated-unique-slug')).rejects.toMatchObject({
+      code: '23505',
+      constraint: 'village_slug_key',
+    });
+    const insertUnit = (id: string) =>
+      owner.query(
+        `INSERT INTO admin_unit (id, code, parent_id, unit_type, authority_type, era, name_ar, created_at, updated_at)
+        VALUES ($1, 'migrated-unique-code', NULL, 'GOVERNORATE', NULL, 'CURRENT', 'رمز', now(), now())`,
+        [id],
+      );
+    await insertUnit('00000000-0000-7000-8000-000000000021');
+    await expect(insertUnit('00000000-0000-7000-8000-000000000022')).rejects.toMatchObject({
+      code: '23505',
+      constraint: 'admin_unit_code_key',
+    });
+  });
+
+  it('updates a village with updateWithVersion: the right version wins, a stale one is 412', async () => {
+    await insertVillage('versioned-village');
+    const { rows } = await owner.query<{ id: string }>(
+      "SELECT id FROM village WHERE slug = 'versioned-village'",
+    );
+    const id = rows[0]!.id;
+    const pool = new Pool({ connectionString: database.appUrl });
     try {
-      await insertVillage('broken-constraint-check');
-      await insertVillage('broken-constraint-check');
-      await owner.query("DELETE FROM village WHERE slug = 'broken-constraint-check' AND id <> $1", [
-        (
-          await owner.query<{ id: string }>(
-            "SELECT id FROM village WHERE slug = 'broken-constraint-check' ORDER BY id LIMIT 1",
-          )
-        ).rows[0]?.id,
-      ]);
+      const clock = new FixedClock('2026-10-31T10:00:00Z');
+      const ctx = { db: drizzle({ client: pool, casing: 'snake_case' }), clock };
+      const updated = await updateWithVersion(ctx, village, id, 1, {
+        publicationStatus: 'ARCHIVED',
+      });
+      expect(updated).toMatchObject({
+        publicationStatus: 'ARCHIVED',
+        version: 2,
+        updatedAt: clock.now(),
+      });
+      await expect(
+        updateWithVersion(ctx, village, id, 1, { publicationStatus: 'PUBLISHED' }),
+      ).rejects.toBeInstanceOf(PreconditionFailedError);
+      const stored = await owner.query(
+        'SELECT publication_status, version FROM village WHERE id = $1',
+        [id],
+      );
+      expect(stored.rows).toEqual([{ publication_status: 'ARCHIVED', version: 2 }]);
     } finally {
-      await owner.query('CREATE UNIQUE INDEX village_slug_key ON village USING btree (slug)');
+      await pool.end();
     }
-    await expect(insertVillage('broken-constraint-check')).rejects.toMatchObject({ code: '23505' });
   });
 
   it('uses the GiST index for nearby geography queries', async () => {
