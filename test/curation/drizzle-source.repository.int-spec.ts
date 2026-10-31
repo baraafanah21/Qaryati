@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { eq } from 'drizzle-orm';
+import { Client } from 'pg';
 
 import { createAppConfigModule } from '../../src/config/app-config.module';
 import { RequestContextModule } from '../../src/platform/context/request-context.module';
@@ -26,6 +26,8 @@ import {
 } from '../support/test-database';
 
 const clock = new FixedClock('2026-10-27T10:00:00Z');
+
+const SOURCE_OWNER_ID = '00000000-0000-7000-8000-000000000010';
 
 @Module({
   imports: [DatabaseModule.forFeature(schema)],
@@ -57,7 +59,7 @@ describe('DrizzleSourceRepository (PostGIS)', () => {
     Source.create({
       id: ids.next<'Source'>(),
       data: sourceData(changes),
-      actorId: '00000000-0000-7000-8000-000000000010',
+      actorId: SOURCE_OWNER_ID,
       now: clock.now(),
     });
 
@@ -67,6 +69,25 @@ describe('DrizzleSourceRepository (PostGIS)', () => {
     // Apply the project's real migrations to the isolated database.
     await runMigrations(database.ownerUrl);
 
+    // Create a real user to satisfy the source.created_by foreign key.
+    const owner = new Client({
+      connectionString: database.ownerUrl,
+    });
+
+    await owner.connect();
+
+    try {
+      await owner.query(
+        `INSERT INTO user_account
+          (id, email, password_hash, role, status, version, created_at, updated_at)
+         VALUES
+          ($1, $2, $3, $4, $5, 1, now(), now())`,
+        [SOURCE_OWNER_ID, 'source-owner@test.local', 'hash', 'CONTRIBUTOR', 'ACTIVE'],
+      );
+    } finally {
+      await owner.end();
+    }
+
     process.env.DATABASE_URL = database.appUrl;
 
     moduleRef = await Test.createTestingModule({
@@ -74,6 +95,7 @@ describe('DrizzleSourceRepository (PostGIS)', () => {
     }).compile();
 
     await moduleRef.init();
+
     repository = moduleRef.get(DrizzleSourceRepository);
   }, CONTAINER_STARTUP_TIMEOUT_MS);
 
@@ -109,7 +131,7 @@ describe('DrizzleSourceRepository (PostGIS)', () => {
     ).resolves.toBe(false);
   });
 
-  it('rejects duplicate live URLs', async () => {
+  it('rejects duplicate URLs', async () => {
     const url = 'https://example.com/unique-source';
 
     await repository.insert(newSource({ title: 'First URL Source', url }));
@@ -121,7 +143,7 @@ describe('DrizzleSourceRepository (PostGIS)', () => {
     });
   });
 
-  it('rejects duplicate live ISBN values', async () => {
+  it('rejects duplicate ISBN values', async () => {
     const isbn = '9780306406157';
 
     await repository.insert(newSource({ title: 'First Book', isbn }));
@@ -138,7 +160,7 @@ describe('DrizzleSourceRepository (PostGIS)', () => {
 
     const changed = stored.update(
       sourceData({ title: 'Updated Source' }),
-      '00000000-0000-7000-8000-000000000010',
+      SOURCE_OWNER_ID,
       clock.now(),
     );
 
@@ -166,6 +188,7 @@ describe('DrizzleSourceRepository (PostGIS)', () => {
     });
 
     expect(result.content.length).toBeGreaterThan(0);
+
     expect(result.content.every((item) => item.data.sourceType === 'CENSUS')).toBe(true);
   });
 
@@ -182,19 +205,5 @@ describe('DrizzleSourceRepository (PostGIS)', () => {
     expect(result.content.some((item) => item.data.title === 'Palestinian Heritage Archive')).toBe(
       true,
     );
-  });
-
-  it('excludes soft-deleted sources from existence checks', async () => {
-    const stored = await repository.insert(newSource({ title: 'Deleted Historical Record' }));
-
-    // Simulate soft deletion using Drizzle ORM.
-    await repository.db
-      .update(schema.source)
-      .set({ deletedAt: clock.now() })
-      .where(eq(schema.source.id, stored.id));
-
-    await expect(repository.exists(stored.id)).resolves.toBe(false);
-
-    await expect(repository.findById(stored.id)).resolves.toBeUndefined();
   });
 });

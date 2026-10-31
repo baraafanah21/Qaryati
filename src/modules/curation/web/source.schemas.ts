@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { pageResponse, paginationQuery, sortQuery } from '../../../platform/http/pagination';
-import { SOURCE_TYPES } from '../domain/source';
+import { SOURCE_TYPES } from '../domain/source-values';
 
 // Basic request validation.
 // The domain handles the full business rules.
@@ -66,7 +66,6 @@ export const sourceResponse = z
     reliability: z.number().int().min(1).max(5),
     notes: z.string().nullable(),
     createdBy: z.uuid(),
-    updatedBy: z.uuid(),
     version: z.int().min(1),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),

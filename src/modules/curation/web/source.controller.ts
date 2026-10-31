@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
+import type { Response } from 'express';
 
 import { ETag, IfMatch } from '../../../platform/http/etag';
 import { ApiModule, ApiProblems } from '../../../platform/http/openapi';
@@ -44,12 +45,13 @@ export class SourceController {
   @ApiOperation({ summary: 'Create a source' })
   @ApiCreatedResponse({
     standardSchema: sourceResponse,
-    description: 'Source created successfully.',
+    description: 'Source created successfully with Location and version ETag headers.',
   })
   @ApiProblems(400, 401, 409, 422)
   async create(
     @Body({ schema: createSourceBody }) body: CreateSourceBody,
     @CurrentUser() user: AuthenticatedUser | undefined,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<SourceResponse> {
     if (!user) {
       throw new UnauthenticatedError('Authentication is required.');
@@ -59,6 +61,8 @@ export class SourceController {
       data: body,
       actorId: user.id,
     });
+
+    response.setHeader('Location', `/api/v1/sources/${created.id}`);
 
     return toSourceResponse(created);
   }

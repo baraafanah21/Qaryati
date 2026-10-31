@@ -5,19 +5,10 @@ import {
   type Id,
   type Versioned,
 } from '../../../shared/kernel';
+import { SOURCE_TYPES, type SourceType } from './source-values';
 
-export const SOURCE_TYPES = [
-  'BOOK',
-  'ARTICLE',
-  'CENSUS',
-  'GOV_DATASET',
-  'ARCHIVE',
-  'ORAL_HISTORY',
-  'WEBSITE',
-  'EXTERNAL_API',
-] as const;
-
-export type SourceType = (typeof SOURCE_TYPES)[number];
+export { SOURCE_TYPES };
+export type { SourceType };
 
 export interface SourceData {
   sourceType: SourceType;
@@ -34,27 +25,24 @@ export interface SourceData {
 export interface SourceProps extends SourceData {
   id: Id<'Source'>;
   createdBy: string;
-  updatedBy: string;
   version: number;
   createdAt: Date;
   updatedAt: Date;
-  deletedAt: Date | null;
 }
 
 /** A cited information source, independent of persistence and HTTP. */
 export class Source implements Versioned {
   private constructor(private readonly props: SourceProps) {}
 
+  /** Creates a source after validating its data. */
   static create(input: { id: Id<'Source'>; data: SourceData; actorId: string; now: Date }): Source {
     return new Source({
       ...Source.validate(input.data, input.now),
       id: input.id,
       createdBy: input.actorId,
-      updatedBy: input.actorId,
       version: INITIAL_VERSION,
       createdAt: input.now,
       updatedAt: input.now,
-      deletedAt: null,
     });
   }
 
@@ -73,10 +61,6 @@ export class Source implements Versioned {
 
   get createdBy(): string {
     return this.props.createdBy;
-  }
-
-  get updatedBy(): string {
-    return this.props.updatedBy;
   }
 
   get createdAt(): Date {
@@ -101,19 +85,24 @@ export class Source implements Versioned {
     };
   }
 
-  /** The database owns version and update timestamps. */
-  update(data: SourceData, actorId: string, now: Date): Source {
+  /**
+   * Updates source data.
+   * Version and timestamps are managed by the kernel.
+   * The actor is retained in the signature for existing callers.
+   */
+  update(data: SourceData, _actorId: string, now: Date): Source {
     return new Source({
       ...this.props,
       ...Source.validate(data, now),
-      updatedBy: actorId,
     });
   }
 
+  /** Returns the source data for auditing. */
   snapshot(): Record<string, unknown> {
     return { ...this.data };
   }
 
+  /** Validates and normalizes source data. */
   private static validate(data: SourceData, now: Date): SourceData {
     const fail = (
       field: string,
@@ -135,6 +124,18 @@ export class Source implements Versioned {
         !title ? FieldErrorCode.REQUIRED : FieldErrorCode.TOO_LONG,
         'The title must contain 1 to 300 characters.',
       );
+    }
+
+    const author = data.author?.trim() || null;
+
+    if (author !== null && author.length > 200) {
+      fail('author', FieldErrorCode.TOO_LONG, 'The author must not exceed 200 characters.');
+    }
+
+    const publisher = data.publisher?.trim() || null;
+
+    if (publisher !== null && publisher.length > 200) {
+      fail('publisher', FieldErrorCode.TOO_LONG, 'The publisher must not exceed 200 characters.');
     }
 
     if (!Number.isInteger(data.reliability) || data.reliability < 1 || data.reliability > 5) {
@@ -165,7 +166,7 @@ export class Source implements Versioned {
       try {
         const parsed = new URL(url);
 
-        if (!['http:', 'https:'].includes(parsed.protocol)) {
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
           fail('url', FieldErrorCode.INVALID_FORMAT, 'Use an HTTP or HTTPS URL.');
         }
       } catch {
@@ -173,7 +174,7 @@ export class Source implements Versioned {
       }
     }
 
-    const isbn = data.isbn?.replace(/-/g, '').trim() || null;
+    const isbn = data.isbn?.replace(/[\s-]/g, '').toUpperCase() || null;
 
     if (isbn !== null && !Source.validIsbn(isbn)) {
       fail('isbn', FieldErrorCode.INVALID_FORMAT, 'Invalid ISBN-10 or ISBN-13.');
@@ -188,14 +189,15 @@ export class Source implements Versioned {
     return {
       ...data,
       title,
-      author: data.author?.trim() || null,
-      publisher: data.publisher?.trim() || null,
+      author,
+      publisher,
       url,
       isbn,
       notes,
     };
   }
 
+  /** Validates an ISBN-10 or ISBN-13 checksum. */
   private static validIsbn(isbn: string): boolean {
     if (/^[0-9]{9}[0-9X]$/.test(isbn)) {
       const sum = [...isbn].reduce(

@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
+import { Pool } from 'pg';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 
@@ -14,6 +15,7 @@ import { InMemoryAuditRecorder } from '../support/in-memory-audit-recorder';
 
 const PATH = '/api/v1/sources';
 const MISSING = '00000000-0000-7000-8000-0000000000ff';
+const SOURCE_OWNER_ID = '00000000-0000-7000-8000-000000000001';
 
 interface SourceBody {
   id: string;
@@ -69,6 +71,24 @@ describe('Curation module: /api/v1/sources (e2e)', () => {
     configureApp(app);
     await app.init();
 
+    // Create a real user for the authenticated test actor.
+    // The source.created_by foreign key requires an existing user.
+    const ownerPool = new Pool({
+      connectionString: process.env.TEST_DATABASE_OWNER_URL,
+    });
+
+    try {
+      await ownerPool.query(
+        `INSERT INTO user_account
+          (id, email, password_hash, role, status, version, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, 1, now(), now())
+         ON CONFLICT (id) DO NOTHING`,
+        [SOURCE_OWNER_ID, 'source-e2e-owner@test.local', 'hash', 'CONTRIBUTOR', 'ACTIVE'],
+      );
+    } finally {
+      await ownerPool.end();
+    }
+
     agent = await createAuthenticatedAgent(app);
   });
 
@@ -77,14 +97,13 @@ describe('Curation module: /api/v1/sources (e2e)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   const http = () => agent;
 
   async function create(title: string): Promise<SourceBody> {
     const res = await http().post(PATH).send(sourceInput(title)).expect(201);
-
     return res.body as SourceBody;
   }
 
@@ -94,7 +113,6 @@ describe('Curation module: /api/v1/sources (e2e)', () => {
     code: string,
   ): Promise<ProblemBody> {
     const res = await req.expect(status);
-
     const body = res.body as ProblemBody;
 
     expect(body).toMatchObject({
@@ -106,7 +124,7 @@ describe('Curation module: /api/v1/sources (e2e)', () => {
   }
 
   describe('POST /sources', () => {
-    it('201: creates a source with version and ETag', async () => {
+    it('201: creates a source with version, ETag and Location', async () => {
       const res = await http().post(PATH).send(sourceInput('Palestinian History')).expect(201);
 
       const body = res.body as SourceBody;
@@ -120,6 +138,14 @@ describe('Curation module: /api/v1/sources (e2e)', () => {
 
       expect(body.id).toEqual(expect.any(String));
       expect(res.headers.etag).toBe('"1"');
+      expect(res.headers.location).toBe(`${PATH}/${body.id}`);
+    });
+
+    it('401: requires authentication', async () => {
+      await request(app.getHttpServer())
+        .post(PATH)
+        .send(sourceInput('Anonymous Source'))
+        .expect(401);
     });
 
     it('records creation inside a transaction', async () => {
@@ -182,6 +208,27 @@ describe('Curation module: /api/v1/sources (e2e)', () => {
           .send({
             ...sourceInput('Second URL Source'),
             url,
+          }),
+        409,
+        'DUPLICATE',
+      );
+    });
+
+    it('409: rejects duplicate ISBNs after normalization', async () => {
+      await http()
+        .post(PATH)
+        .send({
+          ...sourceInput('First ISBN Source'),
+          isbn: '0-306-40615-2',
+        })
+        .expect(201);
+
+      await expectProblem(
+        http()
+          .post(PATH)
+          .send({
+            ...sourceInput('Second ISBN Source'),
+            isbn: '0 306 40615 2',
           }),
         409,
         'DUPLICATE',
@@ -383,6 +430,48 @@ describe('Curation module: /api/v1/sources (e2e)', () => {
         403,
         'FORBIDDEN',
       );
+    });
+
+    it('200: allows an editor to update another user source', async () => {
+      const created = await create('Editor Permission Source');
+
+      const config = app.get<ConfigService<AppEnv, true>>(ConfigService);
+
+      const issuer = await createTestTokenIssuer({
+        privateKeyFile: config.get('JWT_PRIVATE_KEY_FILE', {
+          infer: true,
+        }),
+        publicKeyFile: config.get('JWT_PUBLIC_KEY_FILE', {
+          infer: true,
+        }),
+        issuer: config.get('JWT_ISSUER', {
+          infer: true,
+        }),
+        clock: app.get<Clock>(CLOCK),
+      });
+
+      const editorToken = await issuer.mint({
+        id: '00000000-0000-7000-8000-000000000003',
+        role: Role.EDITOR,
+      });
+
+      const editorAgent = request
+        .agent(app.getHttpServer())
+        .set('Authorization', `Bearer ${editorToken}`);
+
+      const res = await editorAgent
+        .patch(`${PATH}/${created.id}`)
+        .set('If-Match', '"1"')
+        .send({ title: 'Updated By Editor' })
+        .expect(200);
+
+      expect(res.body).toMatchObject({
+        id: created.id,
+        title: 'Updated By Editor',
+        version: 2,
+      });
+
+      expect(res.headers.etag).toBe('"2"');
     });
   });
 });

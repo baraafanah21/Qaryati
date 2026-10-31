@@ -1,7 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
+
 import { InjectModuleDb } from '../../../platform/database/database';
 import { updateWithVersion } from '../../../platform/database/versioning';
+
 import {
   asId,
   CLOCK,
@@ -11,18 +13,19 @@ import {
   type Id,
   type Page,
 } from '../../../shared/kernel';
+
 import { Source } from '../domain/source';
+
 import type {
   SourceListQuery,
   SourceRepository,
   SourceSortField,
 } from '../domain/source.repository';
+
 import { source } from './persistence/schema';
 import type { SourceDb } from './persistence/source-db';
 
 type SourceRow = typeof source.$inferSelect;
-
-const live = isNull(source.deletedAt);
 
 const SORT_COLUMNS = {
   title: source.title,
@@ -44,11 +47,9 @@ function toDomain(row: SourceRow): Source {
     reliability: row.reliability,
     notes: row.notes,
     createdBy: row.createdBy,
-    updatedBy: row.updatedBy,
     version: row.version,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-    deletedAt: row.deletedAt,
   });
 }
 
@@ -70,7 +71,6 @@ export class DrizzleSourceRepository implements SourceRepository {
         id: entity.id,
         ...entity.data,
         createdBy: entity.createdBy,
-        updatedBy: entity.updatedBy,
         version: entity.version,
         createdAt: now,
         updatedAt: now,
@@ -80,21 +80,21 @@ export class DrizzleSourceRepository implements SourceRepository {
     return toDomain(row as SourceRow);
   }
 
-  /** Finds a source by ID, excluding soft-deleted sources. */
+  /** Finds a source by ID. */
   async findById(id: Id<'Source'>): Promise<Source | undefined> {
     const row = await this.db.query.source.findFirst({
-      where: and(eq(source.id, id), live),
+      where: eq(source.id, id),
     });
 
     return row ? toDomain(row) : undefined;
   }
 
-  /** Checks whether an active source exists. */
+  /** Checks whether a source exists. */
   async exists(id: Id<'Source'>): Promise<boolean> {
     const [row] = await this.db
       .select({ id: source.id })
       .from(source)
-      .where(and(eq(source.id, id), live))
+      .where(eq(source.id, id))
       .limit(1);
 
     return row !== undefined;
@@ -102,7 +102,7 @@ export class DrizzleSourceRepository implements SourceRepository {
 
   /** Lists sources with search, filtering, sorting and pagination. */
   async list(query: SourceListQuery): Promise<Page<Source>> {
-    const filters = [live];
+    const filters = [];
 
     if (query.type) {
       filters.push(eq(source.sourceType, query.type));
@@ -120,7 +120,7 @@ export class DrizzleSourceRepository implements SourceRepository {
       );
     }
 
-    const where = and(...filters);
+    const where = filters.length > 0 ? and(...filters) : undefined;
 
     // Only allow sorting by explicitly supported columns.
     const order = query.sort.map((item) =>
@@ -152,7 +152,6 @@ export class DrizzleSourceRepository implements SourceRepository {
   async update(entity: Source, expectedVersion: number): Promise<Source> {
     const row = await updateWithVersion(this, source, entity.id, expectedVersion, {
       ...entity.data,
-      updatedBy: entity.updatedBy,
     });
 
     return toDomain(row);
