@@ -6,7 +6,7 @@
 
 Curation manages information provenance and verification. Issue #13 implements source management only: creation, retrieval, searching, updating, access control, optimistic locking, and audit recording.
 
-Claims, verification workflows, conflict detection, and the curation queue belong to later issues.
+Issue #16 adds the shared claim schema, claim domain rules, ClaimWriter facade, and provenance helpers. Full review workflows, conflict detection, and the curation queue belong to later issues.
 
 ## Owned data
 
@@ -154,3 +154,114 @@ npm run openapi:generate
 ```
 
 The full repository formatting check may require normalizing existing Windows CRLF line endings before it passes locally.
+
+## Claims foundation (#16)
+
+Issue #16 introduces the shared `claim` table and the `ClaimWriter` application facade.
+
+A claim represents provenance and review metadata for a typed village fact. Fact-specific tables remain owned by their respective modules.
+
+### Claim types
+
+Supported claim types:
+
+- `VILLAGE_NAME`
+- `NAME_ORIGIN`
+- `AFFILIATION`
+- `LOCATION`
+- `MEASURE`
+- `RELATION`
+- `POPULATION`
+- `HISTORY_OVERVIEW`
+- `HISTORICAL_EVENT`
+- `LANDMARK`
+- `CULTURAL_ITEM`
+- `VILLAGE_PRODUCT`
+- `FACILITY`
+
+Claim statuses:
+
+- `UNVERIFIED`
+- `VERIFIED`
+- `DISPUTED`
+- `REJECTED`
+- `WITHDRAWN`
+
+### Claim submission
+
+Other fact modules use `ClaimWriter` through the public curation API.
+
+`submit()` creates a claim in `UNVERIFIED` status, with `isPreferred = false`.
+
+The caller is responsible for validating village existence before submission.
+
+When `sourceId` is provided, it must reference an existing source. `POPULATION` claims require a source on submission.
+
+If `supersedesId` is provided, it must reference an existing claim from the same village and claim type.
+
+### Editing and withdrawal
+
+Only the original author may edit or withdraw an `UNVERIFIED` claim.
+
+Edits use optimistic locking through the expected version. A stale version results in a precondition failure.
+
+### Review rules
+
+Allowed status transitions:
+
+- `UNVERIFIED` -> `VERIFIED`, `REJECTED`, `DISPUTED`, `WITHDRAWN`
+- `DISPUTED` -> `VERIFIED`, `REJECTED`
+- `VERIFIED` -> `DISPUTED`
+- `REJECTED` and `WITHDRAWN` are terminal.
+
+A claim author cannot review their own claim.
+
+Verification requires a source. Rejection and dispute require a review note.
+
+Full review workflows and preferred-claim selection belong to later issues.
+
+### Group keys and value hashing
+
+`buildGroupKey()` constructs stable keys using the claim type's prefix, village ID, and optional grouping parts.
+
+Group-key parts must be non-empty and must not contain the `|` separator.
+
+`valueHash()` generates a deterministic SHA-256 hash of a canonical claim value.
+
+Canonicalization sorts object keys, preserves JSON value types, normalizes negative zero, and rejects non-finite numeric values.
+
+`roundCoordinate()` rounds coordinates to five decimal places.
+
+### Database constraints
+
+The `claim` table includes:
+
+- Primary key on `id`.
+- Unique constraint on `(id, claim_type)`.
+- Foreign keys to `source`, `claim`, `village`, and `user_account`.
+- CHECK constraints requiring preferred claims to be verified and verified claims to have a source.
+- Partial unique index `claim_one_preferred`.
+- Partial unique index `claim_no_duplicate` using `NULLS NOT DISTINCT`.
+- Review queue, village publication, grouping, and foreign-key indexes.
+
+The cross-module foreign keys and duplicate-prevention index are defined in custom migration `0009_claim_cross_module_fks.sql`.
+
+Claims use versioning and timestamps and do not have a `deleted_at` column.
+
+### Transactions and audit
+
+`ClaimWriter` uses `@Transactional()` for submission, editing, and withdrawal.
+
+Audit actions:
+
+- `claim.submitted`
+- `claim.edited`
+- `claim.withdrawn`
+
+Successful writes record audit entries. Edits and withdrawals include before-and-after snapshots.
+
+### Scope limitations
+
+Issue #16 does not introduce new HTTP endpoints, fact-specific tables, or the full review and publication workflows.
+
+Fact modules must import the public curation API instead of importing curation persistence internals.
