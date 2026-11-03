@@ -121,6 +121,7 @@ export class ClaimWriter {
       action: 'claim.submitted',
       entityType: 'Claim',
       entityId: stored.id,
+      villageId: stored.data.villageId,
       after: stored.snapshot(),
     });
 
@@ -146,6 +147,7 @@ export class ClaimWriter {
       action: 'claim.edited',
       entityType: 'Claim',
       entityId: stored.id,
+      villageId: stored.data.villageId,
       before: current.snapshot(),
       after: stored.snapshot(),
     });
@@ -167,6 +169,7 @@ export class ClaimWriter {
       action: 'claim.withdrawn',
       entityType: 'Claim',
       entityId: stored.id,
+      villageId: stored.data.villageId,
       before: current.snapshot(),
       after: stored.snapshot(),
     });

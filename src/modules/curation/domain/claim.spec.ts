@@ -136,4 +136,49 @@ describe('Claim Domain', () => {
       }),
     ).toThrow(BusinessRuleViolationError);
   });
+
+  it('preserves source and locator when omitted from an edit', () => {
+    const claim = createClaim({
+      sourceId: 'source-1',
+      sourceLocator: 'page 15',
+    });
+
+    const edited = claim.edit(authorId, {
+      groupKey: claim.data.groupKey,
+      valueHash: 'updated-hash',
+    });
+
+    expect(edited.data.sourceId).toBe('source-1');
+    expect(edited.data.sourceLocator).toBe('page 15');
+  });
+
+  it('rejects removing the source from a population claim', () => {
+    const claim = createClaim({
+      claimType: 'POPULATION',
+      sourceId: 'source-1',
+    });
+
+    expect(() =>
+      claim.edit(authorId, {
+        groupKey: claim.data.groupKey,
+        valueHash: 'updated-hash',
+        sourceId: null,
+      }),
+    ).toThrow(BusinessRuleViolationError);
+  });
+
+  it('allows replacing the source on a population claim', () => {
+    const claim = createClaim({
+      claimType: 'POPULATION',
+      sourceId: 'source-1',
+    });
+
+    const edited = claim.edit(authorId, {
+      groupKey: claim.data.groupKey,
+      valueHash: 'updated-hash',
+      sourceId: 'source-2',
+    });
+
+    expect(edited.data.sourceId).toBe('source-2');
+  });
 });

@@ -265,3 +265,16 @@ Successful writes record audit entries. Edits and withdrawals include before-and
 Issue #16 does not introduce new HTTP endpoints, fact-specific tables, or the full review and publication workflows.
 
 Fact modules must import the public curation API instead of importing curation persistence internals.
+
+## How to add a fact type in your module
+
+1. Check `docs/data-model.md` for the fact type, its fields, and its claim type.
+2. Import `ClaimWriter`, `buildGroupKey`, and `valueHash` from the public curation `index.ts`.
+3. Define the fact-specific table in your own module's persistence schema. Keep provenance and review metadata in the shared `claim` table.
+4. Add `claim_id` and a constant `claim_type` to the fact table. Create a composite foreign key `(claim_id, claim_type)` referencing `claim(id, claim_type)` with `ON DELETE CASCADE` in a custom SQL migration.
+5. Build the group key using the correct claim type, village ID, and grouping parts. Hash the canonical fact value with `valueHash()`. Use `roundCoordinate()` for location coordinates before hashing.
+6. Validate the village and fact-specific data in your module. Validate the source if required.
+7. Inside one `@Transactional()` use case, call `ClaimWriter.submit()` and insert the fact-specific row. Both writes must commit or roll back together.
+8. For an author correction to an unverified claim, call `ClaimWriter.edit()` with the expected version. Use `withdraw()` when the author withdraws an unverified claim. Reviewed corrections require a new claim rather than editing the reviewed one.
+9. Add unit tests for group keys and fact validation, plus integration tests for the composite foreign key, cascade behavior, and transaction rollback.
+10. Do not import curation's internal schema or repository. Do not implement review HTTP endpoints or preference-selection workflows as part of Issue #16.

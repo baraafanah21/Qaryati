@@ -152,12 +152,21 @@ export class Claim implements Versioned {
   ): Claim {
     this.assertAuthorAndUnverified(actorId);
 
+    const sourceId = changes.sourceId === undefined ? this.props.sourceId : changes.sourceId;
+
+    const sourceLocator =
+      changes.sourceLocator === undefined ? this.props.sourceLocator : changes.sourceLocator;
+
+    if (SOURCE_REQUIRED_ON_SUBMIT.includes(this.props.claimType) && sourceId === null) {
+      throw new BusinessRuleViolationError('This claim type requires a source.');
+    }
+
     return new Claim({
       ...this.props,
       groupKey: changes.groupKey,
       valueHash: changes.valueHash,
-      sourceId: changes.sourceId ?? null,
-      sourceLocator: changes.sourceLocator ?? null,
+      sourceId,
+      sourceLocator,
     });
   }
 

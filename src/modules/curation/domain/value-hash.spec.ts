@@ -15,8 +15,13 @@ describe('Claim value hashing', () => {
     });
 
     it('sorts keys in nested objects', () => {
-      const first = { location: { latitude: 32.5, longitude: 35.3 } };
-      const second = { location: { longitude: 35.3, latitude: 32.5 } };
+      const first = {
+        location: { latitude: 32.5, longitude: 35.3 },
+      };
+
+      const second = {
+        location: { longitude: 35.3, latitude: 32.5 },
+      };
 
       expect(valueHash(first)).toBe(valueHash(second));
     });
@@ -52,6 +57,12 @@ describe('Claim value hashing', () => {
     it('normalizes scientific notation consistently', () => {
       expect(valueHash(1e-7)).toBe(valueHash(0.0000001));
       expect(valueHash(1e21)).toBe(valueHash(1000000000000000000000));
+    });
+
+    it('produces a fixed SHA-256 hash for a known input', () => {
+      expect(valueHash({ b: '1', a: 1 })).toBe(
+        '7a9158dd5da715db589805376a90ec60d0dea050ba44a0dc495f147051ab284e',
+      );
     });
   });
 
