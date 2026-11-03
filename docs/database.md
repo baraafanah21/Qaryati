@@ -193,14 +193,19 @@ Every foreign key has an index on its column and an explicit `ON DELETE` (`RESTR
 
 A module never imports another module's Drizzle tables, so a foreign key that crosses a module boundary cannot be declared in `schema.ts`. It is written in raw SQL in a custom migration of the module that owns the referencing column, and listed here.
 
-| From                                        | To                       | Owner (migration)                                   | `ON DELETE` |
-| ------------------------------------------- | ------------------------ | --------------------------------------------------- | ----------- |
-| `village.created_by`                        | `user_account.id`        | village (`0003_village_created_by_cross_module_fk`) | RESTRICT    |
-| `source.created_by`                         | `user_account.id`        | curation (`0007_source_cross_module_fks`)           | RESTRICT    |
-| `claim.village_id`                          | `village.id`             | curation (#16, planned)                             | RESTRICT    |
-| `claim.source_id`                           | `source.id`              | curation (#16, planned)                             | RESTRICT    |
-| `claim.created_by`, `claim.reviewed_by`     | `user_account.id`        | curation (#16, planned)                             | RESTRICT    |
-| every fact table's `(claim_id, claim_type)` | `claim (id, claim_type)` | the fact table's module (planned)                   | CASCADE     |
+| From                                                                  | To                       | Owner (migration)                                   | `ON DELETE` |
+| --------------------------------------------------------------------- | ------------------------ | --------------------------------------------------- | ----------- |
+| `village.created_by`                                                  | `user_account.id`        | village (`0003_village_created_by_cross_module_fk`) | RESTRICT    |
+| `source.created_by`                                                   | `user_account.id`        | curation (`0007_source_cross_module_fks`)           | RESTRICT    |
+| `claim.village_id`                                                    | `village.id`             | curation (`0009_claim_cross_module_fks`)            | RESTRICT    |
+| `claim.created_by`, `claim.reviewed_by`                               | `user_account.id`        | curation (`0009_claim_cross_module_fks`)            | RESTRICT    |
+| every fact table's `(claim_id, claim_type)`                           | `claim (id, claim_type)` | the fact table's module (planned)                   | CASCADE     |
+| The `claim.source_id` and `claim.supersedes_id` foreign keys are      |
+| defined within the curation Drizzle schema and generated in migration |
+| `0008_tranquil_sleeper.sql`. Both use `ON DELETE RESTRICT`.           |
+
+The `claim_no_duplicate` partial unique index is created by the custom
+migration `0009_claim_cross_module_fks.sql` using `NULLS NOT DISTINCT`.
 
 ### Writing a cross-module foreign key
 

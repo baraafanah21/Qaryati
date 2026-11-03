@@ -34,3 +34,20 @@ Every fact is a **claim**: one shared `claim` table (curation) holds provenance 
 - **Positive:** the rules that must never break live in the database (one published answer per question, published means verified, verified means sourced, no duplicate entries, a fact belongs to its own type); every other business rule lives in tested domain code that changes without migrations; one set of curation endpoints (`POST /claims/{id}/verify`) serves every module; the review queue and conflict detection are one query each; no `deleted_at` filters anywhere.
 - **Negative:** every fact read joins `claim` (one-to-one on the primary key); `group_key` and `value_hash` must be built consistently (one pure, unit-tested function per type); cross-module foreign keys are raw SQL in custom migrations; reviewed facts are immutable, so corrections are new claims.
 - **Follow-up:** `claim`, its constraints and the `ClaimWriter` facade (#16); review actions and the queue (#35, #40); fact tables with their endpoints (#17, #22, #27, #28, #34); sources without value CHECKs or `deleted_at` (#13).
+
+## Implementation review (#16 / #26)
+
+Issue #16 implements the shared `claim` table, its integrity constraints,
+indexes, domain rules, and the `ClaimWriter` facade.
+
+The generated migration `0008_tranquil_sleeper.sql` creates the claim table,
+its two permanent CHECK constraints, and same-module foreign keys.
+
+The custom migration `0009_claim_cross_module_fks.sql` adds cross-module
+foreign keys to village and user_account, plus the `claim_no_duplicate`
+partial unique index with NULLS NOT DISTINCT.
+
+Claim records use optimistic locking and have no soft-delete column.
+
+Fact-specific tables, HTTP review endpoints, preferred-claim selection,
+and the full review queue remain outside Issue #16.
