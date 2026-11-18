@@ -3,6 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import type { AppEnv } from '../../config/app-env';
 import { parseAccessTokenTtl } from '../../config/access-token-ttl';
+import { parseRefreshTokenTtl } from '../../config/refresh-token-ttl';
+import { GetCurrentAccount } from './application/get-current-account.use-case';
+import { LogoutSession } from './application/logout-session.use-case';
+import { RefreshSession } from './application/refresh-session.use-case';
+import { RefreshTokenLifetime } from './application/refresh-token-lifetime';
 import { CLOCK, type Clock } from '../../shared/kernel';
 import { DatabaseModule } from '../../platform/database/database.module';
 import { AccessTokenIssuer } from './application/access-token-issuer';
@@ -43,6 +48,17 @@ const JWT_KEYS = Symbol('IAM_JWT_KEYS');
     PermissionChecker,
     RegisterUser,
     LoginUser,
+    RefreshSession,
+    LogoutSession,
+    GetCurrentAccount,
+    {
+      provide: RefreshTokenLifetime,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService<AppEnv, true>) =>
+        new RefreshTokenLifetime(
+          parseRefreshTokenTtl(config.get('JWT_REFRESH_TTL', { infer: true })),
+        ),
+    },
     { provide: UserAccountRepository, useClass: DrizzleUserAccountRepository },
     { provide: RefreshTokenRepository, useClass: DrizzleRefreshTokenRepository },
     { provide: PasswordHasher, useClass: Argon2PasswordHasher },

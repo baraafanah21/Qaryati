@@ -1,5 +1,6 @@
 import { appEnvSchema } from './app-env';
 import { parseAccessTokenTtl } from './access-token-ttl';
+import { parseRefreshTokenTtl } from './refresh-token-ttl';
 
 const DATABASE_URL = 'postgres://qaryati_app:secret@localhost:5432/qaryati';
 const JWT = { JWT_PRIVATE_KEY_FILE: 'private.pem', JWT_PUBLIC_KEY_FILE: 'public.pem' };
@@ -14,8 +15,31 @@ describe('appEnvSchema', () => {
       ...JWT,
       JWT_ISSUER: 'qaryati',
       JWT_ACCESS_TTL: '15m',
+      JWT_REFRESH_TTL: '7d',
     });
   });
+
+  it.each([
+    ['7d', 604800],
+    ['12h', 43200],
+    ['90s', 90],
+  ])('parses JWT_REFRESH_TTL=%s into %i seconds', (value, seconds) => {
+    const ttl = appEnvSchema.parse({
+      DATABASE_URL,
+      ...JWT,
+      JWT_REFRESH_TTL: value,
+    }).JWT_REFRESH_TTL;
+    expect(parseRefreshTokenTtl(ttl)).toBe(seconds);
+  });
+
+  it.each(['', '0d', '-1d', '1.5d', '7', '7D', '7w', '9007199254740991d'])(
+    'rejects invalid JWT_REFRESH_TTL=%j',
+    (value) => {
+      const result = appEnvSchema.safeParse({ DATABASE_URL, ...JWT, JWT_REFRESH_TTL: value });
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual(['JWT_REFRESH_TTL']);
+    },
+  );
 
   it.each([
     ['15m', 900],

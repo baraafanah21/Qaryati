@@ -33,7 +33,7 @@ export const accountResponse = z
     updatedAt: z.iso.datetime(),
   })
   .meta({ id: 'UserAccountResponse' });
-/** Raw refresh tokens are returned only by successful login. */
+/** Raw refresh tokens are returned only by a successful login or refresh, once each. */
 export const loginResponse = z
   .strictObject({
     accessToken: z.string(),
@@ -41,7 +41,46 @@ export const loginResponse = z
     tokenType: z.literal('Bearer'),
     expiresIn: z.int().positive(),
   })
-  .meta({ id: 'LoginResponse' });
+  .meta({
+    id: 'LoginResponse',
+    examples: [
+      {
+        // Placeholders, not token-shaped values: secret scanners flag realistic examples.
+        accessToken: '<signed JWT>',
+        refreshToken: '<opaque refresh token>',
+        tokenType: 'Bearer',
+        expiresIn: 900,
+      },
+    ],
+  });
+/** A refresh token exactly as login or refresh returned it (43 base64url characters today). */
+export const refreshTokenBody = z.strictObject({ refreshToken: z.string().min(1).max(512) }).meta({
+  id: 'RefreshTokenRequest',
+  examples: [{ refreshToken: '<refresh token from login or refresh>' }],
+});
+/** The caller's own account, read from the database; never credential fields. */
+export const currentAccountResponse = z
+  .strictObject({
+    id: z.uuid(),
+    email: z.string(),
+    role: z.enum(Object.values(Role)),
+    status: z.enum(Object.values(AccountStatus)),
+  })
+  .meta({
+    id: 'CurrentAccountResponse',
+    examples: [
+      {
+        id: '0192f0c8-7b1e-7c3a-9d2e-4f5a6b7c8d9e',
+        email: 'contributor@example.org',
+        role: 'CONTRIBUTOR',
+        status: 'ACTIVE',
+      },
+    ],
+  });
+/** Validated refresh or logout input. */
+export type RefreshTokenBody = z.infer<typeof refreshTokenBody>;
+/** Safe current-account DTO. */
+export type CurrentAccountResponse = z.infer<typeof currentAccountResponse>;
 /** Validated registration input. */
 export type RegisterBody = z.infer<typeof registerBody>;
 /** Validated login input. */

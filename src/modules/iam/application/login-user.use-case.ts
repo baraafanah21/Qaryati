@@ -11,11 +11,13 @@ import {
   type IdGenerator,
 } from '../../../shared/kernel';
 import { normalizeEmail } from '../domain/email';
+import { refreshTokenExpiry } from '../domain/refresh-decision';
 import { RefreshTokenRepository } from '../domain/refresh-token.repository';
 import { UserAccountRepository } from '../domain/user-account.repository';
 import { AccessTokenIssuer } from './access-token-issuer';
 import { PasswordHasher } from './password-hasher';
 import { RefreshTokenGenerator } from './refresh-token-generator';
+import { RefreshTokenLifetime } from './refresh-token-lifetime';
 
 /** Login response; credentials must never be placed in logs or audit payloads. */
 export interface LoginResult {
@@ -25,7 +27,7 @@ export interface LoginResult {
   expiresIn: number;
 }
 
-/** A successful login writes one hashed refresh token; #18 owns its later lifecycle. */
+/** A successful login starts a new refresh-token family with one hashed token. */
 @Injectable()
 export class LoginUser {
   constructor(
@@ -37,6 +39,7 @@ export class LoginUser {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(ID_GENERATOR) private readonly ids: IdGenerator,
     @Inject(AUDIT_RECORDER) private readonly audit: AuditRecorder,
+    private readonly lifetime: RefreshTokenLifetime,
   ) {}
 
   @Transactional()
@@ -59,7 +62,7 @@ export class LoginUser {
       tokenHash: token.hash,
       familyId: this.ids.next<'RefreshTokenFamily'>(),
       createdAt,
-      expiresAt: new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt: refreshTokenExpiry(createdAt, this.lifetime.seconds),
     };
     await this.refreshTokens.insert(record);
     await this.audit.record({

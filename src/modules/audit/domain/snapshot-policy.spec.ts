@@ -82,6 +82,7 @@ describe('snapshot policy', () => {
       'AdminUnit',
       'Claim',
       'RefreshToken',
+      'RefreshTokenFamily',
       'Source',
       'UserAccount',
       'Village',

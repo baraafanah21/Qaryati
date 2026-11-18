@@ -175,6 +175,135 @@
         "security": []
       }
     },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "description": "The presented refresh token is revoked and replaced by a new one in the same family. Every rejection (unknown, expired, already used, disabled account) is the same 401 INVALID_CREDENTIALS. Presenting an already used token revokes its whole family.",
+        "operationId": "iam_refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Rotate a refresh token into a new token pair",
+        "tags": [
+          "iam"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "Revokes every active token of the refresh token's family. Always 204, also for an unknown or already revoked token.",
+        "operationId": "iam_logout",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "The session is ended (or there was none)."
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "End a session",
+        "tags": [
+          "iam"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "description": "Read from the database, so a role or status change shows at once.",
+        "operationId": "iam_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentAccountResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "The caller's account",
+        "tags": [
+          "iam"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/sources": {
       "post": {
         "operationId": "curation_create",
@@ -831,7 +960,71 @@
           "tokenType",
           "expiresIn"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "example": {
+          "accessToken": "<signed JWT>",
+          "refreshToken": "<opaque refresh token>",
+          "tokenType": "Bearer",
+          "expiresIn": 900
+        }
+      },
+      "RefreshTokenRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "refreshToken"
+        ],
+        "additionalProperties": false,
+        "example": {
+          "refreshToken": "<refresh token from login or refresh>"
+        }
+      },
+      "CurrentAccountResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CONTRIBUTOR",
+              "EDITOR",
+              "ADMIN"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "status"
+        ],
+        "additionalProperties": false,
+        "example": {
+          "id": "0192f0c8-7b1e-7c3a-9d2e-4f5a6b7c8d9e",
+          "email": "contributor@example.org",
+          "role": "CONTRIBUTOR",
+          "status": "ACTIVE"
+        }
       },
       "SourceResponse": {
         "type": "object",

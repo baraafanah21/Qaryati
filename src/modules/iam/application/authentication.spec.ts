@@ -8,6 +8,7 @@ import { AccountStatus } from '../domain/account-status';
 import { UserAccount } from '../domain/user-account';
 import type { RefreshTokenRecord } from '../domain/refresh-token.repository';
 import { LoginUser } from './login-user.use-case';
+import { RefreshTokenLifetime } from './refresh-token-lifetime';
 import { RegisterUser } from './register-user.use-case';
 
 // Unit tests exercise application decisions only; real transactional wiring is covered over HTTP.
@@ -26,6 +27,7 @@ describe('authentication use cases', () => {
     const accounts = {
       findByEmail: jest.fn<Promise<UserAccount | undefined>, [string]>().mockResolvedValue(found),
       insert: jest.fn((value: UserAccount) => Promise.resolve(value)),
+      findById: jest.fn<Promise<UserAccount | undefined>, [string]>().mockResolvedValue(found),
     };
     const passwords = {
       hash: jest.fn<Promise<string>, [string]>().mockResolvedValue('stored-hash'),
@@ -34,12 +36,18 @@ describe('authentication use cases', () => {
     };
     const refreshTokens = {
       insert: jest.fn<Promise<void>, [RefreshTokenRecord]>().mockResolvedValue(undefined),
+      findByHashForUpdate: jest.fn().mockResolvedValue(undefined),
+      markRotated: jest.fn().mockResolvedValue(undefined),
+      revokeFamily: jest.fn().mockResolvedValue(0),
     };
     const audit = { record: jest.fn<Promise<void>, [AuditEntry]>().mockResolvedValue(undefined) };
     const issuer = {
       issue: jest.fn(() => Promise.resolve({ accessToken: 'access-value', expiresIn: 900 })),
     };
-    const generator = { generate: jest.fn(() => ({ raw: 'raw-refresh', hash: 'refresh-hash' })) };
+    const generator = {
+      generate: jest.fn(() => ({ raw: 'raw-refresh', hash: 'refresh-hash' })),
+      hash: jest.fn((raw: string) => `hash-of-${raw}`),
+    };
     return {
       accounts,
       passwords,
@@ -56,6 +64,7 @@ describe('authentication use cases', () => {
         clock,
         ids,
         audit,
+        new RefreshTokenLifetime(604800),
       ),
       register: new RegisterUser(accounts, passwords, clock, ids, audit),
     };
