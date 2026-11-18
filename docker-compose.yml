@@ -65,6 +65,7 @@ services:
       JWT_PUBLIC_KEY_FILE: /run/secrets/jwt_public_key
       JWT_ISSUER: ${JWT_ISSUER:-qaryati}
       JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
     secrets:
       - jwt_private_key
       - jwt_public_key

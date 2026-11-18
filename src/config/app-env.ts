@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { postgresUrl } from './postgres-url';
 import { accessTokenTtl } from './access-token-ttl';
+import { refreshTokenTtl } from './refresh-token-ttl';
 
 /**
  * Environment variables the API process needs, validated once at startup.
@@ -27,6 +28,8 @@ export const appEnvSchema = z.object({
   JWT_ISSUER: z.string().min(1, 'must not be empty').default('qaryati'),
   /** Positive s/m/h duration; IAM converts this validated value into seconds at startup. */
   JWT_ACCESS_TTL: accessTokenTtl,
+  /** Positive s/m/h/d refresh-token lifetime; a token expires this long after it is issued. */
+  JWT_REFRESH_TTL: refreshTokenTtl,
   /**
    * Serves Swagger UI and the OpenAPI document. Unset means on, except with
    * `NODE_ENV=production` (src/platform/http/openapi.ts, isSwaggerEnabled).

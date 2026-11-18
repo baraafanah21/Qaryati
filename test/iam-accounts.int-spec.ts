@@ -7,7 +7,7 @@ import * as schema from '../src/modules/iam/infrastructure/persistence/schema';
 import { Argon2PasswordHasher } from '../src/modules/iam/infrastructure/argon2-password-hasher';
 import { CryptoRefreshTokenGenerator } from '../src/modules/iam/infrastructure/crypto-refresh-token-generator';
 import { UserAccount } from '../src/modules/iam/domain/user-account';
-import { asId, FixedClock, SequentialIdGenerator } from '../src/shared/kernel';
+import { asId, FixedClock, SequentialIdGenerator, type Id } from '../src/shared/kernel';
 import {
   startTestDatabase,
   CONTAINER_STARTUP_TIMEOUT_MS,
@@ -141,5 +141,87 @@ describe('IAM persistence (real migrated PostGIS)', () => {
     ).rejects.toThrow(/expire after/);
     const { rows } = await pool.query('SELECT count(*)::int AS n FROM refresh_token');
     expect(rows).toEqual([{ n: 1 }]);
+  });
+
+  describe('refresh-token lifecycle (#18)', () => {
+    const generator = new CryptoRefreshTokenGenerator();
+    function issue(userId: Id<'UserAccount'>, familyId: Id<'RefreshTokenFamily'>) {
+      const record = {
+        id: ids.next<'RefreshToken'>(),
+        userId,
+        tokenHash: generator.generate().hash,
+        familyId,
+        createdAt: now,
+        expiresAt: new Date(now.getTime() + 604800000),
+      };
+      return tokens.insert(record).then(() => record);
+    }
+
+    it('finds a token by digest as an unrevoked, unreplaced row, and an account by id', async () => {
+      const user = await account();
+      const record = await issue(user.id, ids.next<'RefreshTokenFamily'>());
+      expect(await tokens.findByHashForUpdate(record.tokenHash)).toEqual({
+        ...record,
+        revokedAt: null,
+        replacedById: null,
+      });
+      expect(await tokens.findByHashForUpdate('c'.repeat(64))).toBeUndefined();
+      expect(await accounts.findById(user.id)).toMatchObject({ id: user.id, email: user.email });
+      expect(await accounts.findById(asId<'UserAccount'>(randomUUID()))).toBeUndefined();
+    });
+
+    it('rotation sets revoked_at and replaced_by_id and keeps the family', async () => {
+      const user = await account();
+      const family = ids.next<'RefreshTokenFamily'>();
+      const old = await issue(user.id, family);
+      const next = await issue(user.id, family);
+      const revokedAt = new Date(now.getTime() + 60_000);
+      await tokens.markRotated(old.id, revokedAt, next.id);
+      expect(await tokens.findByHashForUpdate(old.tokenHash)).toMatchObject({
+        familyId: family,
+        revokedAt,
+        replacedById: next.id,
+      });
+      expect(await tokens.findByHashForUpdate(next.tokenHash)).toMatchObject({
+        familyId: family,
+        revokedAt: null,
+        replacedById: null,
+      });
+    });
+
+    it('revokes only the active tokens of one family and reports how many it revoked', async () => {
+      const user = await account();
+      const family = ids.next<'RefreshTokenFamily'>();
+      const other = ids.next<'RefreshTokenFamily'>();
+      const first = await issue(user.id, family);
+      const second = await issue(user.id, family);
+      const elsewhere = await issue(user.id, other);
+      const earlier = new Date(now.getTime() + 1000);
+      await tokens.markRotated(first.id, earlier, second.id);
+      const revokedAt = new Date(now.getTime() + 2000);
+
+      expect(await tokens.revokeFamily(family, revokedAt)).toBe(1);
+      expect((await tokens.findByHashForUpdate(first.tokenHash))?.revokedAt).toEqual(earlier);
+      expect((await tokens.findByHashForUpdate(second.tokenHash))?.revokedAt).toEqual(revokedAt);
+      expect((await tokens.findByHashForUpdate(elsewhere.tokenHash))?.revokedAt).toBeNull();
+      expect(await tokens.revokeFamily(family, new Date(now.getTime() + 3000))).toBe(0);
+    });
+
+    it('rejects a replaced_by_id that does not exist (SQLSTATE 23503)', async () => {
+      const user = await account();
+      const record = await issue(user.id, ids.next<'RefreshTokenFamily'>());
+      await expect(
+        tokens.markRotated(record.id, now, asId<'RefreshToken'>(randomUUID())),
+      ).rejects.toMatchObject({ cause: expect.objectContaining({ code: '23503' }) as unknown });
+    });
+
+    it('indexes family_id and replaced_by_id', async () => {
+      const { rows } = await pool.query<{ indexname: string }>(
+        `SELECT indexname FROM pg_indexes WHERE tablename = 'refresh_token' ORDER BY indexname`,
+      );
+      expect(rows.map((row) => row.indexname)).toEqual(
+        expect.arrayContaining(['refresh_token_family_id_idx', 'refresh_token_replaced_by_id_idx']),
+      );
+    });
   });
 });

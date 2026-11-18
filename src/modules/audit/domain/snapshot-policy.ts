@@ -31,6 +31,8 @@ export const SNAPSHOT_POLICY = {
     'reviewNote',
   ],
   RefreshToken: ['id', 'userId', 'familyId', 'expiresAt'],
+  // Session revocations (#18): the owner, why and how many tokens; never a token or digest.
+  RefreshTokenFamily: ['userId', 'reason', 'revokedCount'],
   Source: [
     'sourceType',
     'title',

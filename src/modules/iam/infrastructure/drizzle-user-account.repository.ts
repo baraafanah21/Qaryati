@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { InjectModuleDb } from '../../../platform/database/database';
-import { asId } from '../../../shared/kernel';
+import { asId, type Id } from '../../../shared/kernel';
 import { isAccountStatus } from '../domain/account-status';
 import { isRole } from '../domain/authenticated-user';
 import { UserAccount } from '../domain/user-account';
@@ -56,6 +56,11 @@ export class DrizzleUserAccountRepository extends UserAccountRepository {
 
   async findByEmail(email: string): Promise<UserAccount | undefined> {
     const row = await this.db.query.userAccount.findFirst({ where: eq(userAccount.email, email) });
+    return row && toDomain(row);
+  }
+
+  async findById(id: Id<'UserAccount'>): Promise<UserAccount | undefined> {
+    const row = await this.db.query.userAccount.findFirst({ where: eq(userAccount.id, id) });
     return row && toDomain(row);
   }
 }

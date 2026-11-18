@@ -33,7 +33,7 @@ Unit tests cover roles, claims, signature validation, secret files and the test 
 
 Other modules' tests import `createTestTokenIssuer` from this module's index, pass `{ privateKeyFile, publicKeyFile, issuer, clock }`, then call `mint({ id, role })`. The default lifetime is 300 seconds. No fixed keys or tokens are committed. The helper is not a runtime DI provider and has no HTTP endpoint.
 
-Account storage and registration/login are implemented in #14. Rotation/logout/me remain #18; rate limiting and temporary lockout remain #25; user administration remains #32.
+Account storage and registration/login are implemented in #14; refresh rotation, logout and `/auth/me` in #18. Rate limiting and temporary lockout remain #25; user administration remains #32.
 
 ## Dependencies
 
@@ -61,8 +61,62 @@ dependency-cruiser enforces these directions (`module-dependency-direction`), an
 - Email is trimmed/lowercased in the application; citext uniqueness is authoritative. No provider-specific alias rewriting. Passwords use 10-128 JavaScript UTF-16 code units at registration, without normalization/trimming; Argon2id m=19456 KiB, t=2, p=1. No blacklist.
 - Unknown email executes Argon2 verification against a fixed valid dummy hash with identical costs, reducing timing differences without promising identical timing. Existing accounts, including unavailable ones, are verified before the login decision.
 - Runtime AccessTokenIssuer uses jose and the same once-loaded RSA pair, configured issuer, typ JWT, UUID sub, one role and integer iat/exp as #10. Runtime lifetime comes from JWT_ACCESS_TTL (default 15m / 900 seconds); expiresIn reflects its validated seconds. TokenService owns the shared signing/verification contract and both adapters delegate to its single instance. The test helper uses the same signing construction while preserving its explicit lifetime overrides and 300-second test default. Guards are unchanged. Existing access tokens remain valid until expiry; account status is checked at login, not by adding database reads to #10 guards.
-- RefreshTokenGenerator creates 32 random bytes encoded as base64url. Only SHA-256 hex is stored with userId, familyId, createdAt and seven-day expiresAt. The raw credential is returned only by login. No rotation, reuse detection, revocation, revokedAt, refresh/logout/me routes or family lifecycle behavior.
+- RefreshTokenGenerator creates 32 random bytes encoded as base64url. Only SHA-256 hex is stored with userId, familyId, createdAt and expiresAt (`JWT_REFRESH_TTL`, default seven days). The raw credential is returned only by login and, since #18, by refresh. Login starts a new family; the session lifecycle is described below.
 - Both write use cases use @Transactional and the existing AuditRecorder. Registration audits user_account.created; the audit allow-list keeps only role/status (no email: personal data in a trail that is never purged). Login audits refresh_token.issued; the audit allow-list keeps only userId/familyId/expiresAt (the entry's occurred_at is the creation time). No passwords, password hashes, raw tokens or token hashes in audit. Public routes keep the anonymous actor; the affected user is explicit in entityId/userId.
 - Internal entities, repositories, schemas and runtime signing ports are not exported from index.ts. Versioned account columns follow the reference module; no administration/delete behavior is added.
 
 Tests cover pure rules and decisions, native hashing and RS256 compatibility, migrated PostGIS constraints/adapters, and HTTP registration/login with #10 guards, rollback and Swagger. Integration/e2e require Docker.
+
+## Sessions: refresh rotation, logout and `/auth/me` (#18)
+
+**Lifetimes.** An access token lives `JWT_ACCESS_TTL` (15 minutes by default) and is never stored. A refresh token lives `JWT_REFRESH_TTL` (7 days by default), is returned once in clear and stored only as its SHA-256 hex digest. Every new row passes `refresh-token-rules.ts` (64 lowercase hex characters, expiry after creation).
+
+**Families.** Login starts a family (`family_id`). Each refresh replaces the presented token with a new one in the same family, so a family is one sign-in on one device, and its tokens form a chain linked by `replaced_by_id`.
+
+**The decision is domain code.** `decideRefresh(token, user, now)` in `domain/refresh-decision.ts` is pure and returns one of:
+
+| Decision               | When                                       | What the use case does                   |
+| ---------------------- | ------------------------------------------ | ---------------------------------------- |
+| `REJECT_UNKNOWN`       | no row has the digest (or no owner)        | 401                                      |
+| `REUSE_DETECTED`       | the token is already revoked               | revoke the family, audit, 401            |
+| `REJECT_EXPIRED`       | `now >= expiresAt` (time from the `Clock`) | 401, nothing revoked                     |
+| `REJECT_USER_INACTIVE` | the account is not `ACTIVE`                | revoke the family, audit, 401            |
+| `ROTATE`               | otherwise                                  | revoke and link the old row, insert, 200 |
+
+Expiry, revocation and account status are checked in code only: no trigger, no `CHECK`, no business condition in SQL. The repository reads and writes; the one SQL condition is `revoked_at IS NULL` when a family is revoked.
+
+**Refresh flow.**
+
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant A as POST /auth/refresh
+  participant D as PostgreSQL
+  C->>A: { refreshToken }
+  A->>D: BEGIN; SELECT ... WHERE token_hash = sha256(token) FOR UPDATE
+  A->>D: SELECT account by user_id
+  Note over A: decideRefresh(token, account, clock.now())
+  alt ROTATE
+    A->>D: INSERT new token (same family)
+    A->>D: UPDATE old SET revoked_at, replaced_by_id
+    A->>D: COMMIT
+    A-->>C: 200 { accessToken, refreshToken, tokenType, expiresIn }
+  else REUSE_DETECTED / REJECT_USER_INACTIVE
+    A->>D: UPDATE family SET revoked_at WHERE revoked_at IS NULL; audit
+    A->>D: COMMIT
+    A-->>C: 401 INVALID_CREDENTIALS
+  else REJECT_UNKNOWN / REJECT_EXPIRED
+    A->>D: COMMIT (nothing written)
+    A-->>C: 401 INVALID_CREDENTIALS
+  end
+```
+
+**Reuse detection.** A revoked token presented again means someone kept an old copy: the thief or the real client, we cannot tell which, so the whole family is revoked and both must sign in again. The revocation must survive although the response is an error. `RefreshSession.execute` therefore calls `apply`, a separate `@Transactional()` method that decides, writes and returns `undefined` instead of throwing; the transaction commits, and only then does `execute` throw the 401. Every rejection has the same body (`INVALID_CREDENTIALS`, "The refresh token is invalid or has expired."), so a client learns nothing about why.
+
+**Concurrency.** The presented row is read with `SELECT ... FOR UPDATE`. Of two refreshes with the same token, the second waits for the first to commit, then reads the row as revoked: reuse. Exactly one caller gets new tokens, and the reuse revokes the family, including the token the winner just received. Logout locks the row the same way, so a logout racing a rotation never leaves the new token active.
+
+**Logout.** `POST /auth/logout` (public, body `{ refreshToken }`) revokes every active token of that token's family and always answers 204, also for an unknown or already revoked token: it is idempotent and reveals nothing. Other sessions (families) of the same user stay valid.
+
+**`GET /auth/me`.** Needs an access token; returns `{ id, email, role, status }` read from the database, not from the token claims, so a role changed by an admin shows at once. The account has no display name yet, so none is returned. A token whose account no longer exists gets 401.
+
+**Audit.** `session.revoked` (logout, or a disabled account's refresh; `reason` is `LOGOUT` or `USER_INACTIVE`) and `session.reuse_detected`, both with entity `RefreshTokenFamily` and the family id; snapshots hold `userId`, `reason` and `revokedCount`, never a token or digest. A logout that revokes nothing records nothing. A normal rotation is not audited: an active user rotates every 15 minutes, so one entry per user per 15 minutes would drown the audit log in routine events. The rotation is still traceable in `refresh_token` itself (`revoked_at`, `replaced_by_id`).

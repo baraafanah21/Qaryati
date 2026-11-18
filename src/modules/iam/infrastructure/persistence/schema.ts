@@ -34,8 +34,9 @@ export const userAccount = pgTable(
 );
 
 /**
- * Only SHA-256 digests are persisted; family identity prepares for #18 without rotation behavior.
- * The digest format and expiry rules are domain rules (refresh-token-rules.ts).
+ * Only SHA-256 digests are persisted. A row is revoked once (`revokedAt`); a rotated row
+ * points at its successor (`replacedById`) in the same family. The digest format and
+ * expiry rules are domain rules (refresh-token-rules.ts), not CHECKs.
  */
 export const refreshToken = pgTable(
   'refresh_token',
@@ -46,6 +47,8 @@ export const refreshToken = pgTable(
     familyId: uuid().notNull(),
     expiresAt: timestamp({ withTimezone: true }).notNull(),
     createdAt: timestamp({ withTimezone: true }).notNull(),
+    revokedAt: timestamp({ withTimezone: true }),
+    replacedById: uuid(),
   },
   (table) => [
     foreignKey({
@@ -53,7 +56,14 @@ export const refreshToken = pgTable(
       columns: [table.userId],
       foreignColumns: [userAccount.id],
     }).onDelete('restrict'),
+    foreignKey({
+      name: 'refresh_token_replaced_by_id_fk',
+      columns: [table.replacedById],
+      foreignColumns: [table.id],
+    }).onDelete('restrict'),
     uniqueIndex('refresh_token_token_hash_key').on(table.tokenHash),
     index('refresh_token_user_id_idx').on(table.userId),
+    index('refresh_token_family_id_idx').on(table.familyId),
+    index('refresh_token_replaced_by_id_idx').on(table.replacedById),
   ],
 );
