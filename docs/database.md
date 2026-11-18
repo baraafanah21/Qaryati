@@ -18,7 +18,7 @@ What the init script sets up:
 - `ALTER DEFAULT PRIVILEGES FOR ROLE <owner>` grants DML on every table and sequence **the owner creates later**. Each new migration is therefore usable by the API without a manual `GRANT`.
 - `TRUNCATE`, `REFERENCES` and `TRIGGER` are not granted, and neither is anything on the `drizzle` schema that records applied migrations.
 
-As a result, `qaryati_app` cannot `CREATE`, `ALTER`, `DROP` or `TRUNCATE` anything (SQLSTATE `42501`). `test/database-roles.int-spec.ts` checks each of these. A table can later take back rights from `qaryati_app` with a `REVOKE` in its migration. For example, the audit trail (#20) will allow only `INSERT` and `SELECT`.
+As a result, `qaryati_app` cannot `CREATE`, `ALTER`, `DROP` or `TRUNCATE` anything (SQLSTATE `42501`). `test/database-roles.int-spec.ts` checks each of these. A table can take back rights from `qaryati_app` with a `REVOKE` in its migration. The audit trail does: `audit_entry` allows only `INSERT` and `SELECT` ([Audit trail](#audit-trail-20)).
 
 At startup, `DatabaseModule` runs `SELECT current_user` and logs `Connected to PostgreSQL as qaryati_app`. A wrong URL or password stops the app at startup, not at the first request.
 
@@ -252,3 +252,13 @@ Accounts use `versionColumns()` and explicit Clock timestamps; an account that m
 Refresh rows contain a SHA-256 hex digest, user FK (ON DELETE RESTRICT), family UUID, createdAt and expiresAt. Token digests are unique; the user FK is indexed. Raw 256-bit opaque tokens never enter persistence. The digest format (64 lowercase hex characters) and expiry after creation are domain rules (`domain/refresh-token-rules.ts`), checked by the repository before every insert; the application sets expiry to seven days. Family identity prepares for #18 only: there is no revokedAt, rotation or reuse behavior in #14.
 
 Migration `0004_iam_minimal_db_rules` removed the earlier deletion-timestamp column and the five value `CHECK`s.
+
+## Audit trail (#20)
+
+The audit module owns `audit_entry`: one row per audited write, written by `DrizzleAuditRecorder` in the caller's transaction ([kernel.md](kernel.md#audit-entries), [audit README](../src/modules/audit/README.md)).
+
+**Permissions.** The default privileges give `qaryati_app` full DML on every new table. The custom migration `0011_audit_entry_append_only` revokes `UPDATE`, `DELETE` and `TRUNCATE`, so the API can only `INSERT` and `SELECT`. The role name is literal: `docker/postgres/init/20-create-app-role.sh` creates `qaryati_app` in Compose, in CI and in Testcontainers. `test/audit/drizzle-audit-recorder.int-spec.ts` checks that `UPDATE`, `DELETE` and `TRUNCATE` fail with SQLSTATE `42501`. Only the owner role (migrations, an operator) can change or remove entries.
+
+**No foreign keys, on purpose.** `entity_id`, `village_id` and `actor_id` reference nothing. The trail must outlive the rows it describes: when an admin hard-deletes spam or personal data, its audit entries stay, and a foreign key would either block that delete (`RESTRICT`) or erase the history (`CASCADE`). It also keeps `audit` free of imports from other modules. This is the one exception to "every reference is a foreign key"; it is listed here so nobody adds them later.
+
+**Indexes.** The read APIs (#44) page newest first with a keyset on `(occurred_at, id)`: `audit_entry_entity_idx (entity_type, entity_id, occurred_at DESC, id DESC)`, `audit_entry_village_idx (village_id, …)`, `audit_entry_actor_idx (actor_id, …)` and `audit_entry_occurred_idx (occurred_at DESC, id DESC)` for the unfiltered admin list.

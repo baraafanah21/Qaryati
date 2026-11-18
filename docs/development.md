@@ -151,7 +151,6 @@ src/
     database/             DatabaseModule (shared pool, forFeature handles per module, @Transactional adapter),
                           versioned writes, migrate.ts (migration runner)
     events/               DomainEventPublisher (after-commit delivery), @OnDomainEvent
-    audit/                placeholder AuditRecorder until the audit module lands (#20)
     kernel/               runtime implementations of kernel ports (SystemClock, UUIDv7 ids)
     health/               GET /api/v1/health → { "status": "ok" }; replaced by Terminus in #43
   shared/kernel/          plain TypeScript kernel: errors and codes, Clock, Id, Page<T>, Versioned,
