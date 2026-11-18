@@ -166,7 +166,7 @@ async search(query: PageRequest & { sort: Sort<'name' | 'createdAt'>[] }): Promi
 - `?sort=name,desc&sort=createdAt` (direction defaults to `asc`). A field outside the allow-list is a 400 with `NOT_ALLOWED`. Allow only fields you have an index for.
 - Add a unique column (`id`) as the last sort key so pages are stable.
 - The response is `{ content: [...], page: { number, size, totalElements, totalPages } }`.
-- Keyset (cursor) pagination is not needed yet. The audit API (#20) will add it for its append-only, fast-growing table.
+- Keyset (cursor) pagination is not needed yet. The audit API (#44) will add it for its append-only, fast-growing table.
 
 **Don't:** interpolate a sort field into SQL with `sql.raw`, or read a column by a name the client chose without the allow-list. The allow-list is what keeps the column name safe.
 
@@ -378,7 +378,7 @@ The contract every implementation keeps (TSDoc on [`AuditRecorder`](../src/share
 - **It fills `actorId`, `requestId` and `occurredAt`** from the request context and the `Clock`. A use case never passes them. The auth guard (#10) sets the actor with `RequestContext.setActorId(userId)`; it does not need to import anything from `iam` for that.
 - **Snapshots are allow-lists:** `snapshot()` on the aggregate returns the fields worth keeping, never the whole object, never password hashes or tokens.
 
-Until the audit module lands, AppModule binds a placeholder (`AuditPlaceholderModule`, [`src/platform/audit`](../src/platform/audit)) that checks the transaction and logs each entry at `warn` with `audit persistence not implemented yet (#20)`. **#20 replaces it** with the audit module's implementation and deletes the placeholder.
+The audit module ([README](../src/modules/audit/README.md)) implements the port with `DrizzleAuditRecorder` and provides `AUDIT_RECORDER` globally. It stores each entry in `audit_entry`, which the API may only `INSERT` into and `SELECT` from. On top of the use case's own `snapshot()`, it keeps only the fields listed for the entity type in [`snapshot-policy.ts`](../src/modules/audit/domain/snapshot-policy.ts) and always drops keys that look like credentials. **An entity type without an entry there throws**, so a new aggregate adds its line in the same PR as its first audited write.
 
 In tests, bind [`InMemoryAuditRecorder`](../test/support/in-memory-audit-recorder.ts) (`.overrideProvider(AUDIT_RECORDER).useValue(audit)`). It records each entry with `inTransaction`, and `audit.failNext()` proves that a failed audit rolls the change back.
 

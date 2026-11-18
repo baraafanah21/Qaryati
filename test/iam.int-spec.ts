@@ -23,7 +23,7 @@ import { HttpPlatformModule } from '../src/platform/http/http-platform.module';
 import { ApiModule } from '../src/platform/http/openapi';
 import { KernelModule } from '../src/platform/kernel/kernel.module';
 import { LoggingModule } from '../src/platform/logging/logging.module';
-import { AuditPlaceholderModule } from '../src/platform/audit/audit-placeholder.module';
+import { AuditModule } from '../src/modules/audit/audit.module';
 import { DatabaseModule } from '../src/platform/database/database.module';
 import {
   startTestDatabase,
@@ -111,7 +111,7 @@ class PublicClassController {
     HttpPlatformModule,
     KernelModule,
     DatabaseModule,
-    AuditPlaceholderModule,
+    AuditModule,
     IamModule,
   ],
   controllers: [IamProbeController, ClassRoleController, PublicClassController],
