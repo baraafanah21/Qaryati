@@ -53,10 +53,10 @@ describe('village and admin_unit tables (integration)', () => {
 
   it('rejects a duplicate admin unit code', async () => {
     await owner.query(`INSERT INTO admin_unit (id, code, parent_id, unit_type, authority_type, era, name_ar, created_at, updated_at)
-      VALUES ('00000000-0000-7000-8000-000000000011', 'nablus', NULL, 'GOVERNORATE', NULL, 'CURRENT', 'نابلس', now(), now())`);
+      VALUES ('00000000-0000-7000-8000-000000000011', 'test-unit-1', NULL, 'GOVERNORATE', NULL, 'CURRENT', 'وحدة اختبار', now(), now())`);
     await expect(
       owner.query(`INSERT INTO admin_unit (id, code, parent_id, unit_type, authority_type, era, name_ar, created_at, updated_at)
-      VALUES ('00000000-0000-7000-8000-000000000012', 'nablus', NULL, 'GOVERNORATE', NULL, 'CURRENT', 'نابلس ثانية', now(), now())`),
+      VALUES ('00000000-0000-7000-8000-000000000012', 'test-unit-1', NULL, 'GOVERNORATE', NULL, 'CURRENT', 'وحدة اختبار ثانية', now(), now())`),
     ).rejects.toMatchObject({ code: '23505' });
   });
 

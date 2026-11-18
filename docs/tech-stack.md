@@ -12,23 +12,23 @@ The main decisions and the alternatives we rejected are recorded in [ADR-002](ad
 
 ## Overview
 
-| Area                       | Technology                                                                                           | Status                          |
-| -------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------- |
-| Collaboration              | GitHub, GitHub Projects, branch protection + CODEOWNERS, GitHub CLI + jq                             | In use                          |
-| Runtime and language       | Node.js 24 LTS, TypeScript 6 (strict)                                                                | In use (#2)                     |
-| Framework and architecture | NestJS 12 (+ reflect-metadata, rxjs, @nestjs/cli), hexagonal modules                                 | In use (#2)                     |
-| Code quality               | ESLint, typescript-eslint, Prettier, Husky, lint-staged, commitlint, dependency-cruiser              | In use (#2)                     |
-| Testing                    | Jest, ts-jest, Supertest, @nestjs/testing                                                            | In use (#2)                     |
-| Testing (database)         | Testcontainers                                                                                       | In use (#3)                     |
-| Data                       | PostgreSQL 16, PostGIS, pg_trgm, citext, Drizzle ORM, drizzle-kit, node-postgres, two database roles | In use (#3)                     |
-| Transactions               | @nestjs-cls/transactional with our pg adapter                                                        | In use (#9)                     |
-| Cache and queues           | Redis 7                                                                                              | Running (#3), first used in #25 |
-| Configuration              | zod, @nestjs/config                                                                                  | In use (#3)                     |
-| HTTP and observability     | zod request schemas (Standard Schema), nestjs-cls, pino, pino-http, nestjs-pino, pino-pretty         | In use (#9)                     |
-| Events and API docs        | @nestjs/event-emitter, @nestjs/swagger                                                               | In use (#9)                     |
-| Identifiers                | uuid (UUIDv7)                                                                                        | In use (#9)                     |
-| Containers                 | Docker Compose, node:24-slim, postgis/postgis:16-3.5, redis:7.4-alpine                               | In use (#3)                     |
-| CI and supply chain        | GitHub Actions, gitleaks, Dependabot                                                                 | In use (#4)                     |
+| Area                       | Technology                                                                                           | Status                                     |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| Collaboration              | GitHub, GitHub Projects, branch protection + CODEOWNERS, GitHub CLI + jq                             | In use                                     |
+| Runtime and language       | Node.js 24 LTS, TypeScript 6 (strict)                                                                | In use (#2)                                |
+| Framework and architecture | NestJS 12 (+ reflect-metadata, rxjs, @nestjs/cli), hexagonal modules                                 | In use (#2)                                |
+| Code quality               | ESLint, typescript-eslint, Prettier, Husky, lint-staged, commitlint, dependency-cruiser              | In use (#2)                                |
+| Testing                    | Jest, ts-jest, Supertest, @nestjs/testing                                                            | In use (#2)                                |
+| Testing (database)         | Testcontainers                                                                                       | In use (#3)                                |
+| Data                       | PostgreSQL 16, PostGIS, pg_trgm, citext, Drizzle ORM, drizzle-kit, node-postgres, two database roles | In use (#3)                                |
+| Transactions               | @nestjs-cls/transactional with our pg adapter                                                        | In use (#9)                                |
+| Cache and queues           | Redis 7; lru-cache (in-process)                                                                      | Redis running (#3); lru-cache in use (#19) |
+| Configuration              | zod, @nestjs/config                                                                                  | In use (#3)                                |
+| HTTP and observability     | zod request schemas (Standard Schema), nestjs-cls, pino, pino-http, nestjs-pino, pino-pretty         | In use (#9)                                |
+| Events and API docs        | @nestjs/event-emitter, @nestjs/swagger                                                               | In use (#9)                                |
+| Identifiers                | uuid (UUIDv7)                                                                                        | In use (#9)                                |
+| Containers                 | Docker Compose, node:24-slim, postgis/postgis:16-3.5, redis:7.4-alpine                               | In use (#3)                                |
+| CI and supply chain        | GitHub Actions, gitleaks, Dependabot                                                                 | In use (#4)                                |
 
 ---
 
@@ -310,6 +310,15 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 - **Why:** one dependency covers all three, and it works with more than one API instance. _Performance, scalability._
 - **Alternatives:** an in-process cache: breaks with more than one instance.
 - **Cost:** one more service to run.
+
+### lru-cache (in-process)
+
+- **Version:** 11.x
+- **Status:** In use (#19): `src/modules/village/infrastructure/cached-admin-unit.repository.ts`, a decorator around the admin-unit repository.
+- **Role:** keeps administrative units (governorates and later sub-districts and local authorities) in each API process for `ADMIN_UNITS_CACHE_TTL_SECONDS` (default 3600).
+- **Why:** this is reference data that changes almost never (only by migration today) and is read by every village page and filter. A memory lookup costs microseconds and no network hop, and the set is a few hundred rows. Bounded size (`max`) and TTL, and its `perf` option takes our `Clock`, so the TTL is tested without sleeping. _Performance._
+- **Alternatives:** Redis: shared between instances, but a network round trip for data that never changes, and #25 has not wired it yet; a hand-written `Map` with timestamps: no size bound, more code to test; no cache: one query per request for constant data.
+- **Cost:** each API instance has its own copy, so a changed unit can be stale for up to one TTL. Accepted: units change by migration, and a deploy restarts the processes anyway. Misses are not cached, so a new unit is found at once.
 
 ---
 

@@ -35,9 +35,10 @@ The `created_by` column references `user_account(id)` with `ON DELETE RESTRICT`,
 
 ## Public API
 
-Other modules access curation through `index.ts`, which exports:
+Other modules access curation through `index.ts`. `CurationModule` is global, so they inject these facades without importing its wiring. It exports:
 
 - `SourceQueries`, including `exists(id): Promise<boolean>`
+- `ClaimQueries.hasPreferredForGroup(groupKey): Promise<boolean>`: whether a question already has a published (preferred) claim. The owning module builds the key with `buildGroupKey`; village uses it to lock a display name once its `CURRENT` name claim is published (#23). It reads the partial unique index `claim_one_preferred`.
 - `SOURCE_TYPES`
 - `SourceType`
 

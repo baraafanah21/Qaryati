@@ -17,6 +17,9 @@ export interface ClaimRepository {
    * Throws NotFoundError or PreconditionFailedError when appropriate.
    */
   update(claim: Claim, expectedVersion: number): Promise<Claim>;
+
+  /** Whether the question `groupKey` has a preferred (published) claim. */
+  hasPreferredForGroup(groupKey: string): Promise<boolean>;
 }
 
 /** Injection token for the claim repository. */
