@@ -42,7 +42,8 @@ export const SNAPSHOT_POLICY = {
     'reliability',
     'notes',
   ],
-  UserAccount: ['email', 'role', 'status'],
+  // No email: the trail is never purged, so it holds no personal data; entityId identifies the user.
+  UserAccount: ['role', 'status'],
   Village: [
     'slug',
     'settlementStatus',

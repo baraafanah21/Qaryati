@@ -6,7 +6,7 @@ import {
 } from './snapshot-policy';
 
 describe('snapshot policy', () => {
-  it('keeps the allowed fields and drops the others', () => {
+  it('keeps the allowed fields and drops the others, the email included', () => {
     expect(
       applySnapshotPolicy(SNAPSHOT_POLICY, 'UserAccount', {
         email: 'a@example.org',
@@ -15,7 +15,7 @@ describe('snapshot policy', () => {
         displayName: 'not listed',
         version: 1,
       }),
-    ).toEqual({ email: 'a@example.org', role: 'CONTRIBUTOR', status: 'ACTIVE' });
+    ).toEqual({ role: 'CONTRIBUTOR', status: 'ACTIVE' });
   });
 
   it('keeps no field of a policy entry that is not in the snapshot', () => {

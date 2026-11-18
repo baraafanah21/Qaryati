@@ -69,10 +69,15 @@ describe('Audit trail through the real app (e2e)', () => {
         request_id: registered.headers['x-request-id'],
         occurred_at: new Date('2026-11-16T10:00:00Z'),
         before: null,
-        // No passwordHash, no version or timestamps.
-        after: { email, role: 'CONTRIBUTOR', status: 'ACTIVE' },
+        // No email (personal data), no passwordHash, no version or timestamps.
+        after: { role: 'CONTRIBUTOR', status: 'ACTIVE' },
       },
     ]);
+    const { rows } = await owner.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM audit_entry WHERE before::text ILIKE $1 OR after::text ILIKE $1',
+      [`%${email}%`],
+    );
+    expect(rows[0]?.n).toBe(0);
 
     const config = app.get<ConfigService<AppEnv, true>>(ConfigService);
     const issuer = await createTestTokenIssuer({

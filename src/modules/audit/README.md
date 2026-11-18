@@ -35,6 +35,8 @@ An audit trail that the API can edit proves nothing. The table has no version co
 
 [`domain/snapshot-policy.ts`](domain/snapshot-policy.ts) maps each entity type to the fields the trail keeps. `before` and `after` keep only those fields. On top of that, any key matching `/password|token|secret|hash/i` is always dropped (defence in depth), except `valueHash` / `value_hash` on `Claim`, which is a digest of the claim's value and not a secret.
 
+**No personal data.** The trail is never deleted from, so snapshots keep no personal data such as a user's email; `entity_id` already identifies the user. `UserAccount` keeps only `role` and `status`.
+
 Entity types today: `AdminUnit`, `Claim`, `RefreshToken`, `Source`, `UserAccount`, `Village`. The reference module's `Widget` is added only in tests (`AUDIT_SNAPSHOT_POLICY` is a provider, so a test can extend it).
 
 **Adding an entity type:** in the PR that adds its first audited write, add a line to `SNAPSHOT_POLICY` with the fields worth keeping (never credentials or large blobs), update the list in `snapshot-policy.spec.ts`, and keep the aggregate's own `snapshot()` an allow-list too.
