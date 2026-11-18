@@ -1,0 +1,19 @@
+import type { Id } from '../../../shared/kernel';
+import type { Village } from './village';
+
+/** Persistence port of the village identity. Writes run in the caller's transaction. */
+export interface VillageRepository {
+  /** Stores a new village; a taken slug surfaces as the database's unique violation (409). */
+  insert(village: Village): Promise<Village>;
+  findById(id: Id<'Village'>): Promise<Village | undefined>;
+  findBySlug(slug: string): Promise<Village | undefined>;
+  existsBySlug(slug: string): Promise<boolean>;
+  exists(id: Id<'Village'>): Promise<boolean>;
+  /** Stores identity fields if still at `expectedVersion`; 404 / 412 otherwise. */
+  update(village: Village, expectedVersion: number): Promise<Village>;
+  /** Hard delete if still at `expectedVersion`; a village with claims fails with 409. */
+  delete(id: Id<'Village'>, expectedVersion: number): Promise<Village>;
+}
+
+/** Injection token of the {@link VillageRepository}. */
+export const VILLAGE_REPOSITORY = Symbol('VILLAGE_REPOSITORY');

@@ -12,7 +12,7 @@ import { z } from 'zod';
 import type { AppEnv } from '../../config/app-env';
 import { ErrorCode, FieldErrorCode } from '../../shared/kernel';
 import { PROBLEM_CONTENT_TYPE } from './problem-details';
-import { PUBLIC_ROUTE } from './public.decorator';
+import { OPTIONAL_USER, PUBLIC_ROUTE } from './public.decorator';
 
 /** Where Swagger UI is served. The JSON document is at `/api/docs-json`. */
 export const SWAGGER_PATH = 'api/docs';
@@ -131,6 +131,7 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   });
   // Read only shared HTTP metadata: platform must never depend on IAM.
   const publicOperations = new Set<string>();
+  const optionalUserOperations = new Set<string>();
   const reflector = new Reflector();
   const scanner = new MetadataScanner();
   for (const module of app.get(ModulesContainer).values()) {
@@ -142,6 +143,9 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
         const handler = prototype[method];
         if (handler && reflector.getAllAndOverride<boolean>(PUBLIC_ROUTE, [handler, type])) {
           publicOperations.add(operationId(type.name, method));
+          if (reflector.getAllAndOverride<boolean>(OPTIONAL_USER, [handler, type])) {
+            optionalUserOperations.add(operationId(type.name, method));
+          }
         }
       }
     }
@@ -151,8 +155,15 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
       const operation = path[method];
       if (!operation) continue;
       const isPublic = publicOperations.has(operation.operationId ?? '');
-      operation.security = isPublic ? [] : [{ [BEARER_SCHEME]: [] }];
-      if (!isPublic) {
+      const optionalUser = optionalUserOperations.has(operation.operationId ?? '');
+      // `{}` first: anonymous is allowed; a bearer token is accepted when sent.
+      operation.security = optionalUser
+        ? [{}, { [BEARER_SCHEME]: [] }]
+        : isPublic
+          ? []
+          : [{ [BEARER_SCHEME]: [] }];
+      // An optional-user route still answers 401 to an invalid token.
+      if (!isPublic || optionalUser) {
         operation.responses['401'] ??= {
           description: PROBLEM_DESCRIPTIONS[401],
           content: { [PROBLEM_CONTENT_TYPE]: { schema: { $ref: PROBLEM_REF } } },

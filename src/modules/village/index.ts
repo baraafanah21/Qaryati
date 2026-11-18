@@ -25,3 +25,7 @@ export {
   type AuthorityType,
   type AdminEra,
 } from './domain/admin-unit-values';
+export { VillageQueries, type VillageView } from './application/village-queries';
+export { AdminUnitQueries } from './application/admin-unit-queries';
+export type { AdminUnit, AdminUnitFilter } from './domain/admin-unit';
+export type { GeoPoint } from './domain/village';

@@ -214,6 +214,21 @@ describe('DrizzleClaimRepository (PostGIS)', () => {
     expect(found?.version).toBe(1);
   });
 
+  it('hasPreferredForGroup is true only for a group with a preferred claim', async () => {
+    const groupKey = `name|${VILLAGE_ID}|ar|current`;
+    const stored = await repository.insert(
+      newClaim(groupKey, 'preferred-hash', { sourceId: SOURCE_ID }),
+    );
+    expect(await repository.hasPreferredForGroup(groupKey)).toBe(false);
+
+    await owner.query(`UPDATE claim SET status = 'VERIFIED', is_preferred = true WHERE id = $1`, [
+      stored.id,
+    ]);
+
+    expect(await repository.hasPreferredForGroup(groupKey)).toBe(true);
+    expect(await repository.hasPreferredForGroup(`name|${VILLAGE_ID}|en|current`)).toBe(false);
+  });
+
   it('returns undefined for an unknown claim', async () => {
     const found = await repository.findById(asId<'Claim'>(UNKNOWN_ID));
     expect(found).toBeUndefined();

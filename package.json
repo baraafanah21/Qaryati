@@ -45,6 +45,7 @@
     "argon2": "0.45.1",
     "drizzle-orm": "0.45.4",
     "jose": "6.2.14",
+    "lru-cache": "11.2.2",
     "nestjs-cls": "7.0.2",
     "nestjs-pino": "5.3.1",
     "pg": "8.23.1",

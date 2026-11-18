@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { InjectModuleDb } from '../../../platform/database/database';
 import { updateWithVersion } from '../../../platform/database/versioning';
@@ -69,6 +69,17 @@ export class DrizzleClaimRepository implements ClaimRepository {
     const [row] = await this.db.select().from(claim).where(eq(claim.id, id)).limit(1);
 
     return row ? toDomain(row) : undefined;
+  }
+
+  /** Uses the partial unique index `claim_one_preferred (group_key) WHERE is_preferred`. */
+  async hasPreferredForGroup(groupKey: string): Promise<boolean> {
+    const [row] = await this.db
+      .select({ id: claim.id })
+      .from(claim)
+      .where(and(eq(claim.groupKey, groupKey), eq(claim.isPreferred, true)))
+      .limit(1);
+
+    return row !== undefined;
   }
 
   /**

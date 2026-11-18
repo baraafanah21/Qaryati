@@ -52,6 +52,7 @@ describe('ClaimWriter', () => {
       insert: jest.fn(),
       findById: jest.fn(),
       update: jest.fn(),
+      hasPreferredForGroup: jest.fn(),
     };
 
     sources = {

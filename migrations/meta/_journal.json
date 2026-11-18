@@ -92,6 +92,13 @@
       "when": 1795000896671,
       "tag": "0012_overrated_famine",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795017139126,
+      "tag": "0013_seed_current_governorates",
+      "breakpoints": true
     }
   ]
 }

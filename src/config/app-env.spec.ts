@@ -16,7 +16,18 @@ describe('appEnvSchema', () => {
       JWT_ISSUER: 'qaryati',
       JWT_ACCESS_TTL: '15m',
       JWT_REFRESH_TTL: '7d',
+      ADMIN_UNITS_CACHE_TTL_SECONDS: 3600,
     });
+  });
+
+  it.each(['0', '-5', '1.5', 'soon'])('rejects ADMIN_UNITS_CACHE_TTL_SECONDS=%j', (value) => {
+    const result = appEnvSchema.safeParse({
+      DATABASE_URL,
+      ...JWT,
+      ADMIN_UNITS_CACHE_TTL_SECONDS: value,
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['ADMIN_UNITS_CACHE_TTL_SECONDS']);
   });
 
   it.each([
