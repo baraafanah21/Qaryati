@@ -102,3 +102,8 @@ Rules:
 
 - **Only `src/config` reads `process.env`** (CONTEXT.md). Everything else gets configuration through `ConfigService`.
 - **Adding a variable** means changing, in the same PR: the zod schema, `.env.example`, this page and, if a container needs it, `docker-compose.yml`.
+
+## Geocoding provider
+
+- `GEO_PROVIDER`: `stub` or `nominatim`. Use `stub` for local tests and k6.
+- `NOMINATIM_USER_AGENT`: Identifies the application when the Nominatim adapter is selected. Configure a meaningful application identifier and contact information before making real requests.

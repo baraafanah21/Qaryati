@@ -40,6 +40,8 @@ export const appEnvSchema = z.object({
    * Serves Swagger UI and the OpenAPI document. Unset means on, except with
    * `NODE_ENV=production` (src/platform/http/openapi.ts, isSwaggerEnabled).
    */
+  GEO_PROVIDER: z.enum(['stub', 'nominatim']).optional(),
+  NOMINATIM_USER_AGENT: z.string().optional(),
   SWAGGER_ENABLED: z.preprocess(
     // An empty value (`SWAGGER_ENABLED=` in .env) means "not set".
     (value) => (value === '' ? undefined : value),
