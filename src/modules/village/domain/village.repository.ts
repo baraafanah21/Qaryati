@@ -1,5 +1,6 @@
-import type { Id } from '../../../shared/kernel';
+import type { Id, Page } from '../../../shared/kernel';
 import type { Village } from './village';
+import type { VillageSearchCriteria, VillageSearchHit } from './village-search';
 
 /** Persistence port of the village identity. Writes run in the caller's transaction. */
 export interface VillageRepository {
@@ -13,6 +14,11 @@ export interface VillageRepository {
   update(village: Village, expectedVersion: number): Promise<Village>;
   /** Hard delete if still at `expectedVersion`; a village with claims fails with 409. */
   delete(id: Id<'Village'>, expectedVersion: number): Promise<Village>;
+  /**
+   * One page of villages matching every given criterion, sorted as asked (then
+   * by id), with the total from a count query using the same filters.
+   */
+  search(criteria: VillageSearchCriteria): Promise<Page<VillageSearchHit>>;
 }
 
 /** Injection token of the {@link VillageRepository}. */

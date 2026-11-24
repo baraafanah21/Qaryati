@@ -1730,6 +1730,164 @@
       }
     },
     "/api/v1/villages": {
+      "get": {
+        "description": "q is typo-tolerant (trigram similarity) over the Arabic and English display names and every published spelling of a name. Anonymous callers and contributors see published villages only; editors see every status and may filter by publicationStatus. Sort by nameAr, nameEn, createdAt or relevance (relevance needs q); the default is relevance,desc with q and nameAr,asc without.",
+        "operationId": "village_search",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "size",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "governorate",
+            "required": false,
+            "in": "query",
+            "description": "Id or code of a GOVERNORATE admin unit.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "Id or code of a GOVERNORATE admin unit."
+            }
+          },
+          {
+            "name": "settlementStatus",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "INHABITED",
+                "DEPOPULATED",
+                "MERGED"
+              ]
+            }
+          },
+          {
+            "name": "publicationStatus",
+            "required": false,
+            "in": "query",
+            "description": "EDITOR and ADMIN only; ignored for everyone else (published only).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DRAFT",
+                "PUBLISHED",
+                "ARCHIVED"
+              ],
+              "description": "EDITOR and ADMIN only; ignored for everyone else (published only)."
+            }
+          },
+          {
+            "name": "ids",
+            "required": false,
+            "in": "query",
+            "description": "Comma-separated village ids, at most 100.",
+            "schema": {
+              "type": "string",
+              "description": "Comma-separated village ids, at most 100."
+            }
+          },
+          {
+            "name": "sort",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VillageSummaryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Search, filter, sort and page villages",
+        "tags": [
+          "village"
+        ],
+        "security": [
+          {},
+          {
+            "bearer": []
+          }
+        ]
+      },
       "post": {
         "operationId": "village_create",
         "parameters": [],
@@ -5382,6 +5540,130 @@
           "distinctValues",
           "claimCount",
           "claimIds"
+        ],
+        "additionalProperties": false
+      },
+      "VillageSummaryPage": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VillageSummary"
+            }
+          },
+          "page": {
+            "type": "object",
+            "properties": {
+              "number": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "size": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "totalElements": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "totalPages": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "number",
+              "size",
+              "totalElements",
+              "totalPages"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "content",
+          "page"
+        ],
+        "additionalProperties": false
+      },
+      "VillageSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "settlementStatus": {
+            "type": "string",
+            "enum": [
+              "INHABITED",
+              "DEPOPULATED",
+              "MERGED"
+            ]
+          },
+          "publicationStatus": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "ARCHIVED"
+            ]
+          },
+          "displayNameAr": {
+            "type": "string"
+          },
+          "displayNameEn": {
+            "nullable": true,
+            "type": "string"
+          },
+          "location": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "number"
+              },
+              "longitude": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "latitude",
+              "longitude"
+            ],
+            "additionalProperties": false
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "relevance": {
+            "nullable": true,
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "settlementStatus",
+          "publicationStatus",
+          "displayNameAr",
+          "displayNameEn",
+          "location",
+          "createdAt",
+          "relevance"
         ],
         "additionalProperties": false
       },

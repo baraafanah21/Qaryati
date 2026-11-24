@@ -43,6 +43,21 @@ export const village = pgTable(
       table.publicationStatus,
       table.displayNameAr,
     ),
+    // Search sorts (#30): the other two sort fields, within the published list.
+    index('village_publication_display_name_en_idx').on(
+      table.publicationStatus,
+      table.displayNameEn,
+    ),
+    index('village_publication_created_at_idx').on(table.publicationStatus, table.createdAt),
+    // Search `q` (#30): pg_trgm `%` on both display names.
+    index('village_display_name_ar_trgm_idx').using(
+      'gin',
+      sql`${table.displayNameAr} gin_trgm_ops`,
+    ),
+    index('village_display_name_en_trgm_idx').using(
+      'gin',
+      sql`${table.displayNameEn} gin_trgm_ops`,
+    ),
   ],
 );
 
@@ -106,7 +121,14 @@ export const villageName = pgTable(
     periodFromYear: smallint(),
     periodToYear: smallint(),
   },
-  (table) => [claimTypeCheck('village_name', 'VILLAGE_NAME', table.claimType)],
+  (table) => [
+    claimTypeCheck('village_name', 'VILLAGE_NAME', table.claimType),
+    // Search `q` (#30): pg_trgm `%` on every stored spelling of a name.
+    index('village_name_name_normalized_trgm_idx').using(
+      'gin',
+      sql`${table.nameNormalized} gin_trgm_ops`,
+    ),
+  ],
 );
 
 /** `NAME_ORIGIN`: the meaning and origin of a village name. */

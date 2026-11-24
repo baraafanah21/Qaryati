@@ -27,6 +27,13 @@ export {
 } from './domain/admin-unit-values';
 export { VillageQueries, type VillageView } from './application/village-queries';
 export { AdminUnitQueries } from './application/admin-unit-queries';
+export type { SearchVillagesInput } from './application/search-villages.use-case';
+export {
+  VILLAGE_SORT_FIELDS,
+  MAX_SEARCH_VILLAGE_IDS,
+  type VillageSortField,
+  type VillageSearchHit,
+} from './domain/village-search';
 export type { AdminUnit, AdminUnitFilter } from './domain/admin-unit';
 export type { GeoPoint } from './domain/village';
 export {
