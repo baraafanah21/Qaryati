@@ -54,6 +54,7 @@ describe('ClaimWriter', () => {
       update: jest.fn(),
       hasPreferredForGroup: jest.fn(),
       findPreferredForGroup: jest.fn(),
+      listForVillage: jest.fn(),
       listReviewQueue: jest.fn(),
       listConflicts: jest.fn(),
     };

@@ -38,6 +38,7 @@ The `created_by` column references `user_account(id)` with `ON DELETE RESTRICT`,
 Other modules access curation through `index.ts`. `CurationModule` is global, so they inject these facades without importing its wiring. It exports:
 
 - `SourceQueries`, including `exists(id): Promise<boolean>`
+- `ClaimQueries.listForVillage({ villageId, claimType, preferredOnly, page, size })`: a `Page<ClaimView>` of one type's claims about one village, oldest first. Fact modules join their own fact rows to it by claim id, so they never read the `claim` table. `preferredOnly` is what public readers see and reads the partial index `claim_village_published`. `ClaimQueries.findById(id)` returns one `ClaimView` (provenance and review state, no value).
 - `ClaimQueries.hasPreferredForGroup(groupKey): Promise<boolean>`: whether a question already has a published (preferred) claim. The owning module builds the key with `buildGroupKey`; village uses it to lock a display name once its `CURRENT` name claim is published (#23). It reads the partial unique index `claim_one_preferred`.
 - `SOURCE_TYPES`
 - `SourceType`
@@ -197,7 +198,7 @@ Other fact modules use `ClaimWriter` through the public curation API.
 
 The caller is responsible for validating village existence before submission.
 
-When `sourceId` is provided, it must reference an existing source. `POPULATION` claims require a source on submission.
+When `sourceId` is provided, it must reference an existing source. `POPULATION` and `NAME_ORIGIN` claims require a source on submission (`SOURCE_REQUIRED_ON_SUBMIT`, 422 without one).
 
 If `supersedesId` is provided, it must reference an existing claim from the same village and claim type.
 
@@ -326,7 +327,7 @@ export class VillageModule implements OnModuleInit {
 - `change` is `{ villageId, groupKey, newPreferredClaimId, previousPreferredClaimId }`. `newPreferredClaimId` is `null` when the preferred claim was disputed: the owner decides the fallback (for example keep the projection, or clear it).
 - The hook runs **inside the review transaction**. If it throws, the status change, the flag and the audit entry roll back together, so a projection never disagrees with its preferred claim.
 - One handler per claim type; registering a second one throws at start-up. A type without a handler simply has no projection.
-- Curation never imports the owners; they import `ClaimTypeRegistry` from curation's `index.ts`. No handler is registered yet; the village handler comes with the village fact tables.
+- Curation never imports the owners; they import `ClaimTypeRegistry` from curation's `index.ts`. The village module registers `VILLAGE_NAME` and `LOCATION` (#27, #34); see its README.
 
 ## Review queue and conflicts (#40)
 

@@ -29,3 +29,18 @@ export { VillageQueries, type VillageView } from './application/village-queries'
 export { AdminUnitQueries } from './application/admin-unit-queries';
 export type { AdminUnit, AdminUnitFilter } from './domain/admin-unit';
 export type { GeoPoint } from './domain/village';
+export {
+  NAME_TYPES,
+  LOCATION_PRECISIONS,
+  MEASURE_KINDS,
+  RELATION_TYPES,
+  isNameType,
+  isLocationPrecision,
+  isMeasureKind,
+  isRelationType,
+  type NameType,
+  type LocationPrecision,
+  type MeasureKind,
+  type RelationType,
+} from './domain/fact-values';
+export { VILLAGE_LOCATION_CHANGED, type VillageLocationChanged } from './domain/village-events';

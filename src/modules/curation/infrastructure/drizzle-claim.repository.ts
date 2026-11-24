@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, eq, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, sql, type SQL } from 'drizzle-orm';
 
 import { InjectModuleDb } from '../../../platform/database/database';
 import { updateWithVersion } from '../../../platform/database/versioning';
@@ -24,6 +24,7 @@ import type {
   ClaimRepository,
   ConflictQuery,
   ReviewQueueQuery,
+  VillageClaimsQuery,
 } from '../domain/claim.repository';
 
 import { claim } from './persistence/schema';
@@ -178,6 +179,31 @@ export class DrizzleClaimRepository implements ClaimRepository {
       .limit(1);
 
     return row ? toDomain(row) : undefined;
+  }
+
+  /**
+   * Oldest first. A preferred-only read repeats the predicate of the partial
+   * index `claim_village_published (village_id, claim_type) WHERE is_preferred`.
+   */
+  async listForVillage(query: VillageClaimsQuery): Promise<Page<Claim>> {
+    const filters = [eq(claim.villageId, query.villageId), eq(claim.claimType, query.claimType)];
+    if (query.preferredOnly) {
+      filters.push(eq(claim.isPreferred, true));
+    }
+    const where = and(...filters);
+
+    const [rows, [totals]] = await Promise.all([
+      this.db
+        .select()
+        .from(claim)
+        .where(where)
+        .orderBy(asc(claim.createdAt), asc(claim.id))
+        .limit(query.size)
+        .offset(pageOffset(query)),
+      this.db.select({ total: count() }).from(claim).where(where),
+    ]);
+
+    return toPage(rows.map(toDomain), totals?.total ?? 0, query);
   }
 
   /**
