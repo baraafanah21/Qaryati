@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, asc, count, eq, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, sql, type SQL } from 'drizzle-orm';
 
 import { InjectModuleDb } from '../../../platform/database/database';
 import { updateWithVersion } from '../../../platform/database/versioning';
@@ -157,6 +157,15 @@ export class DrizzleClaimRepository implements ClaimRepository {
     const [row] = await this.db.select().from(claim).where(eq(claim.id, id)).limit(1);
 
     return row ? toDomain(row) : undefined;
+  }
+
+  async findByIds(ids: readonly Id<'Claim'>[]): Promise<Claim[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.db
+      .select()
+      .from(claim)
+      .where(inArray(claim.id, [...ids]));
+    return rows.map(toDomain);
   }
 
   /** Uses the partial unique index `claim_one_preferred (group_key) WHERE is_preferred`. */

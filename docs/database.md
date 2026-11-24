@@ -201,6 +201,7 @@ A module never imports another module's Drizzle tables, so a foreign key that cr
 | `claim.village_id`                                                                                                                       | `village.id`             | curation (`0009_claim_cross_module_fks`)            | RESTRICT    |
 | `claim.created_by`, `claim.reviewed_by`                                                                                                  | `user_account.id`        | curation (`0009_claim_cross_module_fks`)            | RESTRICT    |
 | `village_name`, `name_origin`, `village_affiliation`, `village_location`, `village_measure`, `village_relation` `(claim_id, claim_type)` | `claim (id, claim_type)` | village (`0015_village_claim_fks`)                  | CASCADE     |
+| `population_record (claim_id, claim_type)`                                                                                               | `claim (id, claim_type)` | population (`0018_population_claim_fks`)            | CASCADE     |
 | every other fact table's `(claim_id, claim_type)`                                                                                        | `claim (id, claim_type)` | the fact table's module (planned)                   | CASCADE     |
 | The `claim.source_id` and `claim.supersedes_id` foreign keys are                                                                         |
 | defined within the curation Drizzle schema and generated in migration                                                                    |

@@ -53,6 +53,9 @@ export interface ClaimRepository {
   /** Finds a claim by its identifier. */
   findById(id: Id<'Claim'>): Promise<Claim | undefined>;
 
+  /** The claims with these ids, in no particular order; unknown ids are absent. */
+  findByIds(ids: readonly Id<'Claim'>[]): Promise<Claim[]>;
+
   /**
    * Updates a claim using optimistic locking.
    * Throws NotFoundError or PreconditionFailedError when appropriate, and a
