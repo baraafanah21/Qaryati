@@ -9,6 +9,7 @@ import {
   PreconditionFailedError,
   ValidationError,
   UnauthenticatedError,
+  UpstreamError,
   type FieldError,
 } from '../../shared/kernel';
 import { RequestValidationException } from './validation';
@@ -37,6 +38,8 @@ export const ERROR_TITLES: Record<ErrorCode, string> = {
   SELF_VERIFICATION_FORBIDDEN: 'Self-verification forbidden',
   RATE_LIMITED: 'Too many requests',
   SERVICE_UNAVAILABLE: 'Service unavailable',
+  GEOCODING_UNAVAILABLE: 'Geocoding unavailable',
+  GEOCODING_BAD_RESPONSE: 'Geocoding bad response',
   INTERNAL_ERROR: 'Internal error',
 };
 
@@ -84,6 +87,7 @@ const DOMAIN_STATUS: ReadonlyArray<[abstract new (...args: never[]) => DomainErr
   [ForbiddenError, HttpStatus.FORBIDDEN],
   [PreconditionFailedError, HttpStatus.PRECONDITION_FAILED],
   [BusinessRuleViolationError, HttpStatus.UNPROCESSABLE_ENTITY],
+  [UpstreamError, HttpStatus.BAD_GATEWAY],
 ];
 
 const HTTP_STATUS_CODES: Readonly<Partial<Record<number, ErrorCode>>> = {
@@ -208,7 +212,9 @@ export function mapException(exception: unknown): MappedProblem {
         exception instanceof ValidationError && exception.errors.length > 0
           ? [...exception.errors]
           : undefined;
-      return { status, code: exception.code, detail: exception.message, errors, log: 'none' };
+      // A failing dependency is worth a warning in the log; the client sees only our detail.
+      const log = exception instanceof UpstreamError ? 'warn' : 'none';
+      return { status, code: exception.code, detail: exception.message, errors, log };
     }
   }
 

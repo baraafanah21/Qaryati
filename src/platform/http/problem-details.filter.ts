@@ -54,7 +54,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       if (mapped.log === 'error') {
         this.logger.error(fields, 'Request failed with an unexpected error');
       } else {
-        this.logger.warn(fields, 'Request rejected by the database');
+        this.logger.warn(fields, 'Request rejected by a dependency');
       }
     }
 

@@ -20,6 +20,7 @@ import {
   ForbiddenError,
   NotFoundError,
   PreconditionFailedError,
+  UpstreamError,
   ValidationError,
 } from '../../shared/kernel';
 import {
@@ -90,6 +91,19 @@ describe('mapException', () => {
         detail: error.message,
         errors: undefined,
         log: 'none',
+      });
+    });
+
+    it('maps a failing dependency to 502 with its code, logged as a warning', () => {
+      const error = new UpstreamError('The geocoding provider is unavailable.', {
+        code: ErrorCode.GEOCODING_UNAVAILABLE,
+      });
+      expect(mapException(error)).toEqual({
+        status: 502,
+        code: ErrorCode.GEOCODING_UNAVAILABLE,
+        detail: 'The geocoding provider is unavailable.',
+        errors: undefined,
+        log: 'warn',
       });
     });
 

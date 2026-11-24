@@ -13983,6 +13983,8 @@
               "SELF_VERIFICATION_FORBIDDEN",
               "RATE_LIMITED",
               "SERVICE_UNAVAILABLE",
+              "GEOCODING_UNAVAILABLE",
+              "GEOCODING_BAD_RESPONSE",
               "INTERNAL_ERROR"
             ],
             "description": "Stable code; branch on this."

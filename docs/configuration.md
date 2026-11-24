@@ -28,6 +28,17 @@ Read by the API process and validated at startup by `appEnvSchema` ([`src/config
 | `PRODUCTS_CACHE_TTL_SECONDS`    | no       | `3600`                           | Seconds each API process keeps products in its in-process cache (integer ≥ 1). Reference data that changes only by migration; a changed product is visible after at most this long ([economy README](../src/modules/economy/README.md#products)). Compose passes it to the `api` container.                                                                                                                                                                                                                                                                                                                                                                               |
 | `SWAGGER_ENABLED`               | no       | on, except `NODE_ENV=production` | `true`/`false` (also `1`/`0`, `yes`/`no`). Serves Swagger UI at `/api/docs` and the document at `/api/docs-json`. Unset (or empty) means on in development and test and **off in production**, where it would publish the whole API surface. An explicit value always wins over `NODE_ENV`: `true` turns Swagger on even with `NODE_ENV=production`, `false` turns it off in development. `.env.example` sets `true` for local development only; never set it in a production environment. Compose does not pass it to the `api` container, so the image stays off. `npm run openapi:generate` does not need it ([kernel.md](kernel.md#documenting-an-endpoint-swagger)). |
 
+### Geocoding
+
+Read by the geo module ([geo README](../src/modules/geo/README.md)) and validated at startup with the other API variables. Compose passes all four to the `api` container.
+
+| Variable            | Required                      | Default                               | Meaning                                                                                                                                                                                                         |
+| ------------------- | ----------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEO_PROVIDER`      | no                            | `stub`                                | `stub` (fixed fixtures, no network: development, tests, CI, k6) or `nominatim` (the public OpenStreetMap geocoder).                                                                                             |
+| `GEO_NOMINATIM_URL` | no                            | `https://nominatim.openstreetmap.org` | Base URL of the Nominatim API, without `/search`; an `http(s)` URL. Point it at a self-hosted instance to avoid the public rate limit.                                                                          |
+| `GEO_USER_AGENT`    | with `GEO_PROVIDER=nominatim` |                                       | `User-Agent` sent to Nominatim, required by its usage policy. A project identifier such as `Qaryati/1.0 (university project)`. **Never a personal email address**: the schema rejects any value containing `@`. |
+| `GEO_TIMEOUT_MS`    | no                            | `5000`                                | Time limit of one geocoding attempt in milliseconds (100–60000). A slower answer counts as a timeout.                                                                                                           |
+
 ### JWT secret files
 
 The API also validates these settings at startup:
@@ -103,8 +114,3 @@ Rules:
 
 - **Only `src/config` reads `process.env`** (CONTEXT.md). Everything else gets configuration through `ConfigService`.
 - **Adding a variable** means changing, in the same PR: the zod schema, `.env.example`, this page and, if a container needs it, `docker-compose.yml`.
-
-## Geocoding provider
-
-- `GEO_PROVIDER`: `stub` or `nominatim`. Use `stub` for local tests and k6.
-- `NOMINATIM_USER_AGENT`: Identifies the application when the Nominatim adapter is selected. Configure a meaningful application identifier and contact information before making real requests.

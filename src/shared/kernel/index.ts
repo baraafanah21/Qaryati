@@ -10,6 +10,7 @@ export {
   PreconditionFailedError,
   ValidationError,
   UnauthenticatedError,
+  UpstreamError,
   type DomainErrorOptions,
 } from './errors/domain-error';
 export { CLOCK, FixedClock, SystemClock, type Clock } from './time/clock';
