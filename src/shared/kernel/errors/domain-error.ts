@@ -89,3 +89,15 @@ export class UnauthenticatedError extends DomainError {
     super(message, ErrorCode.UNAUTHENTICATED, options);
   }
 }
+
+/**
+ * An external service this API depends on failed or answered with something
+ * unusable (502). The caller's request may be fine; the client may retry
+ * later. Always pass a module-specific code, so clients can tell which
+ * dependency failed; the provider's own response never goes into `message`.
+ */
+export class UpstreamError extends DomainError {
+  constructor(message: string, options: DomainErrorOptions & { code: ErrorCode }) {
+    super(message, options.code, options);
+  }
+}

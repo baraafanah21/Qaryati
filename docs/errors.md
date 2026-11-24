@@ -142,6 +142,24 @@ The catalogue lives in [`src/shared/kernel/errors/error-codes.ts`](../src/shared
 - **When:** a database statement timed out (SQLSTATE `57014`), or a dependency is down.
 - **Client:** retry later with backoff.
 
+<a id="geocoding-unavailable"></a>
+
+### `GEOCODING_UNAVAILABLE`
+
+- **Status:** 502
+- **Meaning:** the external geocoding provider could not answer. The rest of the API is not affected.
+- **When:** `POST /api/v1/villages/{id}/geocode-suggestions` and the provider timed out, could not be reached, answered with an HTTP error (including its own 429 rate limit), or the circuit breaker is open after repeated failures ([geo README](../src/modules/geo/README.md)). The provider's own response body is never returned.
+- **Client:** retry later with backoff; while the breaker is open, retrying before about 30 seconds fails at once.
+
+<a id="geocoding-bad-response"></a>
+
+### `GEOCODING_BAD_RESPONSE`
+
+- **Status:** 502
+- **Meaning:** the geocoding provider answered, but with something the API cannot use (malformed JSON, an unexpected shape, coordinates out of range).
+- **When:** the same endpoint as above. The response is rejected as a whole, so no half-valid candidate reaches the client.
+- **Client:** retry later; if it persists, report the `traceId`.
+
 <a id="internal-error"></a>
 
 ### `INTERNAL_ERROR`

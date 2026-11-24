@@ -18,6 +18,47 @@ describe('appEnvSchema', () => {
       JWT_REFRESH_TTL: '7d',
       ADMIN_UNITS_CACHE_TTL_SECONDS: 3600,
       PRODUCTS_CACHE_TTL_SECONDS: 3600,
+      GEO_PROVIDER: 'stub',
+      GEO_NOMINATIM_URL: 'https://nominatim.openstreetmap.org',
+      GEO_TIMEOUT_MS: 5000,
+    });
+  });
+
+  describe('geocoding', () => {
+    const nominatim = { DATABASE_URL, ...JWT, GEO_PROVIDER: 'nominatim' };
+
+    it('requires GEO_USER_AGENT with the nominatim provider', () => {
+      for (const agent of [undefined, '', '   ']) {
+        const result = appEnvSchema.safeParse({ ...nominatim, GEO_USER_AGENT: agent });
+        expect(result.success).toBe(false);
+        expect(result.error?.issues[0]?.path).toEqual(['GEO_USER_AGENT']);
+      }
+    });
+
+    it('rejects a User-Agent that carries an email address', () => {
+      const result = appEnvSchema.safeParse({
+        ...nominatim,
+        GEO_USER_AGENT: 'Qaryati/1.0 (someone@example.com)',
+      });
+      expect(result.error?.issues[0]?.message).toBe('must not contain an email address');
+    });
+
+    it('accepts a project User-Agent', () => {
+      const env = appEnvSchema.parse({
+        ...nominatim,
+        GEO_USER_AGENT: 'Qaryati/1.0 (university project)',
+      });
+      expect(env.GEO_USER_AGENT).toBe('Qaryati/1.0 (university project)');
+    });
+
+    it.each(['ftp://example.org', 'not a url'])('rejects GEO_NOMINATIM_URL=%j', (value) => {
+      const result = appEnvSchema.safeParse({ DATABASE_URL, ...JWT, GEO_NOMINATIM_URL: value });
+      expect(result.error?.issues[0]?.path).toEqual(['GEO_NOMINATIM_URL']);
+    });
+
+    it.each(['0', '99', '1.5', '60001'])('rejects GEO_TIMEOUT_MS=%j', (value) => {
+      const result = appEnvSchema.safeParse({ DATABASE_URL, ...JWT, GEO_TIMEOUT_MS: value });
+      expect(result.error?.issues[0]?.path).toEqual(['GEO_TIMEOUT_MS']);
     });
   });
 

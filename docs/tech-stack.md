@@ -18,7 +18,7 @@ The main decisions and the alternatives we rejected are recorded in [ADR-002](ad
 | Runtime and language       | Node.js 24 LTS, TypeScript 6 (strict)                                                                | In use (#2)                                |
 | Framework and architecture | NestJS 12 (+ reflect-metadata, rxjs, @nestjs/cli), hexagonal modules                                 | In use (#2)                                |
 | Code quality               | ESLint, typescript-eslint, Prettier, Husky, lint-staged, commitlint, dependency-cruiser              | In use (#2)                                |
-| Testing                    | Jest, ts-jest, Supertest, @nestjs/testing                                                            | In use (#2)                                |
+| Testing                    | Jest, ts-jest, Supertest, @nestjs/testing; nock (HTTP mocks)                                         | In use (#2); nock (#21)                    |
 | Testing (database)         | Testcontainers                                                                                       | In use (#3)                                |
 | Data                       | PostgreSQL 16, PostGIS, pg_trgm, citext, Drizzle ORM, drizzle-kit, node-postgres, two database roles | In use (#3)                                |
 | Transactions               | @nestjs-cls/transactional with our pg adapter                                                        | In use (#9)                                |
@@ -222,6 +222,15 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 - **Why:** strict TypeScript needs types for every API we call. The @types/node major version matches the runtime, so we cannot call an API that Node 24 does not have. _Correctness._
 - **Alternatives:** none.
 - **Cost:** none.
+
+### nock
+
+- **Version:** nock 15.x (exact pin in `package.json`)
+- **Status:** In use (#21): the Nominatim adapter tests (`src/modules/geo/infrastructure/*.spec.ts`)
+- **Role:** intercepts outgoing HTTP, including Node's `fetch`, and answers with a scripted response: success, empty, malformed JSON, 429, 503, a network error. `nock.disableNetConnect()` makes any unscripted request fail, so a test can never reach the real provider (CI has no internet).
+- **Why:** the adapter's failure handling is the point of the external API work, and nock reproduces each failure exactly and fast, at the HTTP level, so the real `fetch` code runs. _Testability._
+- **Alternatives:** msw: the same interception (nock 15 is built on its interceptors), but its handler API targets browser and full-app mocking. A local HTTP server per test: real sockets, more code; used once, for the timeout test, where nock's delayed mock socket trips an undici assertion when `fetch` aborts it. Mocking `fetch` with `jest.fn`: never runs the real request, header and URL code.
+- **Cost:** one dev dependency; a mock can drift from the real API, so the scripted bodies follow the documented `format=jsonv2` response.
 
 ### Testcontainers
 
