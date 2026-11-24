@@ -25,7 +25,7 @@ cp .env.example .env   # local configuration
 npm run keys:dev       # local JWT key pair in secrets/ (git-ignored, never commit it)
 sudo chown 1000 secrets/jwt-private.pem  # Linux only, if the script asks: the API container reads it
 docker compose up -d --build --wait  # PostGIS, Redis, migrations, API
-curl localhost:3000/api/v1/health    # {"status":"ok"}
+curl localhost:3000/api/v1/health/live    # {"status":"ok"}
 ```
 
 Checks to run before every push (CI runs the same):

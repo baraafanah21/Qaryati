@@ -43,4 +43,11 @@ export abstract class RefreshTokenRepository {
    * @returns the number of tokens revoked by this call (0 when the family was already revoked).
    */
   abstract revokeFamily(familyId: Id<'RefreshTokenFamily'>, revokedAt: Date): Promise<number>;
+
+  /**
+   * Revokes every still-active token of every family of a user: all their sessions end.
+   *
+   * @returns the number of tokens revoked by this call.
+   */
+  abstract revokeAllForUser(userId: Id<'UserAccount'>, revokedAt: Date): Promise<number>;
 }

@@ -352,7 +352,7 @@ describe('Problem details (e2e)', () => {
     });
 
     it('is sent on successful responses too', async () => {
-      const res = await http().get('/api/v1/health').expect(200);
+      const res = await http().get('/api/v1/health/live').expect(200);
       expect(res.headers['x-request-id']).toEqual(expect.any(String));
     });
   });

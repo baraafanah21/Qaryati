@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { postgresUrl } from './postgres-url';
 import { accessTokenTtl } from './access-token-ttl';
 import { refreshTokenTtl } from './refresh-token-ttl';
+import { corsOrigins, flag, perMinute, trustProxy } from './security-env';
 
 /**
  * Environment variables the API process needs, validated once at startup.
@@ -83,6 +84,30 @@ export const appEnvSchema = z
       .min(100, 'must be at least 100')
       .max(60_000, 'must be at most 60000')
       .default(5000),
+    /** Redis for the shared rate-limit counters; down means throttling fails open. */
+    REDIS_URL: z
+      .url({ protocol: /^rediss?$/, error: 'must be a redis:// or rediss:// URL' })
+      .default('redis://localhost:6379'),
+    /** Turns rate limiting off entirely (the e2e suites, which share one Redis). */
+    RATE_LIMIT_ENABLED: flag(true),
+    /** Requests per minute per IP for callers without a token. */
+    RATE_LIMIT_ANONYMOUS_PER_MINUTE: perMinute(120),
+    /** Requests per minute per user for callers with a verified token. */
+    RATE_LIMIT_USER_PER_MINUTE: perMinute(300),
+    /** Login attempts per minute per IP and email. */
+    RATE_LIMIT_LOGIN_PER_MINUTE: perMinute(5),
+    CORS_ORIGINS: corsOrigins,
+    TRUST_PROXY: trustProxy,
+    /**
+     * Port of the internal Prometheus endpoint (`GET /metrics`), served apart from
+     * the public API so it is never routed to clients. 0 picks a free port (tests).
+     */
+    METRICS_PORT: z.coerce
+      .number({ error: 'must be a number' })
+      .int('must be an integer')
+      .min(0, 'must be between 0 and 65535')
+      .max(65535, 'must be between 0 and 65535')
+      .default(9464),
   })
   .superRefine((env, ctx) => {
     if (env.GEO_PROVIDER === 'nominatim' && env.GEO_USER_AGENT === undefined) {

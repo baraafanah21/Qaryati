@@ -21,6 +21,61 @@ describe('appEnvSchema', () => {
       GEO_PROVIDER: 'stub',
       GEO_NOMINATIM_URL: 'https://nominatim.openstreetmap.org',
       GEO_TIMEOUT_MS: 5000,
+      REDIS_URL: 'redis://localhost:6379',
+      RATE_LIMIT_ENABLED: true,
+      RATE_LIMIT_ANONYMOUS_PER_MINUTE: 120,
+      RATE_LIMIT_USER_PER_MINUTE: 300,
+      RATE_LIMIT_LOGIN_PER_MINUTE: 5,
+      CORS_ORIGINS: [],
+      TRUST_PROXY: false,
+      METRICS_PORT: 9464,
+    });
+  });
+
+  describe('security and operations (#25, #42, #43)', () => {
+    const parse = (extra: Record<string, unknown>) =>
+      appEnvSchema.safeParse({ DATABASE_URL, ...JWT, ...extra });
+
+    it('splits CORS_ORIGINS into bare origins, ignoring blanks', () => {
+      expect(
+        parse({ CORS_ORIGINS: ' http://localhost:5173 , ,https://qaryati.example' }).data
+          ?.CORS_ORIGINS,
+      ).toEqual(['http://localhost:5173', 'https://qaryati.example']);
+      expect(parse({ CORS_ORIGINS: '' }).data?.CORS_ORIGINS).toEqual([]);
+    });
+
+    it.each(['https://qaryati.example/', 'https://qaryati.example/app', 'ftp://x.example', '*'])(
+      'rejects CORS_ORIGINS=%j',
+      (value) => {
+        expect(parse({ CORS_ORIGINS: value }).error?.issues[0]?.path?.[0]).toBe('CORS_ORIGINS');
+      },
+    );
+
+    it.each([
+      ['false', false],
+      ['', false],
+      ['1', 1],
+      ['loopback, 10.0.0.0/8', 'loopback, 10.0.0.0/8'],
+    ])('reads TRUST_PROXY=%j as %j', (value, expected) => {
+      expect(parse({ TRUST_PROXY: value }).data?.TRUST_PROXY).toEqual(expected);
+    });
+
+    it('refuses TRUST_PROXY=true, which would let any client choose its IP', () => {
+      expect(parse({ TRUST_PROXY: 'true' }).error?.issues[0]?.path).toEqual(['TRUST_PROXY']);
+    });
+
+    it.each([
+      ['RATE_LIMIT_LOGIN_PER_MINUTE', '0'],
+      ['RATE_LIMIT_USER_PER_MINUTE', '1.5'],
+      ['RATE_LIMIT_ENABLED', 'maybe'],
+      ['METRICS_PORT', '70000'],
+      ['REDIS_URL', 'http://localhost:6379'],
+    ])('rejects %s=%j', (name, value) => {
+      expect(parse({ [name]: value }).error?.issues[0]?.path).toEqual([name]);
+    });
+
+    it('turns rate limiting off with RATE_LIMIT_ENABLED=false', () => {
+      expect(parse({ RATE_LIMIT_ENABLED: 'false' }).data?.RATE_LIMIT_ENABLED).toBe(false);
     });
   });
 

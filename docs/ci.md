@@ -12,7 +12,7 @@ The jobs run in parallel on `ubuntu-24.04` with the Node version from `.nvmrc`. 
 | `unit`           | Jest project `unit`                                                                                                                    | `npm run test:unit`                                                                                                                               | < 1 min      |
 | `integration`    | Jest projects `integration` and `e2e` against real PostGIS (Testcontainers on the runner's Docker)                                     | `npm run test:int && npm run test:e2e` (Docker running)                                                                                           | 2–3 min      |
 | `secrets`        | gitleaks over the full Git history                                                                                                     | see [secrets](#secrets) below                                                                                                                     | < 1 min      |
-| `docker`         | Builds the image and starts the whole Compose stack from `.env.example`, then checks health and the database role                      | `cp .env.example .env && docker compose up -d --build --wait && curl localhost:3000/api/v1/health`                                                | 2–3 min      |
+| `docker`         | Builds the image and starts the whole Compose stack from `.env.example`, then checks health and the database role                      | `cp .env.example .env && docker compose up -d --build --wait && curl localhost:3000/api/v1/health/live`                                           | 2–3 min      |
 
 ### quality
 
@@ -44,7 +44,7 @@ If gitleaks finds a real secret, **rotate it first**: removing it from Git does 
 
 ### docker
 
-Starts `db`, `redis`, `migrate` and `api` exactly as a teammate does, using the development values from `.env.example`. It fails if a service is unhealthy after 180 seconds, if `/api/v1/health` does not answer, or if the API did not log `Connected to PostgreSQL as qaryati_app`. The image runs with `NODE_ENV=production`, so Swagger is off there (`/api/docs-json` answers 404). On failure it prints every container's logs, and it always removes the stack and its volume.
+Starts `db`, `redis`, `migrate` and `api` exactly as a teammate does, using the development values from `.env.example`. It fails if a service is unhealthy after 180 seconds, if `/api/v1/health/live` does not answer, or if the API did not log `Connected to PostgreSQL as qaryati_app`. The image runs with `NODE_ENV=production`, so Swagger is off there (`/api/docs-json` answers 404). On failure it prints every container's logs, and it always removes the stack and its volume.
 
 ## Workflow security
 

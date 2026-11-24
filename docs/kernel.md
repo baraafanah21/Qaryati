@@ -22,6 +22,15 @@ The JWT guard calls `RequestContext.setActorId(user.id)` only after verification
 
 OpenAPI generation reads the shared public-route metadata and documents bearer authentication plus 401 by default, public operations with `security: []`, and 403 through `@Roles()`. Platform routes import `Public` directly from platform HTTP. No platform code imports IAM. See [IAM README](../src/modules/iam/README.md) for the token contract and test issuer.
 
+## Rate limits
+
+Every route is rate limited by the global guard in `src/platform/rate-limit` (#25): per IP without a token, per user with one, and a 429 `RATE_LIMITED` with `Retry-After` over the limit. OpenAPI documents the 429 on every operation automatically. Two decorators from `src/platform/http/rate-limit.decorators.ts` change it for one route:
+
+- `@LoginRateLimit()` adds the login limit (per IP and the body's `email`). For credential endpoints only.
+- `@SkipRateLimit()` removes every limit. For health probes only, never for business endpoints.
+
+Nothing else is needed in a new endpoint. When Redis is down the limits fail open (the request passes, a warning is logged).
+
 ## Throwing errors
 
 Throw a kernel error from `domain/` or `application/`. The global filter turns it into an `application/problem+json` response ([errors.md](errors.md)); you never build an error response yourself.

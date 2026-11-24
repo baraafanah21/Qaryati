@@ -1,3 +1,4 @@
+import { UNLOCKED } from './login-lockout';
 import { SequentialIdGenerator, ValidationError } from '../../../shared/kernel';
 import { AccountStatus, isAccountStatus } from './account-status';
 import { isRole, Role } from './authenticated-user';
@@ -73,6 +74,7 @@ describe('account rules', () => {
         passwordHash: 'hash',
         role: Role.CONTRIBUTOR,
         status,
+        loginLock: UNLOCKED,
         version: 1,
         createdAt: now,
         updatedAt: now,

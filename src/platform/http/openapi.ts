@@ -13,6 +13,7 @@ import type { AppEnv } from '../../config/app-env';
 import { ErrorCode, FieldErrorCode } from '../../shared/kernel';
 import { PROBLEM_CONTENT_TYPE } from './problem-details';
 import { OPTIONAL_USER, PUBLIC_ROUTE } from './public.decorator';
+import { SKIP_RATE_LIMIT } from './rate-limit.decorators';
 
 /** Where Swagger UI is served. The JSON document is at `/api/docs-json`. */
 export const SWAGGER_PATH = 'api/docs';
@@ -132,6 +133,7 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   // Read only shared HTTP metadata: platform must never depend on IAM.
   const publicOperations = new Set<string>();
   const optionalUserOperations = new Set<string>();
+  const unlimitedOperations = new Set<string>();
   const reflector = new Reflector();
   const scanner = new MetadataScanner();
   for (const module of app.get(ModulesContainer).values()) {
@@ -141,6 +143,9 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
       const prototype = type.prototype as Record<string, (...args: never[]) => unknown>;
       for (const method of scanner.getAllMethodNames(prototype)) {
         const handler = prototype[method];
+        if (handler && reflector.getAllAndOverride<boolean>(SKIP_RATE_LIMIT, [handler, type])) {
+          unlimitedOperations.add(operationId(type.name, method));
+        }
         if (handler && reflector.getAllAndOverride<boolean>(PUBLIC_ROUTE, [handler, type])) {
           publicOperations.add(operationId(type.name, method));
           if (reflector.getAllAndOverride<boolean>(OPTIONAL_USER, [handler, type])) {
@@ -166,6 +171,19 @@ export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
       if (!isPublic || optionalUser) {
         operation.responses['401'] ??= {
           description: PROBLEM_DESCRIPTIONS[401],
+          content: { [PROBLEM_CONTENT_TYPE]: { schema: { $ref: PROBLEM_REF } } },
+        };
+      }
+      // Every route is rate limited (#25) unless it is marked @SkipRateLimit().
+      if (!unlimitedOperations.has(operation.operationId ?? '')) {
+        operation.responses['429'] ??= {
+          description: PROBLEM_DESCRIPTIONS[429],
+          headers: {
+            'Retry-After': {
+              description: 'Seconds to wait before sending the request again.',
+              schema: { type: 'integer', minimum: 1 },
+            },
+          },
           content: { [PROBLEM_CONTENT_TYPE]: { schema: { $ref: PROBLEM_REF } } },
         };
       }

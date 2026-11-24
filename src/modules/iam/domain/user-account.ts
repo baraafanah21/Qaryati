@@ -1,6 +1,7 @@
 import { INITIAL_VERSION, type Id, type Versioned } from '../../../shared/kernel';
 import { AccountStatus } from './account-status';
 import { Role } from './authenticated-user';
+import { UNLOCKED, type LoginLockState } from './login-lockout';
 
 /** Persistence restores explicit fields rather than exposing database rows to the application. */
 export interface UserAccountProps {
@@ -9,6 +10,8 @@ export interface UserAccountProps {
   passwordHash: string;
   role: Role;
   status: AccountStatus;
+  /** Failed-login counter and lock (#25); see login-lockout.ts. */
+  loginLock: LoginLockState;
   version: number;
   createdAt: Date;
   updatedAt: Date;
@@ -31,6 +34,7 @@ export class UserAccount implements Versioned {
       passwordHash: input.passwordHash,
       role: Role.CONTRIBUTOR,
       status: AccountStatus.ACTIVE,
+      loginLock: UNLOCKED,
       version: INITIAL_VERSION,
       createdAt: input.now,
       updatedAt: input.now,
@@ -56,6 +60,9 @@ export class UserAccount implements Versioned {
   get status() {
     return this.props.status;
   }
+  get loginLock(): LoginLockState {
+    return this.props.loginLock;
+  }
   get version() {
     return this.props.version;
   }
@@ -68,6 +75,16 @@ export class UserAccount implements Versioned {
   /** An account that may not log in is `DISABLED`; there is no other way to block it. */
   get canLogin(): boolean {
     return this.status === AccountStatus.ACTIVE;
+  }
+
+  /** The same account with another role; the repository bumps the version. */
+  withRole(role: Role): UserAccount {
+    return new UserAccount({ ...this.props, role });
+  }
+
+  /** The same account with another status; the repository bumps the version. */
+  withStatus(status: AccountStatus): UserAccount {
+    return new UserAccount({ ...this.props, status });
   }
 
   /** Deliberate allow-list; never serialize the entity for audit. */

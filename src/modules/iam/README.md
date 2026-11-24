@@ -33,7 +33,7 @@ Unit tests cover roles, claims, signature validation, secret files and the test 
 
 Other modules' tests import `createTestTokenIssuer` from this module's index, pass `{ privateKeyFile, publicKeyFile, issuer, clock }`, then call `mint({ id, role })`. The default lifetime is 300 seconds. No fixed keys or tokens are committed. The helper is not a runtime DI provider and has no HTTP endpoint.
 
-Account storage and registration/login are implemented in #14; refresh rotation, logout and `/auth/me` in #18. Rate limiting and temporary lockout remain #25; user administration remains #32.
+Account storage and registration/login are implemented in #14; refresh rotation, logout and `/auth/me` in #18; lockout in #25 and user administration in #32 (sections below). The rate limits themselves are platform code (`src/platform/rate-limit`); IAM only marks login with `@LoginRateLimit()`.
 
 ## Dependencies
 
@@ -120,3 +120,38 @@ sequenceDiagram
 **`GET /auth/me`.** Needs an access token; returns `{ id, email, role, status }` read from the database, not from the token claims, so a role changed by an admin shows at once. The account has no display name yet, so none is returned. A token whose account no longer exists gets 401.
 
 **Audit.** `session.revoked` (logout, or a disabled account's refresh; `reason` is `LOGOUT` or `USER_INACTIVE`) and `session.reuse_detected`, both with entity `RefreshTokenFamily` and the family id; snapshots hold `userId`, `reason` and `revokedCount`, never a token or digest. A logout that revokes nothing records nothing. A normal rotation is not audited: an active user rotates every 15 minutes, so one entry per user per 15 minutes would drown the audit log in routine events. The rotation is still traceable in `refresh_token` itself (`revoked_at`, `replaced_by_id`).
+
+## Login lockout and rate limits (#25)
+
+**Rate limits** are global (platform, [configuration](../../../docs/configuration.md#security-and-operations)): 120 requests per minute per IP without a token, 300 per user with one. `POST /auth/login` adds 5 attempts per minute per IP and email (`@LoginRateLimit()`), with the email lowercased and trimmed so case variants share one counter. Over a limit: 429 `RATE_LIMITED` with `Retry-After`.
+
+**Lockout** protects each account even from an attacker who rotates IPs. The rules are pure functions in `domain/login-lockout.ts`:
+
+| Situation                              | Result                                                                                 |
+| -------------------------------------- | -------------------------------------------------------------------------------------- |
+| wrong password, not locked             | `failed_login_count + 1`                                                               |
+| 10th consecutive failure               | `locked_until = now + 15 min`, count back to 0, audited `account.locked`               |
+| any attempt while locked, even correct | the same 401 `INVALID_CREDENTIALS` as a wrong password; not counted, lock not extended |
+| correct password, not locked, ACTIVE   | login succeeds; count and `locked_until` reset (one write, only when they are set)     |
+| unknown email or DISABLED account      | 401, nothing counted                                                                   |
+
+- **No enumeration:** a locked account answers exactly like a wrong password, and the password is still verified so the timing does not differ either.
+- **No permanent lock-out by others:** failures during a lock neither count nor extend it, so whoever knows an email can lock it for at most 15 minutes at a time.
+- **The counter survives the 401:** like refresh reuse (#18), `LoginUser.attempt` decides and writes in its own `@Transactional()` method and returns `undefined`; `execute` throws only after the commit. The account is read `FOR UPDATE`, so concurrent attempts count one by one.
+- **Audit:** `account.locked` (entity `UserAccount`, `after: { lockedUntil }`). Single failed attempts are not audited: they are routine and the counter is in the row; a lock is the security event.
+- Time comes from the `Clock`, so the e2e test moves a `FixedClock` 15 minutes forward instead of waiting.
+
+## User administration (#32)
+
+ADMIN only (`@Roles(Role.ADMIN)` on `UsersController`):
+
+| Endpoint                                                  | Result                                                                       |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `GET /api/v1/users?role=&status=&page=&size=`             | `Page<UserAccountResponse>`, oldest first; never a credential                |
+| `PATCH /api/v1/users/{id}/role` `{ role }` + If-Match     | 200 with the new version as ETag; 404, 412, 428 as for every versioned write |
+| `PATCH /api/v1/users/{id}/status` `{ status }` + If-Match | the same; `DISABLED` blocks login and refresh                                |
+
+- **Sessions end:** every change revokes all refresh tokens of every family of the account (`revokeAllForUser`), in the same transaction. The user must log in again and gets a token with the new role; a disabled user cannot. Access tokens already issued stay valid until they expire (`JWT_ACCESS_TTL`, 15 minutes), because the JWT guard does not read the database (#10). `/auth/me` shows the change at once.
+- **Not your own account:** an administrator who targets themself gets 422 `SELF_ADMINISTRATION_FORBIDDEN` (`domain/account-administration.ts`), so the last administrator cannot lock everybody out.
+- **Audit:** `user_account.role_changed` / `user_account.status_changed` with `before`/`after` `{ role, status }` and `revokedCount`; never the email.
+- No delete endpoint: an account is disabled, not deleted (no soft delete, docs/data-model.md).

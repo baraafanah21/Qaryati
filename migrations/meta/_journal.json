@@ -169,6 +169,20 @@
       "when": 1795526128519,
       "tag": "0023_seed_products",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795535748229,
+      "tag": "0024_iam_login_lockout",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795535748920,
+      "tag": "0025_app_role_statement_timeout",
+      "breakpoints": true
     }
   ]
 }

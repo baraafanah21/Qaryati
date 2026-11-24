@@ -22,7 +22,9 @@ The main decisions and the alternatives we rejected are recorded in [ADR-002](ad
 | Testing (database)         | Testcontainers                                                                                       | In use (#3)                                |
 | Data                       | PostgreSQL 16, PostGIS, pg_trgm, citext, Drizzle ORM, drizzle-kit, node-postgres, two database roles | In use (#3)                                |
 | Transactions               | @nestjs-cls/transactional with our pg adapter                                                        | In use (#9)                                |
-| Cache and queues           | Redis 7; lru-cache (in-process)                                                                      | Redis running (#3); lru-cache in use (#19) |
+| Cache and queues           | Redis 7, ioredis; lru-cache (in-process)                                                             | Redis in use (#25); lru-cache in use (#19) |
+| Security                   | @nestjs/throttler (Redis storage), helmet                                                            | In use (#25, #42)                          |
+| Metrics                    | prom-client                                                                                          | In use (#43)                               |
 | Configuration              | zod, @nestjs/config                                                                                  | In use (#3)                                |
 | HTTP and observability     | zod request schemas (Standard Schema), nestjs-cls, pino, pino-http, nestjs-pino, pino-pretty         | In use (#9)                                |
 | Events and API docs        | @nestjs/event-emitter, @nestjs/swagger                                                               | In use (#9)                                |
@@ -137,7 +139,7 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 #### CommonJS on an ESM-only framework
 
 - NestJS 12 packages are ES modules only: `@nestjs/core` exports `./index.js` with no CommonJS build.
-- Our code compiles to CommonJS, so `dist/main.js` contains `require("@nestjs/core")`. Node 24 loads ES modules through `require()` natively (`require(esm)`, stable since Node 22.12, `process.features.require_module === true`). No flag is needed at runtime. Verified in #2: `node dist/main` starts and serves `/api/v1/health`.
+- Our code compiles to CommonJS, so `dist/main.js` contains `require("@nestjs/core")`. Node 24 loads ES modules through `require()` natively (`require(esm)`, stable since Node 22.12, `process.features.require_module === true`). No flag is needed at runtime. Verified in #2: `node dist/main` starts and serves `/api/v1/health` (since #43 `/api/v1/health/live`).
 - The official Nest 12 project template still ships this CommonJS + Jest variant next to an ESM + Vitest variant, so CommonJS is a supported setup.
 - The only place that needs a flag is Jest. Its module loader does not use Node's `require(esm)`, so tests run under `node --experimental-vm-modules`, as in the official template.
 
@@ -314,11 +316,20 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 ### Redis 7
 
 - **Version:** `redis:7.4-alpine`
-- **Status:** runs in Compose since #3. No code uses it yet: the first use is rate limiting with Redis storage (#25), then the BullMQ job queue (#41) and the village details cache (#45).
+- **Status:** runs in Compose since #3; used since #25 for the rate-limit counters (`src/platform/redis`, `src/platform/rate-limit`) and checked by `/health/ready` (#43).
 - **Role:** shared cache, distributed rate limits, and later the BullMQ job queue.
 - **Why:** one dependency covers all three, and it works with more than one API instance. _Performance, scalability._
 - **Alternatives:** an in-process cache: breaks with more than one instance.
 - **Cost:** one more service to run.
+
+### ioredis
+
+- **Version:** 6.x
+- **Status:** In use (#25): one shared client, `src/platform/redis/redis.module.ts`.
+- **Role:** talks to Redis for the rate-limit counters (one Lua script per counted request) and the readiness `PING`.
+- **Why:** the most used Node Redis client, with Lua `EVAL`, automatic reconnects and `enableOfflineQueue: false`, which makes commands fail at once while Redis is down instead of queueing (the fail-open rate limiter relies on that). Nest's throttler storages and BullMQ (#41) use it too. _Performance, availability._
+- **Alternatives:** `redis` (node-redis): equally capable, but the Nest ecosystem around throttling and BullMQ expects ioredis.
+- **Cost:** one dependency; the client must never be allowed to crash the process, so the module adds an `error` listener and logs an outage once.
 
 ### lru-cache (in-process)
 
@@ -394,6 +405,35 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 - **Why:** the API documentation is generated from the same schemas that validate requests, so it cannot drift; the committed `openapi.json` shows API changes in every PR diff and feeds Apidog (#59) and the typed web client (#61). _Maintainability, usability._
 - **Alternatives:** a hand-written OpenAPI file: drifts the day after it is written. `nestjs-zod` or `zod-openapi` bridges: unnecessary since Swagger 12 reads Standard Schema itself. Serving the docs in production: publishes the whole API surface and costs startup time for no user benefit.
 - **Cost:** a few decorators per endpoint, and a generated file to commit when the API changes (CI enforces it). Preview mode builds the route table without providers, so the generator must not rely on anything a provider computes.
+
+### @nestjs/throttler + our Redis storage
+
+- **Version:** 6.x
+- **Status:** In use (#25): `src/platform/rate-limit`.
+- **Role:** the global rate-limit guard with three named limits (anonymous per IP, authenticated per user, login per IP + email), 429 `RATE_LIMITED` with `Retry-After`.
+- **Why:** Nest's official rate limiter: guards, per-route metadata and named throttlers out of the box. Our subclass only sets the plain `Retry-After` header and the health exemption. _Security._
+- **Storage:** `RedisThrottlerStorage`, about 40 lines over ioredis: one atomic Lua script (fixed-window `INCR` with expiry, plus a block key). The maintained package `@nest-lab/throttler-storage-redis` was rejected because its peer range stops at NestJS 11. Our own storage also lets us **fail open**: when Redis is down the request passes and a warning is logged at most every 30 seconds.
+- **Fail open, the trade-off:** Qaryati is mostly a public read API, so availability wins: a Redis outage must not become a full API outage. During the outage limits are not enforced; brute force against passwords is still stopped by the account lockout, which lives in PostgreSQL. `/health/ready` reports Redis as down, so the outage is visible.
+- **Alternatives:** the default in-memory storage: each instance counts alone, so N instances allow N times the limit; rate limiting only in a reverse proxy: no per-user or per-email limits, and nothing in the repository to test.
+- **Cost:** one Redis round trip per request (sub-millisecond on the same network).
+
+### helmet
+
+- **Version:** 8.x
+- **Status:** In use (#42): `configureSecurity` in `src/platform/http/configure-app.ts`.
+- **Role:** safe default response headers (`X-Content-Type-Options: nosniff`, HSTS, a strict `Content-Security-Policy`, frame denial) and no `X-Powered-By`.
+- **Why:** one line for a dozen headers that are easy to forget; the de facto standard for Express. _Security._
+- **Alternatives:** setting the headers by hand: more code, easy to get wrong; only in a reverse proxy: not tested with the app.
+- **Cost:** none measurable. The strict CSP does not affect a JSON API; Swagger UI (development only) still loads.
+
+### prom-client
+
+- **Version:** 15.x
+- **Status:** In use (#43): `src/platform/metrics`.
+- **Role:** Node's default metrics and `http_request_duration_seconds` (histogram by method, route template and status), served on `GET /metrics` on the internal `METRICS_PORT`; the k6 performance report reads it.
+- **Why:** the standard Prometheus client for Node. A plain Node server on its own port keeps the endpoint off the public API without any auth code. _Observability, performance._
+- **Alternatives:** `@willsoto/nestjs-prometheus`: serves metrics as a Nest route on the public port; OpenTelemetry: a collector and much more setup than the project needs.
+- **Cost:** one histogram observation per request (microseconds); one more port inside the container.
 
 ### pino-pretty
 

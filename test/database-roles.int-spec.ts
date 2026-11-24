@@ -44,6 +44,25 @@ describe('database baseline (PostGIS via Testcontainers)', () => {
     await db?.stop();
   });
 
+  describe('statement timeout (#42)', () => {
+    it('cancels runtime-role statements after 5 seconds, never the owner role', async () => {
+      const show = async (client: Client) =>
+        (await client.query<{ statement_timeout: string }>('SHOW statement_timeout')).rows[0]
+          ?.statement_timeout;
+      expect(await show(app)).toBe('5s');
+      expect(await show(owner)).toBe('0');
+    });
+
+    it('fails a slow runtime-role query with SQLSTATE 57014', async () => {
+      await app.query("SET statement_timeout = '100ms'");
+      try {
+        expect(await sqlState(app, 'SELECT pg_sleep(1)')).toBe('57014');
+      } finally {
+        await app.query('RESET statement_timeout');
+      }
+    });
+  });
+
   describe('baseline migration', () => {
     it('enables postgis, pg_trgm and citext', async () => {
       const { rows } = await owner.query<{ extname: string }>(

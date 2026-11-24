@@ -133,7 +133,7 @@ jobs:
           docker compose up --detach --build --wait --wait-timeout 180
           docker compose ps --all
       - name: Health endpoint
-        run: curl --fail --silent --show-error http://localhost:3000/api/v1/health
+        run: curl --fail --silent --show-error http://localhost:3000/api/v1/health/live
       - name: API runs as qaryati_app
         run: docker compose logs api | grep 'Connected to PostgreSQL as qaryati_app'
       - name: Logs on failure

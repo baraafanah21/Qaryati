@@ -27,7 +27,7 @@ describe('IAM persistence (real migrated PostGIS)', () => {
     database = await startTestDatabase();
     pool = new Pool({ connectionString: database.appUrl });
     const db = drizzle({ client: pool, schema, casing: 'snake_case' });
-    accounts = new DrizzleUserAccountRepository(db);
+    accounts = new DrizzleUserAccountRepository(db, new FixedClock('2026-10-25T10:00:00Z'));
     tokens = new DrizzleRefreshTokenRepository(db);
   }, CONTAINER_STARTUP_TIMEOUT_MS);
   afterAll(async () => {
@@ -90,7 +90,9 @@ describe('IAM persistence (real migrated PostGIS)', () => {
     expect(columns.rows.map((row: { column_name: string }) => row.column_name)).toEqual([
       'created_at',
       'email',
+      'failed_login_count',
       'id',
+      'locked_until',
       'password_hash',
       'role',
       'status',

@@ -2,6 +2,7 @@ import {
   customType,
   foreignKey,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -28,6 +29,10 @@ export const userAccount = pgTable(
     passwordHash: text().notNull(),
     role: text().notNull().default(Role.CONTRIBUTOR),
     status: text().notNull().default(AccountStatus.ACTIVE),
+    // Login lockout (#25): consecutive failures and the end of the current lock.
+    // The threshold and duration are domain rules (login-lockout.ts), not CHECKs.
+    failedLoginCount: integer().notNull().default(0),
+    lockedUntil: timestamp({ withTimezone: true }),
     ...versionColumns(),
   },
   (table) => [uniqueIndex('user_account_email_key').on(table.email)],

@@ -22,6 +22,7 @@ import { configureApp } from '../src/platform/http/configure-app';
 import { HttpPlatformModule } from '../src/platform/http/http-platform.module';
 import { ApiModule } from '../src/platform/http/openapi';
 import { KernelModule } from '../src/platform/kernel/kernel.module';
+import { MetricsModule } from '../src/platform/metrics/metrics.module';
 import { LoggingModule } from '../src/platform/logging/logging.module';
 import { AuditModule } from '../src/modules/audit/audit.module';
 import { DatabaseModule } from '../src/platform/database/database.module';
@@ -111,6 +112,7 @@ class PublicClassController {
     HttpPlatformModule,
     KernelModule,
     DatabaseModule,
+    MetricsModule,
     AuditModule,
     IamModule,
   ],
@@ -141,6 +143,7 @@ describe('IAM guards and public API (integration)', () => {
       JWT_PRIVATE_KEY_FILE: keys.privateKeyFile,
       JWT_PUBLIC_KEY_FILE: keys.publicKeyFile,
       JWT_ISSUER: 'test',
+      METRICS_PORT: 0,
     });
     const moduleRef = await Test.createTestingModule({
       imports: [

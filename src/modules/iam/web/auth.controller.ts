@@ -8,6 +8,7 @@ import {
 import { ETag } from '../../../platform/http/etag';
 import { ApiModule, ApiProblems } from '../../../platform/http/openapi';
 import { Public } from '../../../platform/http/public.decorator';
+import { LoginRateLimit } from '../../../platform/http/rate-limit.decorators';
 import { asId } from '../../../shared/kernel';
 import type { AuthenticatedUser } from '../domain/authenticated-user';
 import { GetCurrentAccount } from '../application/get-current-account.use-case';
@@ -58,13 +59,16 @@ export class AuthController {
   }
 
   @Public()
+  @LoginRateLimit()
   @Post('login')
   @HttpCode(200)
   @Header('Cache-Control', 'no-store')
   @ApiOperation({
     summary: 'Issue access and refresh tokens',
     description:
-      'INVALID_CREDENTIALS is returned for unknown email, wrong password or unavailable account.',
+      'INVALID_CREDENTIALS is returned for unknown email, wrong password, disabled account or ' +
+      'an account locked after 10 consecutive failures (for 15 minutes, even with the right ' +
+      'password). At most RATE_LIMIT_LOGIN_PER_MINUTE (5) attempts per minute per IP and email.',
   })
   @ApiOkResponse({ standardSchema: loginResponse })
   @ApiProblems(400, 401)

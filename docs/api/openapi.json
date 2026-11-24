@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.0",
   "paths": {
-    "/api/v1/health": {
+    "/api/v1/health/live": {
       "get": {
-        "operationId": "health_check",
+        "operationId": "health_live",
         "parameters": [],
         "responses": {
           "200": {
@@ -11,13 +11,46 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthStatus"
+                  "$ref": "#/components/schemas/LiveStatus"
                 }
               }
             }
           }
         },
         "summary": "Liveness: the process accepts HTTP requests",
+        "tags": [
+          "health"
+        ],
+        "security": []
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "operationId": "health_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Every dependency is up.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyStatus"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "At least one dependency is down; checks names it.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyStatus"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Readiness: PostgreSQL and Redis answer",
         "tags": [
           "health"
         ],
@@ -95,6 +128,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Register a contributor account",
@@ -106,7 +158,7 @@
     },
     "/api/v1/auth/login": {
       "post": {
-        "description": "INVALID_CREDENTIALS is returned for unknown email, wrong password or unavailable account.",
+        "description": "INVALID_CREDENTIALS is returned for unknown email, wrong password, disabled account or an account locked after 10 consecutive failures (for 15 minutes, even with the right password). At most RATE_LIMIT_LOGIN_PER_MINUTE (5) attempts per minute per IP and email.",
         "operationId": "iam_login",
         "parameters": [],
         "requestBody": {
@@ -159,6 +211,25 @@
           },
           "401": {
             "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -220,6 +291,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Rotate a refresh token into a new token pair",
@@ -250,6 +340,25 @@
           },
           "400": {
             "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -291,9 +400,493 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "The caller's account",
+        "tags": [
+          "iam"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "iam_list",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 0,
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          {
+            "name": "size",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "role",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CONTRIBUTOR",
+                "EDITOR",
+                "ADMIN"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "DISABLED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "content": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/UserAccountResponse"
+                      }
+                    },
+                    "page": {
+                      "type": "object",
+                      "properties": {
+                        "number": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 100
+                        },
+                        "totalElements": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "totalPages": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "number",
+                        "size",
+                        "totalElements",
+                        "totalPages"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "content",
+                    "page"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: the caller may not do this.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List user accounts, oldest first, filtered by role and status",
+        "tags": [
+          "iam"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{id}/role": {
+      "patch": {
+        "description": "Revokes every refresh token of the account, so the user must log in again. Access tokens already issued stay valid until they expire (JWT_ACCESS_TTL). An administrator cannot change their own account (422 SELF_ADMINISTRATION_FORBIDDEN).",
+        "operationId": "iam_changeRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version you read, e.g. \"3\". Missing → 428.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeRoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserAccountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: the caller may not do this.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "VERSION_CONFLICT: If-Match names an old version; read the resource again.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED: send If-Match with the ETag you read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Change a user's role",
+        "tags": [
+          "iam"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{id}/status": {
+      "patch": {
+        "description": "Revokes every refresh token of the account, so the user must log in again. Access tokens already issued stay valid until they expire (JWT_ACCESS_TTL). An administrator cannot change their own account (422 SELF_ADMINISTRATION_FORBIDDEN).",
+        "operationId": "iam_changeStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "The ETag of the version you read, e.g. \"3\". Missing → 428.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "\"3\""
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserAccountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: the caller may not do this.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "VERSION_CONFLICT: If-Match names an old version; read the resource again.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "PRECONDITION_REQUIRED: send If-Match with the ETag you read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Enable or disable a user's account",
         "tags": [
           "iam"
         ],
@@ -443,6 +1036,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Create a source",
@@ -565,6 +1177,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List sources",
@@ -636,6 +1267,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -833,6 +1483,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Update a source",
@@ -904,6 +1573,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1057,6 +1745,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Verify a claim",
@@ -1193,6 +1900,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Dispute a claim",
@@ -1322,6 +2048,25 @@
           },
           "428": {
             "description": "PRECONDITION_REQUIRED: send If-Match with the ETag you read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1475,6 +2220,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Make a verified claim the published answer of its question",
@@ -1602,6 +2366,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List claims waiting for review",
@@ -1716,6 +2499,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List questions whose live claims disagree",
@@ -1801,6 +2603,25 @@
           },
           "403": {
             "description": "FORBIDDEN: the caller may not do this.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1947,6 +2768,25 @@
           },
           "403": {
             "description": "FORBIDDEN: the caller may not do this.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2113,6 +2953,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Search, filter, sort and page villages",
@@ -2230,6 +3089,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Create a village (as a draft)",
@@ -2292,6 +3170,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2451,6 +3348,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Edit a village identity",
@@ -2554,6 +3470,25 @@
           },
           "428": {
             "description": "PRECONDITION_REQUIRED: send If-Match with the ETag you read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2679,6 +3614,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Publish a draft or archived village",
@@ -2797,6 +3751,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Archive a published village (instead of deleting it)",
@@ -2872,6 +3845,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List administrative units",
@@ -2919,6 +3911,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3069,6 +4080,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3234,6 +4264,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3436,6 +4485,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Edit your own unverified name",
@@ -3549,6 +4617,25 @@
           },
           "428": {
             "description": "PRECONDITION_REQUIRED: send If-Match with the ETag you read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3710,6 +4797,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List the name origins of a village",
@@ -3852,6 +4958,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4013,6 +5138,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List the administrative affiliations of a village",
@@ -4155,6 +5299,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4316,6 +5479,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Get the location of a village",
@@ -4462,6 +5644,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4623,6 +5824,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List the measures of a village (elevation, area)",
@@ -4759,6 +5979,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4920,6 +6159,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List the relations of a village to others",
@@ -5066,6 +6324,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Submit a relation to another village",
@@ -5160,6 +6437,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5305,6 +6601,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5464,6 +6779,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Submit a population record",
@@ -5526,6 +6860,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5716,6 +7069,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Edit your own unverified population record",
@@ -5829,6 +7201,25 @@
           },
           "428": {
             "description": "PRECONDITION_REQUIRED: send If-Match with the ETag you read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5982,6 +7373,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Get the history overview of a village",
@@ -6112,6 +7522,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6288,6 +7717,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Edit your own unverified history overview",
@@ -6401,6 +7849,25 @@
           },
           "428": {
             "description": "PRECONDITION_REQUIRED: send If-Match with the ETag you read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6547,6 +8014,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6713,6 +8199,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6915,6 +8420,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Edit your own unverified historical event",
@@ -7028,6 +8552,25 @@
           },
           "428": {
             "description": "PRECONDITION_REQUIRED: send If-Match with the ETag you read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7199,6 +8742,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7395,6 +8957,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7629,6 +9210,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Edit your own unverified landmark",
@@ -7742,6 +9342,25 @@
           },
           "428": {
             "description": "PRECONDITION_REQUIRED: send If-Match with the ETag you read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7917,6 +9536,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List the cultural items of a village, by category and name",
@@ -8071,6 +9709,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8269,6 +9926,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Edit your own unverified cultural item",
@@ -8389,6 +10065,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Withdraw your own unverified cultural item",
@@ -8436,6 +10131,25 @@
           },
           "400": {
             "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8593,6 +10307,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List the villages that produce a product",
@@ -8740,6 +10473,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "List a village's products, by English product name",
@@ -8879,6 +10631,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9063,6 +10834,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Edit your own unverified village product",
@@ -9176,6 +10966,25 @@
           },
           "428": {
             "description": "PRECONDITION_REQUIRED: send If-Match with the ETag you read.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9343,6 +11152,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9520,6 +11348,25 @@
           },
           "422": {
             "description": "VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9735,6 +11582,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Edit your own unverified facility",
@@ -9855,6 +11721,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Withdraw your own unverified facility",
@@ -9917,6 +11802,25 @@
           },
           "404": {
             "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -10004,6 +11908,25 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "RATE_LIMITED: too many requests; wait for Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before sending the request again.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Which kinds of fact a village still lacks",
@@ -10035,7 +11958,7 @@
       }
     },
     "schemas": {
-      "HealthStatus": {
+      "LiveStatus": {
         "type": "object",
         "properties": {
           "status": {
@@ -10047,6 +11970,47 @@
         },
         "required": [
           "status"
+        ],
+        "additionalProperties": false
+      },
+      "ReadyStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ]
+          },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "database": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              },
+              "redis": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down"
+                ]
+              }
+            },
+            "required": [
+              "database",
+              "redis"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "checks"
         ],
         "additionalProperties": false
       },
@@ -10195,6 +12159,45 @@
           "email": "contributor@example.org",
           "role": "CONTRIBUTOR",
           "status": "ACTIVE"
+        }
+      },
+      "ChangeRoleRequest": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "CONTRIBUTOR",
+              "EDITOR",
+              "ADMIN"
+            ]
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "additionalProperties": false,
+        "example": {
+          "role": "EDITOR"
+        }
+      },
+      "ChangeStatusRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "DISABLED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false,
+        "example": {
+          "status": "DISABLED"
         }
       },
       "SourceResponse": {
@@ -13981,6 +15984,7 @@
               "INVALID_CREDENTIALS",
               "FORBIDDEN",
               "SELF_VERIFICATION_FORBIDDEN",
+              "SELF_ADMINISTRATION_FORBIDDEN",
               "RATE_LIMITED",
               "SERVICE_UNAVAILABLE",
               "GEOCODING_UNAVAILABLE",
