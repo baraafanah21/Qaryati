@@ -13,6 +13,10 @@ export { ClaimWriter } from './application/claim-writer';
 export { ClaimQueries } from './application/claim-queries';
 export type { SubmitClaimInput, EditClaimInput } from './application/claim-writer';
 
+// Claim review — Issue #35: owners register their claim types and projection hooks.
+export { ClaimTypeRegistry } from './application/claim-type-registry';
+export type { ClaimTypeHandler, PreferredClaimChange } from './application/claim-type-registry';
+
 export {
   CLAIM_GROUP_PREFIXES,
   CLAIM_TYPES,

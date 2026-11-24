@@ -115,6 +115,15 @@ The catalogue lives in [`src/shared/kernel/errors/error-codes.ts`](../src/shared
 - **When:** a role guard rejects the request, or the domain refuses the action for this user (`ForbiddenError`).
 - **Client:** do not retry with the same account.
 
+<a id="self-verification-forbidden"></a>
+
+### `SELF_VERIFICATION_FORBIDDEN`
+
+- **Status:** 403
+- **Meaning:** the author of a claim tried to review it (four eyes: the reviewer is never the author).
+- **When:** `POST /api/v1/claims/{id}/verify`, `/dispute` or `/reject` sent by the user who created the claim. The curation domain raises a `ForbiddenError` with this code.
+- **Client:** ask another editor to review the claim. Do not retry with the same account.
+
 <a id="rate-limited"></a>
 
 ### `RATE_LIMITED`

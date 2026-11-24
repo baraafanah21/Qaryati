@@ -34,6 +34,7 @@ export const ERROR_TITLES: Record<ErrorCode, string> = {
   UNAUTHENTICATED: 'Unauthenticated',
   INVALID_CREDENTIALS: 'Invalid credentials',
   FORBIDDEN: 'Forbidden',
+  SELF_VERIFICATION_FORBIDDEN: 'Self-verification forbidden',
   RATE_LIMITED: 'Too many requests',
   SERVICE_UNAVAILABLE: 'Service unavailable',
   INTERNAL_ERROR: 'Internal error',
