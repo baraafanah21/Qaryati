@@ -157,7 +157,7 @@ The catalogue lives in [`src/shared/kernel/errors/error-codes.ts`](../src/shared
 
 - **Status:** 502
 - **Meaning:** the external geocoding provider could not answer. The rest of the API is not affected.
-- **When:** `POST /api/v1/villages/{id}/geocode-suggestions` and the provider timed out, could not be reached, answered with an HTTP error (including its own 429 rate limit), or the circuit breaker is open after repeated failures ([geo README](../src/modules/geo/README.md)). The provider's own response body is never returned.
+- **When:** `POST /api/v1/villages/{id}/geocode-suggestions` and the provider timed out, could not be reached, answered with an HTTP error (including its own 429 rate limit), the circuit breaker is open after repeated failures (`detail` says the provider is temporarily disabled), or the request waited too long for its turn at the one-request-per-second limiter (`detail` says the provider is busy) ([geo README](../src/modules/geo/README.md)). The provider's own response body is never returned.
 - **Client:** retry later with backoff; while the breaker is open, retrying before about 30 seconds fails at once.
 
 <a id="geocoding-bad-response"></a>

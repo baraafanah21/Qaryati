@@ -18,6 +18,7 @@ import { UpdateVillage } from './application/update-village.use-case';
 import { VillageNameClaims } from './application/village-name-claims.use-case';
 import { VillageProjector } from './application/village-projector';
 import { VillageQueries } from './application/village-queries';
+import { VillageFactWriter } from './application/village-fact-writer';
 import { ADMIN_UNIT_REPOSITORY } from './domain/admin-unit';
 import { VILLAGE_REPOSITORY } from './domain/village.repository';
 import { VILLAGE_FACT_REPOSITORY } from './domain/village-fact.repository';
@@ -55,6 +56,7 @@ import { VillageFactController } from './web/village-fact.controller';
     SearchVillages,
     VillageProjector,
     VillageQueries,
+    VillageFactWriter,
     AdminUnitQueries,
     DrizzleAdminUnitRepository,
     { provide: VILLAGE_REPOSITORY, useClass: DrizzleVillageRepository },
@@ -75,7 +77,7 @@ import { VillageFactController } from './web/village-fact.controller';
         ),
     },
   ],
-  exports: [VillageQueries, AdminUnitQueries],
+  exports: [VillageQueries, VillageFactWriter, AdminUnitQueries],
 })
 export class VillageModule implements OnModuleInit {
   constructor(

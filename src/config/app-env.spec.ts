@@ -21,6 +21,13 @@ describe('appEnvSchema', () => {
       GEO_PROVIDER: 'stub',
       GEO_NOMINATIM_URL: 'https://nominatim.openstreetmap.org',
       GEO_TIMEOUT_MS: 5000,
+      GEO_RETRY_BASE_MS: 200,
+      GEO_BREAKER_THRESHOLD: 5,
+      GEO_BREAKER_HALF_OPEN_MS: 30000,
+      GEO_MIN_INTERVAL_MS: 1000,
+      GEO_QUEUE_TIMEOUT_MS: 5000,
+      GEO_CACHE_TTL_SECONDS: 2592000,
+      GEO_CACHE_EMPTY_TTL_SECONDS: 86400,
       REDIS_URL: 'redis://localhost:6379',
       RATE_LIMIT_ENABLED: true,
       RATE_LIMIT_ANONYMOUS_PER_MINUTE: 120,
@@ -109,6 +116,17 @@ describe('appEnvSchema', () => {
     it.each(['ftp://example.org', 'not a url'])('rejects GEO_NOMINATIM_URL=%j', (value) => {
       const result = appEnvSchema.safeParse({ DATABASE_URL, ...JWT, GEO_NOMINATIM_URL: value });
       expect(result.error?.issues[0]?.path).toEqual(['GEO_NOMINATIM_URL']);
+    });
+
+    it.each([
+      ['GEO_BREAKER_THRESHOLD', '0'],
+      ['GEO_RETRY_BASE_MS', '1.5'],
+      ['GEO_MIN_INTERVAL_MS', '-1'],
+      ['GEO_CACHE_TTL_SECONDS', '0'],
+      ['GEO_CACHE_EMPTY_TTL_SECONDS', 'soon'],
+    ])('rejects %s=%j', (name, value) => {
+      const result = appEnvSchema.safeParse({ DATABASE_URL, ...JWT, [name]: value });
+      expect(result.error?.issues[0]?.path).toEqual([name]);
     });
 
     it.each(['0', '99', '1.5', '60001'])('rejects GEO_TIMEOUT_MS=%j', (value) => {

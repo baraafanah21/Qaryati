@@ -1,7 +1,16 @@
 import { ErrorCode, UpstreamError } from '../../../shared/kernel';
 
 /** Why the provider could not answer. */
-export type GeocodingFailure = 'timeout' | 'network' | 'http' | 'rate-limited' | 'circuit-open';
+export type GeocodingFailure =
+  'timeout' | 'network' | 'http' | 'rate-limited' | 'circuit-open' | 'queue-timeout';
+
+/** Optional facts of a {@link GeocodingUnavailableError}. */
+export interface GeocodingUnavailableOptions {
+  httpStatus?: number;
+  cause?: unknown;
+  /** Replaces the default client-facing detail. */
+  message?: string;
+}
 
 /**
  * The geocoding provider could not answer (502 `GEOCODING_UNAVAILABLE`).
@@ -10,17 +19,22 @@ export type GeocodingFailure = 'timeout' | 'network' | 'http' | 'rate-limited' |
  * rate limit makes it worse, and a 500 or 4xx will most likely repeat.
  */
 export class GeocodingUnavailableError extends UpstreamError {
+  readonly httpStatus?: number;
+
   constructor(
     readonly failure: GeocodingFailure,
     readonly transient: boolean,
-    readonly httpStatus?: number,
-    cause?: unknown,
+    options: GeocodingUnavailableOptions = {},
   ) {
-    super('The geocoding provider is unavailable. Try again later.', {
+    super(options.message ?? 'The geocoding provider is unavailable. Try again later.', {
       code: ErrorCode.GEOCODING_UNAVAILABLE,
-      details: httpStatus === undefined ? { failure } : { failure, httpStatus },
-      cause,
+      details:
+        options.httpStatus === undefined
+          ? { failure }
+          : { failure, httpStatus: options.httpStatus },
+      cause: options.cause,
     });
+    this.httpStatus = options.httpStatus;
   }
 }
 

@@ -1,4 +1,4 @@
-﻿import { createServer } from 'node:http';
+import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import nock from 'nock';
 import { GeocodingBadResponseError, GeocodingUnavailableError } from '../domain/geocoding-errors';

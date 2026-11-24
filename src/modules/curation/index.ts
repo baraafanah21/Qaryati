@@ -5,6 +5,12 @@
 
 // Source API — Issue #13
 export { SourceQueries } from './application/source-queries';
+// Geocoding accept flow (#41): the EXTERNAL_API source a machine suggestion cites.
+export {
+  SourceWriter,
+  EXTERNAL_API_RELIABILITY,
+  type ExternalApiSourceInput,
+} from './application/source-writer';
 export { SOURCE_TYPES } from './domain/source-values';
 export type { SourceType } from './domain/source-values';
 

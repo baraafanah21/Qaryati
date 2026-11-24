@@ -121,18 +121,18 @@ The main decisions and the alternatives we rejected are recorded in [ADR-002](ad
 - **Every Nest library we plan to use supports 12.** Checked on 2026-10-11 with `npm view <pkg> peerDependencies` on each package's latest version (table below). Staying on 11 would gain no compatibility and would start the project on the previous major version, with an upgrade waiting before the deadline.
 - **It matches the toolchain.** The official Nest 12 template uses TypeScript 6 and Jest 30, the versions typescript-eslint and ts-jest support (see TypeScript above).
 
-| Package                   | Latest version | Peer range for `@nestjs/common`            | Supports 12 | Used from |
-| ------------------------- | -------------- | ------------------------------------------ | ----------- | --------- |
-| nestjs-cls                | 7.0.1          | `>= 10 < 13`                               | yes         | #9        |
-| @nestjs-cls/transactional | 4.0.1          | `>= 10 < 13`                               | yes         | #9        |
-| nestjs-pino               | 5.3.1          | `^11.0.8 \|\| ^12.0.2`                     | yes         | #9        |
-| @nestjs/swagger           | 12.0.2         | `^12.0.0` (also TypeScript `^5.5 \|\| ^6`) | yes         | #9        |
-| @nestjs/throttler         | 6.7.1          | `^7 … \|\| ^12.0.0`                        | yes         | #25       |
-| @nestjs/terminus          | 12.1.0         | `^11.0.0 \|\| ^12.0.0`                     | yes         | #43       |
-| @nestjs/jwt               | 12.0.2         | `^8 … \|\| ^12.0.0`                        | yes         | #10       |
-| @nestjs/passport          | 12.0.0         | `^11.0.0 \|\| ^12.0.0`                     | yes         | #10       |
-| @nestjs/config            | 12.0.1         | `^11.0.0 \|\| ^12.0.0`                     | yes         | #3        |
-| @nestjs/bullmq            | 12.0.0         | `^10 … \|\| ^12.0.0`                       | yes         | #41       |
+| Package                   | Latest version | Peer range for `@nestjs/common`            | Supports 12 | Used from                               |
+| ------------------------- | -------------- | ------------------------------------------ | ----------- | --------------------------------------- |
+| nestjs-cls                | 7.0.1          | `>= 10 < 13`                               | yes         | #9                                      |
+| @nestjs-cls/transactional | 4.0.1          | `>= 10 < 13`                               | yes         | #9                                      |
+| nestjs-pino               | 5.3.1          | `^11.0.8 \|\| ^12.0.2`                     | yes         | #9                                      |
+| @nestjs/swagger           | 12.0.2         | `^12.0.0` (also TypeScript `^5.5 \|\| ^6`) | yes         | #9                                      |
+| @nestjs/throttler         | 6.7.1          | `^7 … \|\| ^12.0.0`                        | yes         | #25                                     |
+| @nestjs/terminus          | 12.1.0         | `^11.0.0 \|\| ^12.0.0`                     | yes         | #43                                     |
+| @nestjs/jwt               | 12.0.2         | `^8 … \|\| ^12.0.0`                        | yes         | #10                                     |
+| @nestjs/passport          | 12.0.0         | `^11.0.0 \|\| ^12.0.0`                     | yes         | #10                                     |
+| @nestjs/config            | 12.0.1         | `^11.0.0 \|\| ^12.0.0`                     | yes         | #3                                      |
+| @nestjs/bullmq            | 12.0.0         | `^10 … \|\| ^12.0.0`                       | yes         | not used: #41 has no queue (geo README) |
 
 Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript up to 6.x, another reason not to move to TypeScript 7 yet. `nestjs-pino` needs `@nestjs/common` ≥ 12.0.2, which the version pinned in `package.json` satisfies.
 
@@ -317,7 +317,7 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 
 - **Version:** `redis:7.4-alpine`
 - **Status:** runs in Compose since #3; used since #25 for the rate-limit counters (`src/platform/redis`, `src/platform/rate-limit`) and checked by `/health/ready` (#43).
-- **Role:** shared cache, distributed rate limits, and later the BullMQ job queue.
+- **Role:** shared cache (geocoding results since #37) and distributed rate limits. No job queue: #41 runs its rare provider calls inline (geo README).
 - **Why:** one dependency covers all three, and it works with more than one API instance. _Performance, scalability._
 - **Alternatives:** an in-process cache: breaks with more than one instance.
 - **Cost:** one more service to run.
@@ -327,9 +327,18 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 - **Version:** 6.x
 - **Status:** In use (#25): one shared client, `src/platform/redis/redis.module.ts`.
 - **Role:** talks to Redis for the rate-limit counters (one Lua script per counted request) and the readiness `PING`.
-- **Why:** the most used Node Redis client, with Lua `EVAL`, automatic reconnects and `enableOfflineQueue: false`, which makes commands fail at once while Redis is down instead of queueing (the fail-open rate limiter relies on that). Nest's throttler storages and BullMQ (#41) use it too. _Performance, availability._
-- **Alternatives:** `redis` (node-redis): equally capable, but the Nest ecosystem around throttling and BullMQ expects ioredis.
+- **Why:** the most used Node Redis client, with Lua `EVAL`, automatic reconnects and `enableOfflineQueue: false`, which makes commands fail at once while Redis is down instead of queueing (the fail-open rate limiter relies on that). Nest's throttler storages use it too. The geocoding cache (#37) shares the same client. _Performance, availability._
+- **Alternatives:** `redis` (node-redis): equally capable, but the Nest ecosystem around throttling expects ioredis.
 - **Cost:** one dependency; the client must never be allowed to crash the process, so the module adds an `error` listener and logs an outage once.
+
+### cockatiel
+
+- **Version:** 4.0.0 (exact pin)
+- **Status:** In use (#37): `src/modules/geo/infrastructure/resilient-geocoder.ts`
+- **Role:** the timeout, retry (exponential backoff with jitter, transient failures only) and circuit breaker around the geocoding provider, composed with `wrap(breaker, retry, timeout)`.
+- **Why:** each policy is a small, tested building block with the semantics we need: a retry filter (`handleWhen`) so 429, 4xx, 500 and bad responses are never retried; a consecutive-failure breaker with a half-open trial call and `isolate()`; an `AbortSignal` per attempt that the `fetch` adapter honours (cooperative timeout). No dependencies, TypeScript types included, and it loads through Node 24's `require(esm)` under CommonJS and Jest. _Availability, correctness._
+- **Alternatives:** `opossum`: a mature breaker, but no retry or backoff, so we would still write those, and its event-heavy API is built around wrapping one function per instance. Hand-written retries and breaker: few lines at first, but jitter, half-open trials, cancellation and their tests are exactly where home-grown code goes wrong. `p-retry`: retry only.
+- **Cost:** one runtime dependency; an ES-module-only package, which works because Node 24 loads ES modules through `require()` (see "CommonJS on an ESM-only framework").
 
 ### lru-cache (in-process)
 
