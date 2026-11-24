@@ -16,6 +16,9 @@ import { HealthModule } from './platform/health/health.module';
 import { HttpPlatformModule } from './platform/http/http-platform.module';
 import { KernelModule } from './platform/kernel/kernel.module';
 import { LoggingModule } from './platform/logging/logging.module';
+import { MetricsModule } from './platform/metrics/metrics.module';
+import { RateLimitModule } from './platform/rate-limit/rate-limit.module';
+import { RedisModule } from './platform/redis/redis.module';
 
 /**
  * Composition root of the modular monolith.
@@ -32,9 +35,13 @@ import { LoggingModule } from './platform/logging/logging.module';
     HttpPlatformModule,
     KernelModule,
     DatabaseModule,
+    RedisModule,
+    MetricsModule,
     DomainEventsModule,
     HealthModule,
     IamModule,
+    // After IamModule: the rate-limit guard must run after the JWT guard (per-user limits).
+    RateLimitModule,
     CurationModule,
     AuditModule,
     VillageModule,

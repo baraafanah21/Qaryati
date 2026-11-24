@@ -30,7 +30,7 @@ npm run keys:dev        # writes secrets/jwt-private.pem (600) and secrets/jwt-p
 # Linux, if the script asks: grant the container's node user (uid 1000) read access.
 sudo chown 1000 secrets/jwt-private.pem
 docker compose up -d --build --wait
-curl localhost:3000/api/v1/health   # {"status":"ok"}
+curl localhost:3000/api/v1/health/live   # {"status":"ok"}
 ```
 
 That runs everything in containers. To work on the API with hot reload, stop the API container and run it on the host against the same database:
@@ -46,7 +46,7 @@ npm run start:dev       # reads .env, connects to the Compose database as qaryat
 
 Before the first API startup, generate a local RSA pair with `npm run keys:dev` ([`scripts/generate-dev-jwt-keys.mjs`](../scripts/generate-dev-jwt-keys.mjs)). It uses Node's `crypto`, so no OpenSSL is needed, and writes a 2048-bit PKCS#8 private and SPKI public PEM file. It refuses to overwrite an existing pair; `npm run keys:dev -- --force` replaces it (tokens signed with the old key stop working). `secrets/`, `*.pem` and `*.key` are ignored; never commit them or tokens. Keep the files outside the image and grant read access only to the user that runs the API. For host development, that is your own user; adapt Linux ownership when switching between host and container execution. On Windows, use directory/file ACLs rather than `chown` and `chmod`.
 
-The key paths and expected issuer are documented in [configuration.md](configuration.md#jwt-secret-files). An absent or invalid pair prevents startup. `GET /api/v1/health` remains explicitly public. #10 provides the authentication boundary; #14 adds public registration and login. See the IAM README for request/response contracts.
+The key paths and expected issuer are documented in [configuration.md](configuration.md#jwt-secret-files). An absent or invalid pair prevents startup. `GET /api/v1/health/live` and `/health/ready` remain explicitly public. #10 provides the authentication boundary; #14 adds public registration and login. See the IAM README for request/response contracts.
 
 ## Running with Docker
 
@@ -55,9 +55,9 @@ The key paths and expected issuer are documented in [configuration.md](configura
 | Service   | Image                                 | What it does                                                                                                              | Host port (`.env`)       |
 | --------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
 | `db`      | `postgis/postgis:16-3.5`              | PostgreSQL 16 with PostGIS. On first start it creates the owner role and runs the init script that creates `qaryati_app`. | `DB_HOST_PORT` (5432)    |
-| `redis`   | `redis:7.4-alpine`                    | Cache and, later, rate limits and queues. Nothing uses it yet.                                                            | `REDIS_HOST_PORT` (6379) |
+| `redis`   | `redis:7.4-alpine`                    | Rate-limit counters (#25); later queues. The API keeps serving without it (limits fail open, `/health/ready` is 503).     | `REDIS_HOST_PORT` (6379) |
 | `migrate` | `qaryati-api:local` (this repository) | One-shot: applies pending migrations as the owner role, then exits with code 0.                                           | none                     |
-| `api`     | `qaryati-api:local`                   | The API, connected as `qaryati_app`. Starts only after `migrate` has succeeded.                                           | `API_HOST_PORT` (3000)   |
+| `api`     | `qaryati-api:local`                   | The API, connected as `qaryati_app`. Starts after `migrate` succeeded and Redis is healthy. Metrics on 9464, unpublished. | `API_HOST_PORT` (3000)   |
 
 Ports are bound to `127.0.0.1` only. If a port is taken, for example by a local PostgreSQL on 5432, change it in `.env` and update the matching URL ([configuration.md](configuration.md#docker-compose)).
 
@@ -68,9 +68,11 @@ docker compose up -d --build --wait      # after pulling: rebuilds the image and
 docker compose down                      # stop; data stays in the db-data volume
 docker compose down -v                   # stop and delete the database (needed after changing POSTGRES_* or APP_DB_PASSWORD)
 docker compose exec db psql -U qaryati_owner -d qaryati   # SQL shell as the owner
+curl localhost:3000/api/v1/health/ready  # {"status":"ok","checks":{"database":"up","redis":"up"}}
+docker compose exec api node -e "fetch('http://127.0.0.1:9464/metrics').then(r=>r.text()).then(console.log)"  # metrics (internal port)
 ```
 
-The `Dockerfile` builds in two stages. The first compiles TypeScript with dev dependencies. The second contains only production dependencies, `dist/` and `migrations/`, and runs as the unprivileged `node` user. `.dockerignore` lets in only the files the build needs, so `.env` and Git history never reach the image.
+The `Dockerfile` builds in two stages. The first compiles TypeScript with dev dependencies. The second contains only production dependencies, `dist/` and `migrations/`, and runs as the unprivileged `node` user. Secrets (the JWT keys) are never in the image: Compose mounts them as files under `/run/secrets/` and the API reads them through `JWT_*_KEY_FILE` (#43 checked all of this; nothing needed changing). `.dockerignore` lets in only the files the build needs, so `.env` and Git history never reach the image.
 
 ## npm scripts
 
@@ -152,7 +154,7 @@ src/
                           versioned writes, migrate.ts (migration runner)
     events/               DomainEventPublisher (after-commit delivery), @OnDomainEvent
     kernel/               runtime implementations of kernel ports (SystemClock, UUIDv7 ids)
-    health/               GET /api/v1/health → { "status": "ok" }; replaced by Terminus in #43
+    health/               GET /api/v1/health/live and /health/ready (#43)
   shared/kernel/          plain TypeScript kernel: errors and codes, Clock, Id, Page<T>, Versioned,
                           DomainEvent, AuditRecorder port (docs/kernel.md)
   modules/<module>/       9 business modules, see architecture.md

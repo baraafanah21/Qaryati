@@ -76,4 +76,13 @@ export class DrizzleRefreshTokenRepository extends RefreshTokenRepository {
       .returning({ id: refreshToken.id });
     return revoked.length;
   }
+
+  async revokeAllForUser(userId: Id<'UserAccount'>, revokedAt: Date): Promise<number> {
+    const revoked = await this.db
+      .update(refreshToken)
+      .set({ revokedAt })
+      .where(and(eq(refreshToken.userId, userId), isNull(refreshToken.revokedAt)))
+      .returning({ id: refreshToken.id });
+    return revoked.length;
+  }
 }

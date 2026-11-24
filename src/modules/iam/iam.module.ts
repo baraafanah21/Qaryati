@@ -25,6 +25,8 @@ import { JoseAccessTokenIssuer } from './infrastructure/jose-access-token-issuer
 import { type JwtKeys } from './infrastructure/jwt-keys';
 import * as schema from './infrastructure/persistence/schema';
 import { AuthController } from './web/auth.controller';
+import { UsersController } from './web/users.controller';
+import { ChangeUserAccess, ListUsers } from './application/administer-users.use-case';
 import { AccessTokenVerifier } from './application/access-token-verifier';
 import { PermissionChecker } from './domain/permission-checker';
 import { JoseAccessTokenVerifier } from './infrastructure/jose-access-token-verifier';
@@ -43,7 +45,7 @@ const JWT_KEYS = Symbol('IAM_JWT_KEYS');
 @Global()
 @Module({
   imports: [DatabaseModule.forFeature(schema)],
-  controllers: [AuthController],
+  controllers: [AuthController, UsersController],
   providers: [
     PermissionChecker,
     RegisterUser,
@@ -51,6 +53,8 @@ const JWT_KEYS = Symbol('IAM_JWT_KEYS');
     RefreshSession,
     LogoutSession,
     GetCurrentAccount,
+    ListUsers,
+    ChangeUserAccess,
     {
       provide: RefreshTokenLifetime,
       inject: [ConfigService],

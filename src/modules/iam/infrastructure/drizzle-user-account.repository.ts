@@ -1,11 +1,21 @@
-import { Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { Inject, Injectable } from '@nestjs/common';
+import { and, asc, count, eq } from 'drizzle-orm';
 import { InjectModuleDb } from '../../../platform/database/database';
-import { asId, type Id } from '../../../shared/kernel';
+import { updateWithVersion } from '../../../platform/database/versioning';
+import {
+  CLOCK,
+  asId,
+  pageOffset,
+  toPage,
+  type Clock,
+  type Id,
+  type Page,
+} from '../../../shared/kernel';
 import { isAccountStatus } from '../domain/account-status';
 import { isRole } from '../domain/authenticated-user';
+import type { LoginLockState } from '../domain/login-lockout';
 import { UserAccount } from '../domain/user-account';
-import { UserAccountRepository } from '../domain/user-account.repository';
+import { UserAccountRepository, type UserAccountQuery } from '../domain/user-account.repository';
 import type { IamDb } from './persistence/iam-db';
 import { userAccount } from './persistence/schema';
 
@@ -23,6 +33,7 @@ function toDomain(row: typeof userAccount.$inferSelect): UserAccount {
     passwordHash: row.passwordHash,
     role,
     status,
+    loginLock: { failedLoginCount: row.failedLoginCount, lockedUntil: row.lockedUntil },
     version: row.version,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -32,8 +43,39 @@ function toDomain(row: typeof userAccount.$inferSelect): UserAccount {
 /** Explicit credential mapping; no transaction is opened or passed by repositories. */
 @Injectable()
 export class DrizzleUserAccountRepository extends UserAccountRepository {
-  constructor(@InjectModuleDb() private readonly db: IamDb) {
+  constructor(
+    // Public: `this` is the context of updateWithVersion.
+    @InjectModuleDb() readonly db: IamDb,
+    @Inject(CLOCK) readonly clock: Clock,
+  ) {
     super();
+  }
+
+  async update(account: UserAccount, expectedVersion: number): Promise<UserAccount> {
+    return toDomain(
+      await updateWithVersion(this, userAccount, account.id, expectedVersion, {
+        role: account.role,
+        status: account.status,
+      }),
+    );
+  }
+
+  async list(query: UserAccountQuery): Promise<Page<UserAccount>> {
+    const where = and(
+      query.role === undefined ? undefined : eq(userAccount.role, query.role),
+      query.status === undefined ? undefined : eq(userAccount.status, query.status),
+    );
+    const [rows, [counted]] = await Promise.all([
+      this.db
+        .select()
+        .from(userAccount)
+        .where(where)
+        .orderBy(asc(userAccount.createdAt), asc(userAccount.id))
+        .limit(query.size)
+        .offset(pageOffset(query)),
+      this.db.select({ total: count() }).from(userAccount).where(where),
+    ]);
+    return toPage(rows.map(toDomain), counted?.total ?? 0, query);
   }
 
   async insert(account: UserAccount): Promise<UserAccount> {
@@ -45,6 +87,8 @@ export class DrizzleUserAccountRepository extends UserAccountRepository {
         passwordHash: account.passwordHash,
         role: account.role,
         status: account.status,
+        failedLoginCount: account.loginLock.failedLoginCount,
+        lockedUntil: account.loginLock.lockedUntil,
         version: account.version,
         createdAt: account.createdAt,
         updatedAt: account.updatedAt,
@@ -57,6 +101,23 @@ export class DrizzleUserAccountRepository extends UserAccountRepository {
   async findByEmail(email: string): Promise<UserAccount | undefined> {
     const row = await this.db.query.userAccount.findFirst({ where: eq(userAccount.email, email) });
     return row && toDomain(row);
+  }
+
+  async findByEmailForUpdate(email: string): Promise<UserAccount | undefined> {
+    const [row] = await this.db
+      .select()
+      .from(userAccount)
+      .where(eq(userAccount.email, email))
+      .for('update');
+    return row && toDomain(row);
+  }
+
+  /** Deliberately not updateWithVersion: login protection is not a client edit. */
+  async saveLoginLock(id: Id<'UserAccount'>, state: LoginLockState): Promise<void> {
+    await this.db
+      .update(userAccount)
+      .set({ failedLoginCount: state.failedLoginCount, lockedUntil: state.lockedUntil })
+      .where(eq(userAccount.id, id));
   }
 
   async findById(id: Id<'UserAccount'>): Promise<UserAccount | undefined> {

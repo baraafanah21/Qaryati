@@ -124,14 +124,23 @@ The catalogue lives in [`src/shared/kernel/errors/error-codes.ts`](../src/shared
 - **When:** `POST /api/v1/claims/{id}/verify`, `/dispute` or `/reject` sent by the user who created the claim. The curation domain raises a `ForbiddenError` with this code.
 - **Client:** ask another editor to review the claim. Do not retry with the same account.
 
+<a id="self-administration-forbidden"></a>
+
+### `SELF_ADMINISTRATION_FORBIDDEN`
+
+- **Status:** 422
+- **Meaning:** an administrator tried to change their own role or status.
+- **When:** `PATCH /api/v1/users/{id}/role` or `/status` where `{id}` is the caller. Without this rule the last administrator could demote or disable themself and leave nobody able to administer accounts.
+- **Client:** ask another administrator to make the change.
+
 <a id="rate-limited"></a>
 
 ### `RATE_LIMITED`
 
 - **Status:** 429
 - **Meaning:** too many requests in a short time.
-- **When:** a rate limit (#25) is exceeded.
-- **Client:** wait (see the `Retry-After` header when present), then retry.
+- **When:** a rate limit (#25) is exceeded: 120 requests per minute per IP without a token, 300 per minute per user with one, and 5 login attempts per minute per IP and email (all configurable, [configuration.md](configuration.md#security-and-operations)). Health probes are never limited.
+- **Client:** wait the number of seconds in the `Retry-After` header (always sent with this code), then retry.
 
 <a id="service-unavailable"></a>
 
@@ -139,7 +148,7 @@ The catalogue lives in [`src/shared/kernel/errors/error-codes.ts`](../src/shared
 
 - **Status:** 503
 - **Meaning:** the API cannot answer right now; the request itself may be fine.
-- **When:** a database statement timed out (SQLSTATE `57014`), or a dependency is down.
+- **When:** a database statement ran longer than 5 seconds (SQLSTATE `57014`; the runtime role's `statement_timeout`, [database.md](database.md#roles)), or a dependency is down.
 - **Client:** retry later with backoff.
 
 <a id="geocoding-unavailable"></a>

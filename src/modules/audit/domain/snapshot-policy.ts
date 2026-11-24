@@ -50,7 +50,9 @@ export const SNAPSHOT_POLICY = {
     'notes',
   ],
   // No email: the trail is never purged, so it holds no personal data; entityId identifies the user.
-  UserAccount: ['role', 'status'],
+  // lockedUntil: end of a login lockout (#25).
+  // revokedCount: refresh tokens revoked by an admin role or status change (#32).
+  UserAccount: ['role', 'status', 'lockedUntil', 'revokedCount'],
   Village: [
     'slug',
     'settlementStatus',

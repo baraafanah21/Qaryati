@@ -6,7 +6,7 @@ import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/platform/http/configure-app';
 
 // The database comes from test/support/e2e-global-setup.ts.
-describe('GET /api/v1/health (e2e)', () => {
+describe('GET /api/v1/health/live and /ready (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
@@ -20,11 +20,21 @@ describe('GET /api/v1/health (e2e)', () => {
     await app.close();
   });
 
-  it('returns 200 with status ok', async () => {
-    await request(app.getHttpServer()).get('/api/v1/health').expect(200).expect({ status: 'ok' });
+  it('live returns 200 with status ok', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/health/live')
+      .expect(200)
+      .expect({ status: 'ok' });
+  });
+
+  it('ready returns 200 when PostgreSQL and Redis answer', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/health/ready')
+      .expect(200)
+      .expect({ status: 'ok', checks: { database: 'up', redis: 'up' } });
   });
 
   it('is not served without the version prefix', async () => {
-    await request(app.getHttpServer()).get('/api/health').expect(404);
+    await request(app.getHttpServer()).get('/api/health/live').expect(404);
   });
 });

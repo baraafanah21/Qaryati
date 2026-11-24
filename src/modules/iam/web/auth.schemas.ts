@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paginationQuery } from '../../../platform/http/pagination';
 import { AccountStatus } from '../domain/account-status';
 import { Role } from '../domain/authenticated-user';
 import { EMAIL_PATTERN } from '../domain/email';
@@ -87,3 +88,23 @@ export type RegisterBody = z.infer<typeof registerBody>;
 export type LoginBody = z.infer<typeof loginBody>;
 /** Safe account DTO. */
 export type AccountResponse = z.infer<typeof accountResponse>;
+
+/** `GET /users` filters (#32); allowed values come from the domain. */
+export const listUsersQuery = paginationQuery.extend({
+  role: z.enum(Object.values(Role)).optional(),
+  status: z.enum(Object.values(AccountStatus)).optional(),
+});
+/** `PATCH /users/{id}/role` body. */
+export const changeRoleBody = z
+  .strictObject({ role: z.enum(Object.values(Role)) })
+  .meta({ id: 'ChangeRoleRequest', examples: [{ role: 'EDITOR' }] });
+/** `PATCH /users/{id}/status` body. */
+export const changeStatusBody = z
+  .strictObject({ status: z.enum(Object.values(AccountStatus)) })
+  .meta({ id: 'ChangeStatusRequest', examples: [{ status: 'DISABLED' }] });
+/** Validated user-list query. */
+export type ListUsersQuery = z.infer<typeof listUsersQuery>;
+/** Validated role change. */
+export type ChangeRoleBody = z.infer<typeof changeRoleBody>;
+/** Validated status change. */
+export type ChangeStatusBody = z.infer<typeof changeStatusBody>;

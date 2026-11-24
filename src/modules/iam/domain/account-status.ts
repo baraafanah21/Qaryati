@@ -1,4 +1,4 @@
-/** Account availability is separate from the temporary login lockout planned in #25. */
+/** Account availability; the temporary login lockout (#25) is separate (login-lockout.ts). */
 export const AccountStatus = {
   ACTIVE: 'ACTIVE',
   DISABLED: 'DISABLED',

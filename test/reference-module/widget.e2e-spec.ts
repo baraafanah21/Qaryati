@@ -309,7 +309,7 @@ describe('Reference module: /api/v1/widgets (e2e)', () => {
         expect.arrayContaining([expect.objectContaining({ name: 'If-Match', in: 'header' })]),
       );
       expect(Object.keys(update.responses).sort()).toEqual(
-        ['200', '400', '401', '404', '409', '412', '422', '428'].sort(),
+        ['200', '400', '401', '404', '409', '412', '422', '428', '429'].sort(),
       );
       expect(update.responses['412']?.content?.['application/problem+json']?.schema).toEqual({
         $ref: '#/components/schemas/ProblemDetails',
