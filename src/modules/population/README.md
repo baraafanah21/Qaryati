@@ -15,7 +15,7 @@ Population records. Tables are declared only in `infrastructure/persistence/sche
 Empty for now. Planned:
 
 - Read facade for population history, used by profile (#39).
-- Registers its claim types with curation through a `ClaimHandler`.
+- Registers its claim types with curation's `ClaimTypeRegistry` through a `ClaimTypeHandler`.
 
 ## Dependencies
 

@@ -1,4 +1,9 @@
-import { BusinessRuleViolationError, ForbiddenError, type Id } from '../../../shared/kernel';
+import {
+  BusinessRuleViolationError,
+  ErrorCode,
+  ForbiddenError,
+  type Id,
+} from '../../../shared/kernel';
 import { Claim } from './claim';
 
 describe('Claim Domain', () => {
@@ -41,6 +46,25 @@ describe('Claim Domain', () => {
         now,
       }),
     ).toThrow(ForbiddenError);
+  });
+
+  it('tags self-review with SELF_VERIFICATION_FORBIDDEN', () => {
+    const claim = createClaim({ sourceId: 'source-1' });
+
+    expect(() => claim.review({ reviewerId: authorId, status: 'VERIFIED', now })).toThrow(
+      expect.objectContaining({ code: ErrorCode.SELF_VERIFICATION_FORBIDDEN }) as Error,
+    );
+  });
+
+  it('marks only a verified claim as preferred, and clears the flag', () => {
+    const unverified = createClaim({ sourceId: 'source-1' });
+    expect(() => unverified.markPreferred()).toThrow(BusinessRuleViolationError);
+
+    const verified = unverified.review({ reviewerId: 'editor-1', status: 'VERIFIED', now });
+    const preferred = verified.markPreferred();
+
+    expect(preferred.isPreferred).toBe(true);
+    expect(preferred.clearPreferred().isPreferred).toBe(false);
   });
 
   it('requires a source before verification', () => {

@@ -1,5 +1,6 @@
 import {
   BusinessRuleViolationError,
+  ErrorCode,
   ForbiddenError,
   INITIAL_VERSION,
   type Id,
@@ -189,7 +190,9 @@ export class Claim implements Versioned {
     now: Date;
   }): Claim {
     if (input.reviewerId === this.props.createdBy) {
-      throw new ForbiddenError('Claim authors cannot review their own claims.');
+      throw new ForbiddenError('Claim authors cannot review their own claims.', {
+        code: ErrorCode.SELF_VERIFICATION_FORBIDDEN,
+      });
     }
 
     assertClaimTransition(this.props.status, input.status);
@@ -210,6 +213,36 @@ export class Claim implements Versioned {
       reviewedAt: input.now,
       reviewNote: input.note?.trim() || null,
     });
+  }
+
+  get isPreferred(): boolean {
+    return this.props.isPreferred;
+  }
+
+  get createdAt(): Date {
+    return this.props.createdAt;
+  }
+
+  get updatedAt(): Date {
+    return this.props.updatedAt;
+  }
+
+  /**
+   * Makes this claim the published answer of its question. Only a verified
+   * claim may be preferred; the caller clears the previous preferred claim
+   * first (the partial unique index `claim_one_preferred` allows one).
+   */
+  markPreferred(): Claim {
+    if (this.props.status !== 'VERIFIED') {
+      throw new BusinessRuleViolationError('Only a verified claim can be preferred.');
+    }
+
+    return new Claim({ ...this.props, isPreferred: true });
+  }
+
+  /** Removes the published flag, when another claim of the question takes it. */
+  clearPreferred(): Claim {
+    return new Claim({ ...this.props, isPreferred: false });
   }
 
   snapshot(): Record<string, unknown> {

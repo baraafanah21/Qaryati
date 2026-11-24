@@ -29,6 +29,9 @@ export const SNAPSHOT_POLICY = {
     'reviewedBy',
     'reviewedAt',
     'reviewNote',
+    // Review actions (#35): which claim lost the preferred flag, and why an editor preferred.
+    'previousPreferredClaimId',
+    'preferenceNote',
   ],
   RefreshToken: ['id', 'userId', 'familyId', 'expiresAt'],
   // Session revocations (#18): the owner, why and how many tokens; never a token or digest.

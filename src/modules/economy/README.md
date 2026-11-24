@@ -15,7 +15,7 @@ Products and facilities of each village, and the product filter for village sear
 Empty for now. Planned:
 
 - Read facade for products and facilities, used by profile (#39).
-- Registers its claim types with curation through a `ClaimHandler`.
+- Registers its claim types with curation's `ClaimTypeRegistry` through a `ClaimTypeHandler`.
 
 ## Dependencies
 

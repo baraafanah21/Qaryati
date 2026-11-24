@@ -15,7 +15,7 @@ History overview, historical events, landmarks and cultural items of a village.
 Empty for now. Planned:
 
 - Read facade for heritage sections, used by profile (#39).
-- Registers its claim types with curation through a `ClaimHandler`.
+- Registers its claim types with curation's `ClaimTypeRegistry` through a `ClaimTypeHandler`.
 
 ## Dependencies
 
