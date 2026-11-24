@@ -97,7 +97,7 @@ CHECK (status <> 'VERIFIED' OR source_id IS NOT NULL)  -- nothing is verified wi
 - four eyes: the reviewer is not the author
 - `reviewed_by` and `reviewed_at` are set exactly when a claim is reviewed
 - rejecting or disputing needs a note
-- population claims cite a source from the start
+- population, name-origin and historical-event claims cite a source from the start (`SOURCE_REQUIRED_ON_SUBMIT`)
 - a claim cannot supersede itself
 - only the author edits or withdraws, and only while `UNVERIFIED`
 

@@ -19,14 +19,14 @@ Nine business modules live in `src/modules`. The kernel lives in `src/shared/ker
 | Module       | Owner | Responsibility                                                                                                                                       | Owns (tables, planned)                                                                            |
 | ------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `iam`        | Hamam | Users, registration and login, JWT, refresh tokens, roles, `PermissionChecker`                                                                       | users, refresh tokens                                                                             |
-| `curation`   | Yahya | Sources, claim columns and `ClaimPolicy`, the verification workflow, conflict detection, curation queue, the `ClaimHandler` registry                 | `source`                                                                                          |
+| `curation`   | Yahya | Sources, claim columns and `ClaimPolicy`, the verification workflow, conflict detection, curation queue, the `ClaimTypeRegistry`                     | `source`                                                                                          |
 | `audit`      | Yahya | Append-only audit trail of every write, written in the same transaction as the change; audit read APIs                                               | `audit_entry`                                                                                     |
 | `village`    | Momen | The core village record: identity, slug, names and name origins, administrative units, search, location, nearby villages, relations, publish/archive | `village`, `village_name`, `name_origin`, `admin_unit`, `village_affiliation`, `village_relation` |
 | `population` | Yahya | Population records per village and year, consistency rules, statistics                                                                               | population records                                                                                |
 | `heritage`   | Ali   | History overview, historical events, landmarks, cultural items                                                                                       | `history_overview`, `historical_event`, `landmark`, `cultural_item`                               |
 | `economy`    | Hamam | Products and facilities of each village; the product filter for village search                                                                       | `product`, `village_product`, `facility`                                                          |
 | `geo`        | Ali   | Geocoding through an external API (Nominatim), resilience, cache, suggestion queue and accept flow                                                   | geocoding suggestions                                                                             |
-| `profile`    | Momen | Read-only composition: the village details page `GET /villages/{idOrSlug}`, `GET /villages/{id}/completeness`, and the details cache                 | none (Redis cache entries only)                                                                   |
+| `profile`    | Momen | Read-only composition: the village profile `GET /villages/{idOrSlug}/profile`, `GET /villages/{id}/completeness`, and later the profile cache        | none                                                                                              |
 
 `src/shared/kernel` holds what every module needs: ids, errors, pagination, `Clock`, `Versioned`, domain event types and the **`AuditRecorder` port interface**. It contains no module's business rules.
 
@@ -44,20 +44,21 @@ flowchart BT
   economy --> village & curation & iam
   geo --> village & curation & iam
   profile --> village & population & heritage & economy & curation & iam
+  audit --> iam
   audit -. implements AuditRecorder port .-> shared["src/shared"]
 ```
 
-| Module       | May import (besides `src/shared`)                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------------- |
-| `iam`        | none                                                                                                |
-| `curation`   | `iam`                                                                                               |
-| `audit`      | none. It implements the `AuditRecorder` port from `src/shared`. **No module imports `audit`.**      |
-| `village`    | `iam`, `curation`                                                                                   |
-| `population` | `iam`, `curation`, `village`                                                                        |
-| `heritage`   | `iam`, `curation`, `village`                                                                        |
-| `economy`    | `iam`, `curation`, `village`                                                                        |
-| `geo`        | `iam`, `curation`, `village`                                                                        |
-| `profile`    | `iam`, `curation`, `village`, `population`, `heritage`, `economy`. **No module imports `profile`.** |
+| Module       | May import (besides `src/shared`)                                                                                                  |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `iam`        | none                                                                                                                               |
+| `curation`   | `iam`                                                                                                                              |
+| `audit`      | `iam` (role decorators of its read APIs). It implements the `AuditRecorder` port from `src/shared`. **No module imports `audit`.** |
+| `village`    | `iam`, `curation`                                                                                                                  |
+| `population` | `iam`, `curation`, `village`                                                                                                       |
+| `heritage`   | `iam`, `curation`, `village`                                                                                                       |
+| `economy`    | `iam`, `curation`, `village`                                                                                                       |
+| `geo`        | `iam`, `curation`, `village`                                                                                                       |
+| `profile`    | `iam`, `curation`, `village`, `population`, `heritage`, `economy`. **No module imports `profile`.**                                |
 
 The graph has no cycles. Dependencies point from the edges toward the core: `iam` and `curation` are the base, `village` is the core record, the content modules build on `village`, and `profile` sits on top as a pure reader.
 
@@ -66,19 +67,20 @@ The graph has no cycles. Dependencies point from the edges toward the core: `iam
 `village` is the core record that every content module points to. If it also read population, heritage and economy to build the details page, the graph would have cycles (`village → population → village`). Then no content module could be changed or tested without the others. The details page is therefore a separate read-only module, `profile`.
 
 - `profile` only reads, through the public facades of the other modules. It owns no tables.
-- `profile` owns the details cache (#45). It is evicted after commit when a village or one of its claims changes. `profile` listens to the domain events for that and does not need any module to call it.
+- `profile` will own the profile cache (#45), if measurements show it is needed (task 13). It would be evicted after commit when a village or one of its claims changes, through domain events, without any module calling `profile`.
+- `GET /villages/{idOrSlug}` stays the identity resource in `village`; the composed page is `GET /villages/{idOrSlug}/profile` in `profile`.
 - Publish and archive stay in `village` (#39), because they change the village record.
 
 ### How the "backward" calls are inverted
 
 Some features look like they need a dependency in the forbidden direction. Each one is solved with a port or a registration instead of an import:
 
-| Need                                                                           | Forbidden import                                 | Solution                                                                                                                                                                                                                                                      |
-| ------------------------------------------------------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Every module writes audit entries (#20)                                        | `* → audit`                                      | `src/shared` declares the `AuditRecorder` port. `audit` provides the implementation through Nest DI. Modules depend only on the port.                                                                                                                         |
-| Curation verifies, disputes or rejects a claim stored in a content table (#35) | `curation → population/heritage/economy/village` | **ClaimHandler registration.** `village`, `population`, `heritage` and `economy` register a `ClaimHandler` for their claim types with curation when their module initialises. Curation calls the registered handler. The dependency stays content → curation. |
-| Curation marks conflicting population records as DISPUTED (#40)                | `curation → population`                          | Through the same `ClaimHandler` registered by `population`.                                                                                                                                                                                                   |
-| Village search filters by product (#30, #36)                                   | `village → economy`                              | See the next section.                                                                                                                                                                                                                                         |
+| Need                                                                                           | Forbidden import                                 | Solution                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every module writes audit entries (#20)                                                        | `* → audit`                                      | `src/shared` declares the `AuditRecorder` port. `audit` provides the implementation through Nest DI. Modules depend only on the port.                                                                                                                                                                          |
+| Curation changes the preferred claim of a question and the owner updates its projections (#35) | `curation → population/heritage/economy/village` | **Claim type registration.** `village`, `population`, `heritage` and `economy` register a `ClaimTypeHandler` for their claim types with curation's `ClaimTypeRegistry` in `onModuleInit`. Curation calls its `onPreferredChanged` hook inside the review transaction. The dependency stays content → curation. |
+| Curation lists conflicting claims of any type (#40)                                            | none                                             | Conflicts are computed by one query on `claim`, never stored and never marked automatically, so no call into the owner is needed.                                                                                                                                                                              |
+| Village search filters by product (#30, #36)                                                   | `village → economy`                              | See the next section.                                                                                                                                                                                                                                                                                          |
 
 ### Product filter for village search
 
@@ -86,9 +88,9 @@ Searching villages by product (olives, grapes, ...) needs data from `economy`, b
 
 **Decision:** `village` search accepts an optional list of village ids from the caller, and `economy` is that caller.
 
-- The `village` facade offers `search({ q, governorate, settlementStatus, sort, page, size, villageIds? })`. When `villageIds` is set, the search adds `id = ANY($villageIds)` to the same query, so filtering, sorting and pagination stay in one SQL statement.
-- `economy` exposes `GET /products/{productId}/villages?q=&governorate=&sort=&page=&size=`. It reads the ids of villages that produce the product from its own `village_product` table, then calls the `village` search facade with them.
-- `GET /villages` (#30) stays in `village` without a product parameter.
+- The `village` facade offers `VillageQueries.search({ q, governorate, settlementStatus, publicationStatus, villageIds, sort, page, size, viewer })`, the same use case as `GET /villages`. When `villageIds` is set (at most 100 through `GET /villages?ids=`; the facade itself takes any length), the search adds `id = ANY($villageIds)` to the same query, so filtering, sorting and pagination stay in one SQL statement.
+- `economy` exposes `GET /products/{idOrCode}/villages?sort=&page=&size=` (#36). It reads the ids of villages with a **preferred** `VILLAGE_PRODUCT` claim for the product from its own `village_product` table (joined to curation's `preferredClaimsOf`), then calls the `village` search facade with them.
+- `GET /villages` (#30) stays in `village` without a product parameter; its `?ids=` is the same id filter, over HTTP.
 
 | Option                                                               | Why not chosen                                                                                                                                                                   |
 | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -251,16 +253,16 @@ ESLint adds one rule that dependency-cruiser cannot express, because it is about
 
 The line gives: the **rule name**, the **importing file** (left of `→`) and the **imported file** (right). The rule's `comment` in `.dependency-cruiser.cjs` explains the intent. To see every rule with its comment, read the file. The usual fixes:
 
-| Rule                              | Usual fix                                                                                                                                                                 |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `no-circular`                     | Move the shared piece into one of the two files, or into a third file both import. Across modules, a cycle means the dependency direction is wrong.                       |
-| `domain-is-framework-free`        | Declare a port (interface) in `domain/` and implement it in `infrastructure/`.                                                                                            |
-| `application-not-to-outer-layers` | Let the use case take plain input and return plain output. The controller maps DTOs, and the adapter is injected through its port.                                        |
-| `no-cross-module-internals`       | Export what you need from the other module's `index.ts` (a facade or a DTO, never a repository or a table) and import it from there.                                      |
-| `module-dependency-direction`     | Invert the call: a port in `src/shared`, a registration (like `ClaimHandler`), or a domain event. If the direction itself is wrong, discuss it before changing `ALLOWED`. |
-| `domain-imports-only-kernel`      | Declare a port in `domain/` and implement it in `infrastructure/` with the platform code, or move the plain type you need into `src/shared/kernel`.                       |
-| `kernel-is-framework-free`        | Keep the interface and token in the kernel and put the implementation that needs the package in `src/platform` (like `UuidV7IdGenerator`).                                |
-| `shared-is-independent`           | Move the code into the module that needs it, or move the type it needs down into `src/shared`.                                                                            |
+| Rule                              | Usual fix                                                                                                                                                                     |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `no-circular`                     | Move the shared piece into one of the two files, or into a third file both import. Across modules, a cycle means the dependency direction is wrong.                           |
+| `domain-is-framework-free`        | Declare a port (interface) in `domain/` and implement it in `infrastructure/`.                                                                                                |
+| `application-not-to-outer-layers` | Let the use case take plain input and return plain output. The controller maps DTOs, and the adapter is injected through its port.                                            |
+| `no-cross-module-internals`       | Export what you need from the other module's `index.ts` (a facade or a DTO, never a repository or a table) and import it from there.                                          |
+| `module-dependency-direction`     | Invert the call: a port in `src/shared`, a registration (like `ClaimTypeHandler`), or a domain event. If the direction itself is wrong, discuss it before changing `ALLOWED`. |
+| `domain-imports-only-kernel`      | Declare a port in `domain/` and implement it in `infrastructure/` with the platform code, or move the plain type you need into `src/shared/kernel`.                           |
+| `kernel-is-framework-free`        | Keep the interface and token in the kernel and put the implementation that needs the package in `src/platform` (like `UuidV7IdGenerator`).                                    |
+| `shared-is-independent`           | Move the code into the module that needs it, or move the type it needs down into `src/shared`.                                                                                |
 
 ## Imports
 

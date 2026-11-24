@@ -13,7 +13,7 @@
 const ALLOWED = {
   iam: [],
   curation: ['iam'],
-  audit: [],
+  audit: ['iam'],
   village: ['iam', 'curation'],
   population: ['iam', 'curation', 'village'],
   heritage: ['iam', 'curation', 'village'],

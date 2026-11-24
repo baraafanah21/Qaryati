@@ -36,6 +36,12 @@ export const appEnvSchema = z.object({
     .int('must be an integer')
     .min(1, 'must be at least 1')
     .default(3600),
+  /** How long each API process caches products (reference data), in seconds. */
+  PRODUCTS_CACHE_TTL_SECONDS: z.coerce
+    .number({ error: 'must be a number' })
+    .int('must be an integer')
+    .min(1, 'must be at least 1')
+    .default(3600),
   /**
    * Serves Swagger UI and the OpenAPI document. Unset means on, except with
    * `NODE_ENV=production` (src/platform/http/openapi.ts, isSwaggerEnabled).

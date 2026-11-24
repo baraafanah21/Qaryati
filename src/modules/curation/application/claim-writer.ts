@@ -32,6 +32,12 @@ export interface SubmitClaimInput {
   supersedesId?: string | null;
 }
 
+/** The owning module's fact value around an edit, kept in the audit entry as `fact`. */
+export interface FactSnapshot {
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+}
+
 export interface EditClaimInput {
   groupKey: string;
   valueHash: string;
@@ -131,9 +137,21 @@ export class ClaimWriter {
     };
   }
 
-  /** Edits an unverified claim owned by the current user. */
+  /**
+   * Edits an unverified claim owned by the current user.
+   *
+   * @param factSnapshot the owner's fact value before and after the edit. The
+   *   claim itself only keeps the value's hash, so without it the audit trail
+   *   would lose the edited value; it is recorded as `fact` in the entry's
+   *   `before` and `after`.
+   */
   @Transactional()
-  async edit(id: Id<'Claim'>, expectedVersion: number, changes: EditClaimInput): Promise<Claim> {
+  async edit(
+    id: Id<'Claim'>,
+    expectedVersion: number,
+    changes: EditClaimInput,
+    factSnapshot?: FactSnapshot,
+  ): Promise<Claim> {
     const actorId = this.actorId();
     const current = await this.findClaim(id);
 
@@ -148,8 +166,10 @@ export class ClaimWriter {
       entityType: 'Claim',
       entityId: stored.id,
       villageId: stored.data.villageId,
-      before: current.snapshot(),
-      after: stored.snapshot(),
+      before: factSnapshot
+        ? { ...current.snapshot(), fact: factSnapshot.before }
+        : current.snapshot(),
+      after: factSnapshot ? { ...stored.snapshot(), fact: factSnapshot.after } : stored.snapshot(),
     });
 
     return stored;

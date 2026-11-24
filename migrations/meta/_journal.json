@@ -99,6 +99,76 @@
       "when": 1795017139126,
       "tag": "0013_seed_current_governorates",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795516927392,
+      "tag": "0014_village_facts",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1795516935936,
+      "tag": "0015_village_claim_fks",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795519846462,
+      "tag": "0016_milky_speedball",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795521969289,
+      "tag": "0017_dizzy_anita_blake",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795522065586,
+      "tag": "0018_population_claim_fks",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795523859940,
+      "tag": "0019_brave_black_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795523860573,
+      "tag": "0020_heritage_claim_fks",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795526088662,
+      "tag": "0021_powerful_fixer",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795526127873,
+      "tag": "0022_economy_claim_fks",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795526128519,
+      "tag": "0023_seed_products",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,7 @@
 import {
   allowedFields,
   applySnapshotPolicy,
+  readableSnapshot,
   SNAPSHOT_POLICY,
   type SnapshotPolicy,
 } from './snapshot-policy';
@@ -53,6 +54,14 @@ describe('snapshot policy', () => {
     });
   });
 
+  it('keeps the fact value an author edit records on Claim', () => {
+    const fact = { name: 'Fourik', lang: 'en', nameType: 'ALTERNATIVE_SPELLING' };
+    expect(applySnapshotPolicy(SNAPSHOT_POLICY, 'Claim', { status: 'UNVERIFIED', fact })).toEqual({
+      status: 'UNVERIFIED',
+      fact,
+    });
+  });
+
   it('does not keep a refresh token hash, which is not in its list either', () => {
     expect(SNAPSHOT_POLICY.RefreshToken).not.toContain('tokenHash');
     expect(
@@ -96,5 +105,18 @@ describe('snapshot policy', () => {
         .map((field) => `${type}.${field}`),
     );
     expect(offenders).toEqual(['Claim.valueHash']);
+  });
+});
+
+describe('readableSnapshot', () => {
+  it('filters a stored snapshot through the current allow-list', () => {
+    expect(
+      readableSnapshot(SNAPSHOT_POLICY, 'UserAccount', { role: 'EDITOR', email: 'old@x.org' }),
+    ).toEqual({ role: 'EDITOR' });
+  });
+
+  it('returns null for a missing snapshot and for an entity type without an entry', () => {
+    expect(readableSnapshot(SNAPSHOT_POLICY, 'Source', null)).toBeNull();
+    expect(readableSnapshot(SNAPSHOT_POLICY, 'Removed', { name: 'x' })).toBeNull();
   });
 });

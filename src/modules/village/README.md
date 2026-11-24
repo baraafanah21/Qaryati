@@ -8,7 +8,7 @@ The core village record: identity and slug, names and name origins, administrati
 
 ## Owned data
 
-`village`, `village_name`, `name_origin`, `admin_unit`, `village_affiliation`, `village_relation`. Tables are declared only in `infrastructure/persistence/schema.ts` of this module, which `drizzle.config.ts` picks up. No other module edits them. See [docs/database.md](../../../docs/database.md).
+`village`, `admin_unit`, and the six fact tables `village_name`, `name_origin`, `village_affiliation`, `village_location`, `village_measure`, `village_relation`. Tables are declared only in `infrastructure/persistence/schema.ts` of this module, which `drizzle.config.ts` picks up. No other module edits them. See [docs/database.md](../../../docs/database.md).
 
 ## Data model
 
@@ -23,21 +23,29 @@ Allowed values live in `domain/village-values.ts` and `domain/admin-unit-values.
 
 ## Public API (`index.ts`)
 
-| Export                                                   | Use                                                                                                                                                    |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `VillageQueries.exists(id)`                              | Fact modules call it **before** `ClaimWriter.submit`, so a claim for a missing village is a 404 rather than a foreign-key 409.                         |
-| `VillageQueries.findById(id)`                            | The identity and its projections (`VillageView`), or `undefined`.                                                                                      |
-| `VillageQueries.isVisibleTo(id, user)`                   | Anonymous callers see `PUBLISHED` villages only; any logged-in user sees every status. `false` for a missing village.                                  |
-| `AdminUnitQueries.exists / findById / findByCode / list` | Administrative units through the in-process cache.                                                                                                     |
-| `normalizeName`                                          | Consistent comparison of Arabic and Latin names, including names owned by other modules such as heritage landmarks.                                    |
-| value arrays and `isX` guards                            | `SETTLEMENT_STATUSES`, `PUBLICATION_STATUSES`, `ADMIN_UNIT_TYPES`, `ADMIN_ERAS`, `AUTHORITY_TYPES`: API schemas and other modules read the same lists. |
+| Export                                                                          | Use                                                                                                                                                    |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `VillageQueries.exists(id)`                                                     | Fact modules call it **before** `ClaimWriter.submit`, so a claim for a missing village is a 404 rather than a foreign-key 409.                         |
+| `VillageQueries.findById(id)`                                                   | The identity and its projections (`VillageView`), or `undefined`.                                                                                      |
+| `VillageQueries.findVisible(idOrSlug, user)`                                    | The village as `GET /villages/{idOrSlug}` resolves it (one query); `NotFoundError` when missing or hidden from `user`. Profile (#39) starts with it.   |
+| `VillageQueries.findVisibleByIds(ids, user)`                                    | The villages with these ids that `user` may see, one query. Profile reads the villages named by relations with it.                                     |
+| `VillageQueries.factValues(type, claimIds)`                                     | The stored values of village fact claims of one type, by claim id, one `IN (...)` query. Profile passes the ids of preferred claims only.              |
+| `VillageQueries.isVisibleTo(id, user)`                                          | Anonymous callers see `PUBLISHED` villages only; any logged-in user sees every status. `false` for a missing village.                                  |
+| `VillageQueries.search(input)`                                                  | The search of `GET /villages` with the same rules, plus `villageIds` (at most 100): economy's product filter calls it with the ids it owns (#30).      |
+| `VILLAGE_SORT_FIELDS`, `MAX_SEARCH_VILLAGE_IDS`, `VillageSearchHit`             | The search's sort allow-list, id-list limit and result item.                                                                                           |
+| `AdminUnitQueries.exists / findById / findByCode / list`                        | Administrative units through the in-process cache.                                                                                                     |
+| `NAME_TYPES`, `LOCATION_PRECISIONS`, `MEASURE_KINDS`, `RELATION_TYPES` + guards | Allowed values of the fact tables.                                                                                                                     |
+| `VILLAGE_LOCATION_CHANGED`, `VillageLocationChanged`                            | Domain event published after commit when the `location` projection changes (payload `{ location: { latitude, longitude } \| null }`).                  |
+| `normalizeName`                                                                 | Consistent comparison of Arabic and Latin names, including names owned by other modules such as heritage landmarks.                                    |
+| value arrays and `isX` guards                                                   | `SETTLEMENT_STATUSES`, `PUBLICATION_STATUSES`, `ADMIN_UNIT_TYPES`, `ADMIN_ERAS`, `AUTHORITY_TYPES`: API schemas and other modules read the same lists. |
 
-`VillageModule` is global (like `IamModule` and `CurationModule`), so other modules inject these facades without importing the module's wiring. Planned: the village search facade (#30) with an optional `villageIds` filter.
+`VillageModule` is global (like `IamModule` and `CurationModule`), so other modules inject these facades without importing the module's wiring.
 
 ## Villages REST API (#23, publish/archive from #39)
 
 | Method   | Path                            | Who                                   | Notes                                                                                                               |
 | -------- | ------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `GET`    | `/api/v1/villages`              | public (token optional)               | Search, filter, sort and page (#30); see [Search](#search-30).                                                      |
 | `POST`   | `/api/v1/villages`              | any logged-in user                    | Body `{ slug, settlementStatus, displayNameAr, displayNameEn? }`. Creates a `DRAFT`; 201 + `Location` + `ETag`.     |
 | `GET`    | `/api/v1/villages/{idOrSlug}`   | public (token optional)               | Anonymous: `PUBLISHED` only, other statuses answer 404. With a token: every status. Identity row only.              |
 | `PATCH`  | `/api/v1/villages/{id}`         | `EDITOR`+, or the creator while draft | `If-Match` required (428 / 412). Editable: `settlementStatus`, `displayNameAr`, `displayNameEn`.                    |
@@ -55,6 +63,102 @@ Rules, all in `domain/` with unit tests:
 Every write records one audit entry in its transaction, with `villageId`: `village.created`, `village.updated` (before and after), `village.published`, `village.archived`, `village.deleted` (before).
 
 `GET /villages/{idOrSlug}` uses `@Public({ optionalUser: true })`: the route is public, but a sent token is verified (an invalid one is a 401, so a client with an expired token refreshes it instead of silently seeing less). The full village page with its preferred facts belongs to the profile module (#39, later).
+
+## Village facts (#27, #34)
+
+Every fact about a village is a **claim** (docs/data-model.md): curation's `claim` row holds the source and review state, and one of six fact tables holds the typed value.
+
+| Claim type     | Table: value columns                                                                         | Domain rules (`domain/village-facts.ts`)                                                         | Question (`group_key`)                                                         |
+| -------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `VILLAGE_NAME` | `village_name`: `name`, `name_normalized`, `lang`, `name_type`, `period_from/to_year`        | `name_normalized = normalizeName(name)`; short BCP 47 `lang`; from ≤ to; `CURRENT` has no period | `CURRENT`: `name\|v\|lang\|current`; others: `name\|v\|lang\|type\|normalized` |
+| `NAME_ORIGIN`  | `name_origin`: `meaning`, `origin_language`, `explanation`                                   | meaning required; **source required on submit** (curation)                                       | `origin\|v`                                                                    |
+| `AFFILIATION`  | `village_affiliation`: `admin_unit_id` (FK `admin_unit`, RESTRICT), `valid_from`, `valid_to` | the unit exists (404); from ≤ to                                                                 | `affiliation\|v\|unit_type\|era`                                               |
+| `LOCATION`     | `village_location`: `point geography(Point,4326)`, `precision`, `description`                | latitude −90…90, longitude −180…180, rounded to 5 decimals                                       | `location\|v`                                                                  |
+| `MEASURE`      | `village_measure`: `kind` (`ELEVATION_M`, `AREA_DUNUM`), `value numeric`                     | elevation −500…1500 m, area > 0                                                                  | `measure\|v\|kind`                                                             |
+| `RELATION`     | `village_relation`: `related_village_id` (FK `village`, RESTRICT), `relation_type`           | not the village itself (422); the other village exists (404)                                     | `relation\|v\|related\|type`                                                   |
+
+- **Tables.** `claim_id` is the primary key and `claim_type` a constant with the one structural `CHECK`; the composite foreign key `(claim_id, claim_type) → claim (id, claim_type) ON DELETE CASCADE` crosses into curation, so it is raw SQL in `0015_village_claim_fks.sql`. The two same-module foreign keys are in `schema.ts`, each with its index. No other CHECK: allowed values are the arrays in `domain/fact-values.ts`.
+- **Claim keys.** One pure function per type in `domain/fact-claims.ts` (`villageNameClaim`, `nameOriginClaim`, ...) returns `{ claimType, groupKey, valueHash }` with curation's `buildGroupKey` and `valueHash`. Texts are hashed after `normalizeName`, so the same name with other spacing, tashkeel or letter variants is the same value: a second submission from the same source is a 409 `DUPLICATE` (unique index `claim_no_duplicate`).
+- **Writes.** `SubmitVillageFact` (one `@Transactional()` use case for every type) checks the village (404), validates, checks what the value points to, then calls `ClaimWriter.submit` and inserts the fact row. The audit entry is curation's `claim.submitted` (with `villageId`): one entry per write. The submitted value stays in its fact table. An author's `PATCH` of a name passes the name before and after (`name`, `lang`, `nameType`, `periodFromYear`, `periodToYear`) to `ClaimWriter.edit`, so `claim.edited` keeps them as `fact`: the change history survives the overwrite of the fact row.
+- **Reads** go through curation's `ClaimQueries.listForVillage` (a page of claims) and then one `IN (...)` query on the fact table: two indexed queries, never a read of the `claim` table from this module.
+
+| Method             | Path                                                                                             | Who                                                                                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET`              | `/villages/{id}/names`, `/name-origins`, `/affiliations`, `/location`, `/measures`, `/relations` | public: preferred claims only, `Page<T>` with `page`/`size`; `?includeUnverified=true` (EDITOR+, 403 otherwise) adds every other claim with its status. Anonymous callers see published villages only (404). |
+| `POST`             | `/villages/{id}/names`, `/name-origins`, `/affiliations`, `/measures`, `/relations`              | any logged-in user: submits an `UNVERIFIED` claim, 201 + `ETag` (claim version). Body: the value plus `sourceId?`, `sourceLocator?`, `supersedesId?`.                                                        |
+| `PUT`              | `/villages/{id}/location`                                                                        | any logged-in user: submits a new `LOCATION` claim (201).                                                                                                                                                    |
+| `PATCH` / `DELETE` | `/villages/{id}/names/{claimId}`                                                                 | the author, while `UNVERIFIED`: `ClaimWriter.edit` + fact update / `ClaimWriter.withdraw`. `If-Match` = claim version. 403 for someone else's, 422 once reviewed.                                            |
+| `GET`              | `/villages/{id}/nearby?radiusKm=&limit=`                                                         | public: published villages within 0.1–100 km (default 10), at most 1–50 (default 10), nearest first, never itself. 422 when the village has no location.                                                     |
+
+`GET /location` returns the same page shape as the other lists: at most one preferred location, or every candidate for editors. Verifying and preferring are curation's endpoints (`/claims/{id}/verify`, `/prefer`).
+
+### Projections and the `ClaimTypeRegistry` hook
+
+`VillageModule.onModuleInit` registers `VILLAGE_NAME` and `LOCATION` with curation's `ClaimTypeRegistry`; `VillageProjector` runs **inside the review transaction**:
+
+- the preferred `CURRENT` name in `ar` / `en` changed → `village.display_name_ar` / `display_name_en` takes its `name`. When it loses the flag with no replacement the display name stays (`display_name_ar` is NOT NULL). Other name types never touch it.
+- the preferred `LOCATION` changed → `village.location` takes its point (`ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography`), or `NULL` without a replacement, and `village.locationChanged` is published through `DomainEventPublisher` (delivered after commit, dropped on rollback).
+- Both bump `village.version`, so a client holding the old ETag gets 412 on its next `PATCH`.
+- A preferred claim without its fact row throws, and the whole review rolls back (`test/village/village-facts.int-spec.ts`).
+
+### Native SQL, on purpose
+
+The brief asks for ORM and native SQL. Plain columns use the Drizzle query builder; **every geography read or write is native SQL** through Drizzle's `sql` template (never string concatenation): the `village_location` insert and the `village.location` projection use `ST_SetSRID(ST_MakePoint(...), 4326)::geography`, and the nearby search is the "nearby villages" query of docs/data-model.md:
+
+```sql
+SELECT id, slug, display_name_ar, display_name_en, ST_Distance(location, $origin) AS distance_meters
+FROM village
+WHERE publication_status = 'PUBLISHED' AND id <> $self AND ST_DWithin(location, $origin, $radius_m)
+ORDER BY location <-> $origin
+LIMIT $limit;
+```
+
+`ST_DWithin` filters and `<->` orders (KNN) with the GiST index `village_location_gist`; the origin is a bound point, not a subquery, so the planner sees a constant on the right of `<->`. An integration test checks the plan with `EXPLAIN`.
+
+## Search (#30)
+
+`GET /api/v1/villages?q=&governorate=&settlementStatus=&publicationStatus=&ids=&sort=&page=&size=`, public with an optional token. The response is the kernel `Page<VillageSummary>`.
+
+| Parameter           | Meaning                                                                                                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `q`                 | 1–100 characters, normalized with `normalizeName`, then trigram similarity (`%`, pg_trgm's default threshold 0.3) over `display_name_ar`, `display_name_en` and every **preferred** `village_name`. |
+| `governorate`       | Id or code of a `GOVERNORATE` admin unit, matched through the village's **preferred** `AFFILIATION`. Anything else is a 422 on `governorate`.                                                       |
+| `settlementStatus`  | One of `SETTLEMENT_STATUSES`.                                                                                                                                                                       |
+| `publicationStatus` | `EDITOR`+ only. Anonymous callers and contributors always get `PUBLISHED` villages, and the parameter is ignored for them; editors get every status unless they filter by one.                      |
+| `ids`               | Comma-separated village ids, at most 100 (`MAX_SEARCH_VILLAGE_IDS`).                                                                                                                                |
+| `sort`              | `nameAr`, `nameEn`, `createdAt`, `relevance` (only with `q`), each `,asc` or `,desc`; anything else is a 400. Default: `relevance,desc` with `q`, `nameAr,asc` without. Then `id`. Nulls last.      |
+| `page`, `size`      | Zero-based page; `size` 1–100, default 20.                                                                                                                                                          |
+
+Each item carries `relevance` (0–1): the best `similarity` of the three names, or `null` without `q`.
+
+**Why contributors see published villages only here**, although `GET /villages/{idOrSlug}` shows them drafts: the list is the public catalogue, and the editors' working view of every status is a filter they own. A contributor reaches their own draft by the id or the `Location` they got when creating it.
+
+**How the SQL is built** (`infrastructure/village-search.sql.ts`, run by `DrizzleVillageRepository.search`): one statement for the page and one `count(*)` with the same `WHERE`, both native SQL through Drizzle's `sql` template from bound parameters and fixed fragments; the sort field reaches SQL only through the allow-list map.
+
+```sql
+SELECT v.*, GREATEST(similarity(v.display_name_ar, $q), similarity(v.display_name_en, $q),
+                     (SELECT max(similarity(vn.name_normalized, $q)) FROM village_name vn
+                      JOIN preferred_names pn ON pn.claim_id = vn.claim_id
+                      WHERE pn.village_id = v.id)) AS relevance
+FROM village v
+WHERE v.publication_status = $status
+  AND v.id IN (SELECT id FROM village WHERE display_name_ar % $q
+               UNION SELECT id FROM village WHERE display_name_en % $q
+               UNION SELECT pn.village_id FROM village_name vn
+                     JOIN preferred_names pn ON pn.claim_id = vn.claim_id
+                     WHERE vn.name_normalized % $q)
+  AND v.id IN (SELECT pa.village_id FROM village_affiliation va
+               JOIN preferred_affiliations pa ON pa.claim_id = va.claim_id
+               WHERE va.admin_unit_id = $governorate)
+  AND v.id = ANY($ids::uuid[])
+ORDER BY relevance DESC NULLS LAST, v.id
+LIMIT $size OFFSET $offset;
+```
+
+- **Indexes** (migration `0016`): GIN `gin_trgm_ops` on `village.display_name_ar`, `village.display_name_en` and `village_name.name_normalized`; btree `(publication_status, display_name_en)` and `(publication_status, created_at)` for the two new sort fields, next to the existing `(publication_status, display_name_ar)`. `q` is a `UNION` of three id lists, not an `OR`, so each branch uses its own trigram index; `test/village/village-search.int-spec.ts` checks all three with `EXPLAIN` and `enable_seqscan = off`.
+- **Preferred claims without reading `claim`.** `preferred_names` and `preferred_affiliations` are curation's `preferredClaimsOf('VILLAGE_NAME' | 'AFFILIATION')`, a derived table `(claim_id, village_id)` exported from curation's `index.ts`. Curation keeps the SQL that reads its table; village only joins it. The per-village page reads of `ClaimQueries.listForVillage` could not filter and rank many villages in one statement.
+- **Display names are not normalized in the table**, while `q` is. pg_trgm already ignores case, and tashkeel or letter variants in a display name only lower its similarity a little; the published spellings in `village_name.name_normalized` are normalized.
+- **`ids` is one array parameter** (`= ANY($ids::uuid[])`), so the statement text is the same for any list length.
 
 ## Administrative units (#19)
 
@@ -97,9 +201,9 @@ Trigram similarity in search (#30) handles spelling distance without
 introducing false matches by deleting meaningful text or boundaries. The
 letters ؤ and ئ are preserved for the same reason.
 
-Village names will be stored with this normalized form in
-`village_name.name_normalized` (#27). Search (#30) will normalize the query
-with the same function before comparing it, so stored names and queries use
+Village names are stored with this normalized form in
+`village_name.name_normalized` (#27). Search (#30) normalizes the query with
+the same function before comparing it, so stored names and queries use
 matching rules.
 
 ## Dependencies

@@ -1,5 +1,59 @@
-import type { Id } from '../../../shared/kernel';
+import type { Id, Page, PageRequest } from '../../../shared/kernel';
 import type { Claim } from './claim';
+import type { ClaimType } from './claim-values';
+
+/** Statuses the review queue lists (the partial index `claim_review_queue` covers them). */
+export const REVIEW_QUEUE_STATUSES = ['UNVERIFIED', 'DISPUTED'] as const;
+
+export type ReviewQueueStatus = (typeof REVIEW_QUEUE_STATUSES)[number];
+
+/** Filters of the review queue, oldest claim first. */
+export interface ReviewQueueQuery extends PageRequest {
+  status: ReviewQueueStatus;
+  claimType?: ClaimType;
+  villageId?: string;
+}
+
+/** The claims of one type about one village, oldest first. */
+export interface VillageClaimsQuery extends PageRequest {
+  villageId: string;
+  claimType: ClaimType;
+  /** Only the published (preferred) claims, as public readers see them. */
+  preferredOnly: boolean;
+}
+
+/**
+ * Where a published fact comes from: its source and when it was verified.
+ * A preferred claim is verified and a verified claim has a source (database
+ * CHECKs), so `source` is set for every preferred claim.
+ */
+export interface ClaimProvenance {
+  claimId: string;
+  claimType: ClaimType;
+  source: { id: string; title: string; reliability: number };
+  sourceLocator: string | null;
+  verifiedAt: Date | null;
+}
+
+/** Filters of the conflicts list. */
+export interface ConflictQuery extends PageRequest {
+  claimType?: ClaimType;
+  villageId?: string;
+}
+
+/**
+ * A question whose live claims (unverified, verified or disputed) disagree:
+ * computed on every read, never stored (docs/data-model.md).
+ */
+export interface ClaimConflict {
+  groupKey: string;
+  villageId: string;
+  claimType: ClaimType;
+  distinctValues: number;
+  claimCount: number;
+  /** Ids of the live claims, oldest first. */
+  claimIds: string[];
+}
 
 /**
  * Persistence port for claims.
@@ -12,14 +66,43 @@ export interface ClaimRepository {
   /** Finds a claim by its identifier. */
   findById(id: Id<'Claim'>): Promise<Claim | undefined>;
 
+  /** The claims with these ids, in no particular order; unknown ids are absent. */
+  findByIds(ids: readonly Id<'Claim'>[]): Promise<Claim[]>;
+
   /**
    * Updates a claim using optimistic locking.
-   * Throws NotFoundError or PreconditionFailedError when appropriate.
+   * Throws NotFoundError or PreconditionFailedError when appropriate, and a
+   * ConflictError (VERSION_CONFLICT) when another claim of the question became
+   * preferred concurrently (unique index `claim_one_preferred`).
    */
   update(claim: Claim, expectedVersion: number): Promise<Claim>;
 
   /** Whether the question `groupKey` has a preferred (published) claim. */
   hasPreferredForGroup(groupKey: string): Promise<boolean>;
+
+  /** The preferred claim of the question `groupKey`, if any. */
+  findPreferredForGroup(groupKey: string): Promise<Claim | undefined>;
+
+  /**
+   * Claims of one type about one village, oldest first. Preferred-only reads
+   * use the partial index `claim_village_published`.
+   */
+  listForVillage(query: VillageClaimsQuery): Promise<Page<Claim>>;
+
+  /**
+   * Every preferred claim of a village with its source, in one statement on
+   * `claim_village_published` (the village profile, #39).
+   */
+  preferredProvenance(villageId: string): Promise<ClaimProvenance[]>;
+
+  /** The claim types that have at least one preferred claim for a village (completeness). */
+  preferredTypes(villageId: string): Promise<ClaimType[]>;
+
+  /** Claims waiting for review, oldest first (native SQL on `claim_review_queue`). */
+  listReviewQueue(query: ReviewQueueQuery): Promise<Page<Claim>>;
+
+  /** Questions with more than one distinct value among live claims. */
+  listConflicts(query: ConflictQuery): Promise<Page<ClaimConflict>>;
 }
 
 /** Injection token for the claim repository. */

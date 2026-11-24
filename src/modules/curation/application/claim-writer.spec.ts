@@ -51,8 +51,15 @@ describe('ClaimWriter', () => {
     repository = {
       insert: jest.fn(),
       findById: jest.fn(),
+      findByIds: jest.fn(),
       update: jest.fn(),
       hasPreferredForGroup: jest.fn(),
+      findPreferredForGroup: jest.fn(),
+      listForVillage: jest.fn(),
+      listReviewQueue: jest.fn(),
+      listConflicts: jest.fn(),
+      preferredProvenance: jest.fn(),
+      preferredTypes: jest.fn(),
     };
 
     sources = {
@@ -169,6 +176,22 @@ describe('ClaimWriter', () => {
     expect(auditCall?.before).toBeDefined();
     expect(auditCall?.after).toBeDefined();
     expect(auditCall?.entityId).toBe(claimId);
+  });
+
+  it('keeps the fact value before and after an edit in the audit entry', async () => {
+    repository.findById.mockResolvedValue(makeClaim());
+    repository.update.mockImplementation((claim) => Promise.resolve(claim));
+
+    await writer.edit(
+      claimId,
+      1,
+      { groupKey: `name|${villageId}`, valueHash: 'hash-2' },
+      { before: { name: 'Fourik' }, after: { name: 'Furik' } },
+    );
+
+    const auditCall = audit.record.mock.calls[0]?.[0];
+    expect(auditCall?.before).toMatchObject({ valueHash: 'hash-1', fact: { name: 'Fourik' } });
+    expect(auditCall?.after).toMatchObject({ valueHash: 'hash-2', fact: { name: 'Furik' } });
   });
 
   it('prevents another user from editing the claim', async () => {

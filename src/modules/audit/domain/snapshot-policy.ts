@@ -29,6 +29,11 @@ export const SNAPSHOT_POLICY = {
     'reviewedBy',
     'reviewedAt',
     'reviewNote',
+    // Review actions (#35): which claim lost the preferred flag, and why an editor preferred.
+    'previousPreferredClaimId',
+    'preferenceNote',
+    // Author edits (#27): the owner's fact value before and after, which the claim keeps only as a hash.
+    'fact',
   ],
   RefreshToken: ['id', 'userId', 'familyId', 'expiresAt'],
   // Session revocations (#18): the owner, why and how many tokens; never a token or digest.
@@ -104,4 +109,19 @@ export function applySnapshotPolicy(
     kept[key] = value;
   }
   return kept;
+}
+
+/**
+ * A stored snapshot as the read APIs (#44) return it: filtered through the
+ * policy again, so narrowing an allow-list also hides what older entries kept.
+ * An entity type without an entry (removed since) returns null rather than
+ * throwing: reading history must not fail because the code moved on.
+ */
+export function readableSnapshot(
+  policy: SnapshotPolicy,
+  entityType: string,
+  snapshot: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (snapshot === null || !Object.hasOwn(policy, entityType)) return null;
+  return applySnapshotPolicy(policy, entityType, snapshot) ?? null;
 }

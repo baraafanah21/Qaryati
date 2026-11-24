@@ -194,16 +194,19 @@ Every foreign key has an index on its column and an explicit `ON DELETE` (`RESTR
 
 A module never imports another module's Drizzle tables, so a foreign key that crosses a module boundary cannot be declared in `schema.ts`. It is written in raw SQL in a custom migration of the module that owns the referencing column, and listed here.
 
-| From                                                                  | To                       | Owner (migration)                                   | `ON DELETE` |
-| --------------------------------------------------------------------- | ------------------------ | --------------------------------------------------- | ----------- |
-| `village.created_by`                                                  | `user_account.id`        | village (`0003_village_created_by_cross_module_fk`) | RESTRICT    |
-| `source.created_by`                                                   | `user_account.id`        | curation (`0007_source_cross_module_fks`)           | RESTRICT    |
-| `claim.village_id`                                                    | `village.id`             | curation (`0009_claim_cross_module_fks`)            | RESTRICT    |
-| `claim.created_by`, `claim.reviewed_by`                               | `user_account.id`        | curation (`0009_claim_cross_module_fks`)            | RESTRICT    |
-| every fact table's `(claim_id, claim_type)`                           | `claim (id, claim_type)` | the fact table's module (planned)                   | CASCADE     |
-| The `claim.source_id` and `claim.supersedes_id` foreign keys are      |
-| defined within the curation Drizzle schema and generated in migration |
-| `0008_tranquil_sleeper.sql`. Both use `ON DELETE RESTRICT`.           |
+| From                                                                                                                                     | To                       | Owner (migration)                                   | `ON DELETE` |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | --------------------------------------------------- | ----------- |
+| `village.created_by`                                                                                                                     | `user_account.id`        | village (`0003_village_created_by_cross_module_fk`) | RESTRICT    |
+| `source.created_by`                                                                                                                      | `user_account.id`        | curation (`0007_source_cross_module_fks`)           | RESTRICT    |
+| `claim.village_id`                                                                                                                       | `village.id`             | curation (`0009_claim_cross_module_fks`)            | RESTRICT    |
+| `claim.created_by`, `claim.reviewed_by`                                                                                                  | `user_account.id`        | curation (`0009_claim_cross_module_fks`)            | RESTRICT    |
+| `village_name`, `name_origin`, `village_affiliation`, `village_location`, `village_measure`, `village_relation` `(claim_id, claim_type)` | `claim (id, claim_type)` | village (`0015_village_claim_fks`)                  | CASCADE     |
+| `population_record (claim_id, claim_type)`                                                                                               | `claim (id, claim_type)` | population (`0018_population_claim_fks`)            | CASCADE     |
+| `history_overview`, `historical_event`, `landmark`, `cultural_item` `(claim_id, claim_type)`                                             | `claim (id, claim_type)` | heritage (`0020_heritage_claim_fks`)                | CASCADE     |
+| `village_product`, `facility` `(claim_id, claim_type)`                                                                                   | `claim (id, claim_type)` | economy (`0022_economy_claim_fks`)                  | CASCADE     |
+| The `claim.source_id` and `claim.supersedes_id` foreign keys are                                                                         |
+| defined within the curation Drizzle schema and generated in migration                                                                    |
+| `0008_tranquil_sleeper.sql`. Both use `ON DELETE RESTRICT`.                                                                              |
 
 The `claim_no_duplicate` partial unique index is created by the custom
 migration `0009_claim_cross_module_fks.sql` using `NULLS NOT DISTINCT`.
@@ -260,6 +263,6 @@ The audit module owns `audit_entry`: one row per audited write, written by `Driz
 
 **Permissions.** The default privileges give `qaryati_app` full DML on every new table. The custom migration `0011_audit_entry_append_only` revokes `UPDATE`, `DELETE` and `TRUNCATE`, so the API can only `INSERT` and `SELECT`. The role name is literal: `docker/postgres/init/20-create-app-role.sh` creates `qaryati_app` in Compose, in CI and in Testcontainers. `test/audit/drizzle-audit-recorder.int-spec.ts` checks that `UPDATE`, `DELETE` and `TRUNCATE` fail with SQLSTATE `42501`. Only the owner role (migrations, an operator) can change or remove entries.
 
-**No foreign keys, on purpose.** `entity_id`, `village_id` and `actor_id` reference nothing. The trail must outlive the rows it describes: when an admin hard-deletes spam or personal data, its audit entries stay, and a foreign key would either block that delete (`RESTRICT`) or erase the history (`CASCADE`). It also keeps `audit` free of imports from other modules. This is the one exception to "every reference is a foreign key"; it is listed here so nobody adds them later.
+**No foreign keys, on purpose.** `entity_id`, `village_id` and `actor_id` reference nothing. The trail must outlive the rows it describes: when an admin hard-deletes spam or personal data, its audit entries stay, and a foreign key would either block that delete (`RESTRICT`) or erase the history (`CASCADE`). It also keeps `audit` free of imports from the modules it records (it imports only `iam`, for role decorators). This is the one exception to "every reference is a foreign key"; it is listed here so nobody adds them later.
 
 **Indexes.** The read APIs (#44) page newest first with a keyset on `(occurred_at, id)`: `audit_entry_entity_idx (entity_type, entity_id, occurred_at DESC, id DESC)`, `audit_entry_village_idx (village_id, …)`, `audit_entry_actor_idx (actor_id, …)` and `audit_entry_occurred_idx (occurred_at DESC, id DESC)` for the unfiltered admin list.

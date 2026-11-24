@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Res,
+} from '@nestjs/common';
 import {
   ApiCreatedResponse,
   ApiNoContentResponse,
@@ -9,22 +20,27 @@ import type { Response } from 'express';
 import { ETag, IfMatch } from '../../../platform/http/etag';
 import { ApiModule, ApiProblems } from '../../../platform/http/openapi';
 import { idParam } from '../../../platform/http/pagination';
-import { asId } from '../../../shared/kernel';
+import { asId, mapPage, type Page } from '../../../shared/kernel';
 import { CurrentUser, Public, Role, Roles, type AuthenticatedUser } from '../../iam';
 import { ChangeVillagePublication } from '../application/change-village-publication.use-case';
 import { CreateVillage } from '../application/create-village.use-case';
 import { DeleteVillage } from '../application/delete-village.use-case';
 import { GetVillage } from '../application/get-village.use-case';
+import { SearchVillages } from '../application/search-villages.use-case';
 import { UpdateVillage } from '../application/update-village.use-case';
-import { toVillageResponse } from './village.mapper';
+import { toVillageResponse, toVillageSummary } from './village.mapper';
 import {
   createVillageBody,
   idOrSlugParam,
+  searchVillagesQuery,
   updateVillageBody,
   villageResponse,
+  villageSummaryPage,
   type CreateVillageBody,
+  type SearchVillagesQuery,
   type UpdateVillageBody,
   type VillageResponse,
+  type VillageSummary,
 } from './village.schemas';
 
 /** `/api/v1/villages`: the village identity, its publication workflow and admin removal. */
@@ -37,7 +53,39 @@ export class VillageController {
     private readonly updateVillage: UpdateVillage,
     private readonly changePublication: ChangeVillagePublication,
     private readonly deleteVillage: DeleteVillage,
+    private readonly searchVillages: SearchVillages,
   ) {}
+
+  @Get()
+  @Public({ optionalUser: true })
+  @ApiOperation({
+    summary: 'Search, filter, sort and page villages',
+    description:
+      'q is typo-tolerant (trigram similarity) over the Arabic and English display names and ' +
+      'every published spelling of a name. Anonymous callers and contributors see published ' +
+      'villages only; editors see every status and may filter by publicationStatus. ' +
+      'Sort by nameAr, nameEn, createdAt or relevance (relevance needs q); the default is ' +
+      'relevance,desc with q and nameAr,asc without.',
+  })
+  @ApiOkResponse({ standardSchema: villageSummaryPage })
+  @ApiProblems(400, 422)
+  async search(
+    @Query({ schema: searchVillagesQuery }) query: SearchVillagesQuery,
+    @CurrentUser() user: AuthenticatedUser | undefined,
+  ): Promise<Page<VillageSummary>> {
+    const page = await this.searchVillages.execute({
+      q: query.q,
+      governorate: query.governorate,
+      settlementStatus: query.settlementStatus,
+      publicationStatus: query.publicationStatus,
+      villageIds: query.ids,
+      sort: query.sort,
+      page: query.page,
+      size: query.size,
+      viewer: user,
+    });
+    return mapPage(page, toVillageSummary);
+  }
 
   @Post()
   @Roles(Role.CONTRIBUTOR)

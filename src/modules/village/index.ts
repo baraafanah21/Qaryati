@@ -27,5 +27,40 @@ export {
 } from './domain/admin-unit-values';
 export { VillageQueries, type VillageView } from './application/village-queries';
 export { AdminUnitQueries } from './application/admin-unit-queries';
+export type { SearchVillagesInput } from './application/search-villages.use-case';
+export {
+  VILLAGE_SORT_FIELDS,
+  MAX_SEARCH_VILLAGE_IDS,
+  type VillageSortField,
+  type VillageSearchHit,
+} from './domain/village-search';
 export type { AdminUnit, AdminUnitFilter } from './domain/admin-unit';
 export type { GeoPoint } from './domain/village';
+export {
+  NAME_TYPES,
+  LOCATION_PRECISIONS,
+  MEASURE_KINDS,
+  RELATION_TYPES,
+  isNameType,
+  isLocationPrecision,
+  isMeasureKind,
+  isRelationType,
+  type NameType,
+  type LocationPrecision,
+  type MeasureKind,
+  type RelationType,
+} from './domain/fact-values';
+export { VILLAGE_LOCATION_CHANGED, type VillageLocationChanged } from './domain/village-events';
+export {
+  VILLAGE_FACT_TYPES,
+  type VillageFactType,
+  type VillageFactValues,
+} from './domain/village-fact.repository';
+export type {
+  AffiliationValue,
+  LocationValue,
+  MeasureValue,
+  NameOriginValue,
+  RelationValue,
+  VillageNameValue,
+} from './domain/village-facts';
