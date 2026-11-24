@@ -51,6 +51,7 @@ describe('ClaimWriter', () => {
     repository = {
       insert: jest.fn(),
       findById: jest.fn(),
+      findByIds: jest.fn(),
       update: jest.fn(),
       hasPreferredForGroup: jest.fn(),
       findPreferredForGroup: jest.fn(),

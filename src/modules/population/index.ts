@@ -5,4 +5,10 @@
  * listed in docs/architecture.md (enforced by dependency-cruiser). Export
  * facades, DTOs and event types here; never repositories, tables or entities.
  */
-export {};
+export { PopulationQueries, type PopulationRecordView } from './application/population-queries';
+export {
+  COUNT_TYPES,
+  isCountType,
+  MAX_LATEST_VILLAGE_IDS,
+  type CountType,
+} from './domain/population-values';

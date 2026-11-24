@@ -22,3 +22,15 @@ export function preferredClaimsOf(claimType: ClaimType): SQL {
   return sql`(SELECT id AS claim_id, village_id FROM claim
     WHERE claim_type = ${claimType} AND is_preferred)`;
 }
+
+/**
+ * A derived table `(claim_id, village_id, is_preferred, created_by)` of every
+ * claim of one type, whatever its status, for an owner that pages its own
+ * fact rows in its own order (population lists by year, #28) and must also
+ * show unverified claims to editors and authors. Filter it by `village_id`
+ * (index `claim_village_id_idx`); curation still keeps the SQL that reads `claim`.
+ */
+export function claimsOf(claimType: ClaimType): SQL {
+  return sql`(SELECT id AS claim_id, village_id, is_preferred, created_by FROM claim
+    WHERE claim_type = ${claimType})`;
+}

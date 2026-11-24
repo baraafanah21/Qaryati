@@ -65,6 +65,20 @@ export class ClaimQueries {
     return mapPage(await this.claims.listForVillage(query), toClaimView);
   }
 
+  /**
+   * The claims with these ids, in the order of `ids`; unknown ids are skipped.
+   * For an owner that pages its fact rows itself (population orders by year)
+   * and needs the provenance of exactly that page in one query.
+   */
+  async findByIds(ids: readonly string[]): Promise<ClaimView[]> {
+    const found = await this.claims.findByIds(ids.map((id) => asId<'Claim'>(id)));
+    const byId = new Map(found.map((claim) => [claim.id as string, toClaimView(claim)]));
+    return ids.flatMap((id) => {
+      const view = byId.get(id);
+      return view ? [view] : [];
+    });
+  }
+
   /** One claim, or `undefined` when there is none. */
   async findById(id: string): Promise<ClaimView | undefined> {
     const claim = await this.claims.findById(asId<'Claim'>(id));

@@ -19,6 +19,8 @@ export type { ClaimTypeHandler, PreferredClaimChange } from './application/claim
 
 // Village search (#30): the preferred claims of one type as a derived table for owners' native SQL.
 export { preferredClaimsOf } from './infrastructure/preferred-claims.sql';
+// Population (#28): every claim of one type, for an owner's native SQL with its own order.
+export { claimsOf } from './infrastructure/preferred-claims.sql';
 
 export {
   CLAIM_GROUP_PREFIXES,
