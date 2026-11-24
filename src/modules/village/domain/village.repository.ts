@@ -8,6 +8,8 @@ export interface VillageRepository {
   insert(village: Village): Promise<Village>;
   findById(id: Id<'Village'>): Promise<Village | undefined>;
   findBySlug(slug: string): Promise<Village | undefined>;
+  /** The villages with these ids, in no particular order; unknown ids are absent. One query. */
+  findByIds(ids: readonly Id<'Village'>[]): Promise<Village[]>;
   existsBySlug(slug: string): Promise<boolean>;
   exists(id: Id<'Village'>): Promise<boolean>;
   /** Stores identity fields if still at `expectedVersion`; 404 / 412 otherwise. */

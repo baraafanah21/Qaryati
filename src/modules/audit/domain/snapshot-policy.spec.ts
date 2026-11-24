@@ -1,6 +1,7 @@
 import {
   allowedFields,
   applySnapshotPolicy,
+  readableSnapshot,
   SNAPSHOT_POLICY,
   type SnapshotPolicy,
 } from './snapshot-policy';
@@ -104,5 +105,18 @@ describe('snapshot policy', () => {
         .map((field) => `${type}.${field}`),
     );
     expect(offenders).toEqual(['Claim.valueHash']);
+  });
+});
+
+describe('readableSnapshot', () => {
+  it('filters a stored snapshot through the current allow-list', () => {
+    expect(
+      readableSnapshot(SNAPSHOT_POLICY, 'UserAccount', { role: 'EDITOR', email: 'old@x.org' }),
+    ).toEqual({ role: 'EDITOR' });
+  });
+
+  it('returns null for a missing snapshot and for an entity type without an entry', () => {
+    expect(readableSnapshot(SNAPSHOT_POLICY, 'Source', null)).toBeNull();
+    expect(readableSnapshot(SNAPSHOT_POLICY, 'Removed', { name: 'x' })).toBeNull();
   });
 });

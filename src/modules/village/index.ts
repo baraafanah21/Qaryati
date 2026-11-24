@@ -51,3 +51,16 @@ export {
   type RelationType,
 } from './domain/fact-values';
 export { VILLAGE_LOCATION_CHANGED, type VillageLocationChanged } from './domain/village-events';
+export {
+  VILLAGE_FACT_TYPES,
+  type VillageFactType,
+  type VillageFactValues,
+} from './domain/village-fact.repository';
+export type {
+  AffiliationValue,
+  LocationValue,
+  MeasureValue,
+  NameOriginValue,
+  RelationValue,
+  VillageNameValue,
+} from './domain/village-facts';

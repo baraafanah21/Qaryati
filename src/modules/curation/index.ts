@@ -12,6 +12,7 @@ export type { SourceType } from './domain/source-values';
 export { ClaimWriter } from './application/claim-writer';
 export { ClaimQueries, type ClaimView } from './application/claim-queries';
 export type { SubmitClaimInput, EditClaimInput, FactSnapshot } from './application/claim-writer';
+export type { ClaimProvenance } from './domain/claim.repository';
 
 // Claim review — Issue #35: owners register their claim types and projection hooks.
 export { ClaimTypeRegistry } from './application/claim-type-registry';

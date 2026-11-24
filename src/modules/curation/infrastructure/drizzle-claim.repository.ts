@@ -21,13 +21,14 @@ import { Claim } from '../domain/claim';
 import type { ClaimType } from '../domain/claim-values';
 import type {
   ClaimConflict,
+  ClaimProvenance,
   ClaimRepository,
   ConflictQuery,
   ReviewQueueQuery,
   VillageClaimsQuery,
 } from '../domain/claim.repository';
 
-import { claim } from './persistence/schema';
+import { claim, source } from './persistence/schema';
 import type { SourceDb } from './persistence/source-db';
 
 type ClaimRow = typeof claim.$inferSelect;
@@ -213,6 +214,43 @@ export class DrizzleClaimRepository implements ClaimRepository {
     ]);
 
     return toPage(rows.map(toDomain), totals?.total ?? 0, query);
+  }
+
+  /**
+   * One statement: the partial index `claim_village_published` finds the
+   * village's preferred claims, the source primary key joins their source.
+   * Inner join: a preferred claim always has a source (CHECK on `claim`).
+   */
+  async preferredProvenance(villageId: string): Promise<ClaimProvenance[]> {
+    const rows = await this.db
+      .select({
+        claimId: claim.id,
+        claimType: claim.claimType,
+        sourceId: source.id,
+        sourceTitle: source.title,
+        sourceReliability: source.reliability,
+        sourceLocator: claim.sourceLocator,
+        verifiedAt: claim.reviewedAt,
+      })
+      .from(claim)
+      .innerJoin(source, eq(source.id, claim.sourceId))
+      .where(and(eq(claim.villageId, villageId), eq(claim.isPreferred, true)));
+    return rows.map((row) => ({
+      claimId: row.claimId,
+      claimType: row.claimType as ClaimType,
+      source: { id: row.sourceId, title: row.sourceTitle, reliability: row.sourceReliability },
+      sourceLocator: row.sourceLocator,
+      verifiedAt: row.verifiedAt,
+    }));
+  }
+
+  /** The completeness query of docs/data-model.md, on `claim_village_published`. */
+  async preferredTypes(villageId: string): Promise<ClaimType[]> {
+    const rows = await this.db
+      .selectDistinct({ claimType: claim.claimType })
+      .from(claim)
+      .where(and(eq(claim.villageId, villageId), eq(claim.isPreferred, true)));
+    return rows.map((row) => row.claimType as ClaimType);
   }
 
   /**

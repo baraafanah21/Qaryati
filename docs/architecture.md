@@ -26,7 +26,7 @@ Nine business modules live in `src/modules`. The kernel lives in `src/shared/ker
 | `heritage`   | Ali   | History overview, historical events, landmarks, cultural items                                                                                       | `history_overview`, `historical_event`, `landmark`, `cultural_item`                               |
 | `economy`    | Hamam | Products and facilities of each village; the product filter for village search                                                                       | `product`, `village_product`, `facility`                                                          |
 | `geo`        | Ali   | Geocoding through an external API (Nominatim), resilience, cache, suggestion queue and accept flow                                                   | geocoding suggestions                                                                             |
-| `profile`    | Momen | Read-only composition: the village details page `GET /villages/{idOrSlug}`, `GET /villages/{id}/completeness`, and the details cache                 | none (Redis cache entries only)                                                                   |
+| `profile`    | Momen | Read-only composition: the village profile `GET /villages/{idOrSlug}/profile`, `GET /villages/{id}/completeness`, and later the profile cache        | none                                                                                              |
 
 `src/shared/kernel` holds what every module needs: ids, errors, pagination, `Clock`, `Versioned`, domain event types and the **`AuditRecorder` port interface**. It contains no module's business rules.
 
@@ -44,20 +44,21 @@ flowchart BT
   economy --> village & curation & iam
   geo --> village & curation & iam
   profile --> village & population & heritage & economy & curation & iam
+  audit --> iam
   audit -. implements AuditRecorder port .-> shared["src/shared"]
 ```
 
-| Module       | May import (besides `src/shared`)                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------------- |
-| `iam`        | none                                                                                                |
-| `curation`   | `iam`                                                                                               |
-| `audit`      | none. It implements the `AuditRecorder` port from `src/shared`. **No module imports `audit`.**      |
-| `village`    | `iam`, `curation`                                                                                   |
-| `population` | `iam`, `curation`, `village`                                                                        |
-| `heritage`   | `iam`, `curation`, `village`                                                                        |
-| `economy`    | `iam`, `curation`, `village`                                                                        |
-| `geo`        | `iam`, `curation`, `village`                                                                        |
-| `profile`    | `iam`, `curation`, `village`, `population`, `heritage`, `economy`. **No module imports `profile`.** |
+| Module       | May import (besides `src/shared`)                                                                                                  |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `iam`        | none                                                                                                                               |
+| `curation`   | `iam`                                                                                                                              |
+| `audit`      | `iam` (role decorators of its read APIs). It implements the `AuditRecorder` port from `src/shared`. **No module imports `audit`.** |
+| `village`    | `iam`, `curation`                                                                                                                  |
+| `population` | `iam`, `curation`, `village`                                                                                                       |
+| `heritage`   | `iam`, `curation`, `village`                                                                                                       |
+| `economy`    | `iam`, `curation`, `village`                                                                                                       |
+| `geo`        | `iam`, `curation`, `village`                                                                                                       |
+| `profile`    | `iam`, `curation`, `village`, `population`, `heritage`, `economy`. **No module imports `profile`.**                                |
 
 The graph has no cycles. Dependencies point from the edges toward the core: `iam` and `curation` are the base, `village` is the core record, the content modules build on `village`, and `profile` sits on top as a pure reader.
 
@@ -66,7 +67,8 @@ The graph has no cycles. Dependencies point from the edges toward the core: `iam
 `village` is the core record that every content module points to. If it also read population, heritage and economy to build the details page, the graph would have cycles (`village → population → village`). Then no content module could be changed or tested without the others. The details page is therefore a separate read-only module, `profile`.
 
 - `profile` only reads, through the public facades of the other modules. It owns no tables.
-- `profile` owns the details cache (#45). It is evicted after commit when a village or one of its claims changes. `profile` listens to the domain events for that and does not need any module to call it.
+- `profile` will own the profile cache (#45), if measurements show it is needed (task 13). It would be evicted after commit when a village or one of its claims changes, through domain events, without any module calling `profile`.
+- `GET /villages/{idOrSlug}` stays the identity resource in `village`; the composed page is `GET /villages/{idOrSlug}/profile` in `profile`.
 - Publish and archive stay in `village` (#39), because they change the village record.
 
 ### How the "backward" calls are inverted

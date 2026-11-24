@@ -2,7 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { asId, mapPage, type Page, type PageRequest } from '../../../shared/kernel';
 import type { Claim } from '../domain/claim';
 import type { ClaimStatus, ClaimType } from '../domain/claim-values';
-import { CLAIM_REPOSITORY, type ClaimRepository } from '../domain/claim.repository';
+import {
+  CLAIM_REPOSITORY,
+  type ClaimProvenance,
+  type ClaimRepository,
+} from '../domain/claim.repository';
 
 /** What other modules may know about a claim: provenance and review state, no value. */
 export interface ClaimView {
@@ -77,6 +81,20 @@ export class ClaimQueries {
       const view = byId.get(id);
       return view ? [view] : [];
     });
+  }
+
+  /**
+   * Every preferred (published) claim of a village with its source and
+   * verification time, in one query, whatever the number of facts. The profile
+   * (#39) joins it to the owners' fact rows by claim id.
+   */
+  preferredProvenanceFor(villageId: string): Promise<ClaimProvenance[]> {
+    return this.claims.preferredProvenance(villageId);
+  }
+
+  /** The claim types with at least one preferred claim for a village, in no order. */
+  preferredTypesFor(villageId: string): Promise<ClaimType[]> {
+    return this.claims.preferredTypes(villageId);
   }
 
   /** One claim, or `undefined` when there is none. */
