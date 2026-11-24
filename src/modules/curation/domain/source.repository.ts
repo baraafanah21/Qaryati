@@ -32,6 +32,9 @@ export interface SourceRepository {
    */
   update(source: Source, expectedVersion: number): Promise<Source>;
 
+  /** Finds the source with this exact URL (URLs are unique). */
+  findByUrl(url: string): Promise<Source | undefined>;
+
   /** Checks whether a non-deleted source exists. */
   exists(id: Id<'Source'>): Promise<boolean>;
 }

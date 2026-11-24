@@ -84,6 +84,55 @@ export const appEnvSchema = z
       .min(100, 'must be at least 100')
       .max(60_000, 'must be at most 60000')
       .default(5000),
+    /** First retry delay in milliseconds; doubles per retry, with jitter. */
+    GEO_RETRY_BASE_MS: z.coerce
+      .number({ error: 'must be a number' })
+      .int('must be an integer')
+      .min(1, 'must be at least 1')
+      .max(10_000, 'must be at most 10000')
+      .default(200),
+    /** Consecutive failed geocoding calls that open the circuit breaker. */
+    GEO_BREAKER_THRESHOLD: z.coerce
+      .number({ error: 'must be a number' })
+      .int('must be an integer')
+      .min(1, 'must be at least 1')
+      .max(100, 'must be at most 100')
+      .default(5),
+    /** How long the breaker stays open before one trial call, in milliseconds. */
+    GEO_BREAKER_HALF_OPEN_MS: z.coerce
+      .number({ error: 'must be a number' })
+      .int('must be an integer')
+      .min(100, 'must be at least 100')
+      .max(3_600_000, 'must be at most 3600000')
+      .default(30_000),
+    /** Least time between two Nominatim requests, in milliseconds (its policy: 1 per second). */
+    GEO_MIN_INTERVAL_MS: z.coerce
+      .number({ error: 'must be a number' })
+      .int('must be an integer')
+      .min(0, 'must be at least 0')
+      .max(60_000, 'must be at most 60000')
+      .default(1000),
+    /** Longest a caller waits for its turn at the Nominatim rate limiter, in milliseconds. */
+    GEO_QUEUE_TIMEOUT_MS: z.coerce
+      .number({ error: 'must be a number' })
+      .int('must be an integer')
+      .min(0, 'must be at least 0')
+      .max(60_000, 'must be at most 60000')
+      .default(5000),
+    /** Seconds a non-empty geocoding result stays in Redis (default 30 days). */
+    GEO_CACHE_TTL_SECONDS: z.coerce
+      .number({ error: 'must be a number' })
+      .int('must be an integer')
+      .min(1, 'must be at least 1')
+      .max(31_536_000, 'must be at most 31536000')
+      .default(2_592_000),
+    /** Seconds an empty geocoding result stays in Redis (default 24 hours). */
+    GEO_CACHE_EMPTY_TTL_SECONDS: z.coerce
+      .number({ error: 'must be a number' })
+      .int('must be an integer')
+      .min(1, 'must be at least 1')
+      .max(31_536_000, 'must be at most 31536000')
+      .default(86_400),
     /** Redis for the shared rate-limit counters; down means throttling fails open. */
     REDIS_URL: z
       .url({ protocol: /^rediss?$/, error: 'must be a redis:// or rediss:// URL' })

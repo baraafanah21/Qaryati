@@ -38,6 +38,7 @@ The `created_by` column references `user_account(id)` with `ON DELETE RESTRICT`,
 Other modules access curation through `index.ts`. `CurationModule` is global, so they inject these facades without importing its wiring. It exports:
 
 - `SourceQueries`, including `exists(id): Promise<boolean>`
+- `SourceWriter.findOrCreateExternalApiSource({ provider, url, title })` (#41): the `EXTERNAL_API` source with that unique URL, or a new one (reliability 2, `publisher` = provider, created by the current user and audited as `source.created`), in the caller's transaction. A URL that belongs to a source of another type is a 409. Geo cites accepted geocoding suggestions with it.
 - `ClaimQueries.listForVillage({ villageId, claimType, preferredOnly, page, size })`: a `Page<ClaimView>` of one type's claims about one village, oldest first. Fact modules join their own fact rows to it by claim id, so they never read the `claim` table. `preferredOnly` is what public readers see and reads the partial index `claim_village_published`. `ClaimQueries.findById(id)` returns one `ClaimView` (provenance and review state, no value).
 - `ClaimQueries.hasPreferredForGroup(groupKey): Promise<boolean>`: whether a question already has a published (preferred) claim. The owning module builds the key with `buildGroupKey`; village uses it to lock a display name once its `CURRENT` name claim is published (#23). It reads the partial unique index `claim_one_preferred`.
 - `SOURCE_TYPES`

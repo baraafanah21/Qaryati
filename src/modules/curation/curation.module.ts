@@ -12,6 +12,7 @@ import { CreateSource } from './application/create-source.use-case';
 import { GetSource } from './application/get-source.use-case';
 import { ListSources } from './application/list-sources.use-case';
 import { SourceQueries } from './application/source-queries';
+import { SourceWriter } from './application/source-writer';
 import { UpdateSource } from './application/update-source.use-case';
 
 import { CLAIM_REPOSITORY } from './domain/claim.repository';
@@ -28,7 +29,7 @@ import { SourceController } from './web/source.controller';
 /**
  * Wires the curation module's application and persistence layers. Imported
  * only by AppModule; global so that fact modules can inject the public facades
- * (ClaimWriter, ClaimQueries, SourceQueries, ClaimTypeRegistry) without
+ * (ClaimWriter, ClaimQueries, SourceQueries, SourceWriter, ClaimTypeRegistry) without
  * importing this wiring.
  */
 @Global()
@@ -41,6 +42,7 @@ import { SourceController } from './web/source.controller';
     ListSources,
     UpdateSource,
     SourceQueries,
+    SourceWriter,
     ClaimWriter,
     ClaimQueries,
     ClaimTypeRegistry,
@@ -57,6 +59,6 @@ import { SourceController } from './web/source.controller';
       useClass: DrizzleClaimRepository,
     },
   ],
-  exports: [SourceQueries, ClaimWriter, ClaimQueries, ClaimTypeRegistry],
+  exports: [SourceQueries, SourceWriter, ClaimWriter, ClaimQueries, ClaimTypeRegistry],
 })
 export class CurationModule {}

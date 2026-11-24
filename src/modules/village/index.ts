@@ -26,6 +26,12 @@ export {
   type AdminEra,
 } from './domain/admin-unit-values';
 export { VillageQueries, type VillageView } from './application/village-queries';
+export {
+  VillageFactWriter,
+  type FactProvenance,
+  type LocationInput,
+} from './application/village-fact-writer';
+export type { VillageFact } from './application/village-fact-input';
 export { AdminUnitQueries } from './application/admin-unit-queries';
 export type { SearchVillagesInput } from './application/search-villages.use-case';
 export {

@@ -68,6 +68,7 @@ const PROBLEM_DESCRIPTIONS = {
   422: 'VALIDATION_FAILED or CONSTRAINT_VIOLATION: a business rule rejects the change.',
   428: 'PRECONDITION_REQUIRED: send If-Match with the ETag you read.',
   429: 'RATE_LIMITED: too many requests; wait for Retry-After.',
+  502: 'GEOCODING_UNAVAILABLE or GEOCODING_BAD_RESPONSE: an external provider failed; retry later.',
   503: 'SERVICE_UNAVAILABLE: a dependency is down or too slow; retry later.',
 } as const;
 

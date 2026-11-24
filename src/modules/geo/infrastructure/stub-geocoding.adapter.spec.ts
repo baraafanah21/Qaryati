@@ -1,4 +1,4 @@
-﻿import { StubGeocodingAdapter } from './stub-geocoding.adapter';
+import { StubGeocodingAdapter } from './stub-geocoding.adapter';
 
 describe('StubGeocodingAdapter', () => {
   const adapter = new StubGeocodingAdapter();

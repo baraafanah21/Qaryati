@@ -89,6 +89,12 @@ export class DrizzleSourceRepository implements SourceRepository {
     return row ? toDomain(row) : undefined;
   }
 
+  /** Finds a source by its unique URL. */
+  async findByUrl(url: string): Promise<Source | undefined> {
+    const row = await this.db.query.source.findFirst({ where: eq(source.url, url) });
+    return row ? toDomain(row) : undefined;
+  }
+
   /** Checks whether a source exists. */
   async exists(id: Id<'Source'>): Promise<boolean> {
     const [row] = await this.db

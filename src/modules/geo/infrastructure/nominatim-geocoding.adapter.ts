@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import {
   effectiveLimit,
   type GeocodeCandidate,
@@ -136,13 +136,16 @@ export class NominatimGeocodingAdapter implements GeocodingPort {
 }
 
 function httpFailure(status: number): GeocodingUnavailableError {
-  if (status === 429) return new GeocodingUnavailableError('rate-limited', false, status);
-  return new GeocodingUnavailableError('http', TRANSIENT_STATUSES.has(status), status);
+  if (status === 429)
+    return new GeocodingUnavailableError('rate-limited', false, { httpStatus: status });
+  return new GeocodingUnavailableError('http', TRANSIENT_STATUSES.has(status), {
+    httpStatus: status,
+  });
 }
 
 /** Maps what `fetch` threw: our own HTTP failure, a timeout or abort, or a network error. */
 function toUnavailable(error: unknown, signal: AbortSignal): GeocodingUnavailableError {
   if (error instanceof GeocodingUnavailableError) return error;
-  if (signal.aborted) return new GeocodingUnavailableError('timeout', true, undefined, error);
-  return new GeocodingUnavailableError('network', true, undefined, error);
+  if (signal.aborted) return new GeocodingUnavailableError('timeout', true, { cause: error });
+  return new GeocodingUnavailableError('network', true, { cause: error });
 }

@@ -1,4 +1,4 @@
-﻿import { normalizeName } from '../../village';
+import { normalizeName } from '../../village';
 import {
   effectiveLimit,
   type GeocodeCandidate,
