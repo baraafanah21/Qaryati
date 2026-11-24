@@ -201,7 +201,7 @@ Other fact modules use `ClaimWriter` through the public curation API.
 
 The caller is responsible for validating village existence before submission.
 
-When `sourceId` is provided, it must reference an existing source. `POPULATION` and `NAME_ORIGIN` claims require a source on submission (`SOURCE_REQUIRED_ON_SUBMIT`, 422 without one).
+When `sourceId` is provided, it must reference an existing source. `POPULATION`, `NAME_ORIGIN` and `HISTORICAL_EVENT` (#17) claims require a source on submission (`SOURCE_REQUIRED_ON_SUBMIT`, 422 without one).
 
 If `supersedesId` is provided, it must reference an existing claim from the same village and claim type.
 
