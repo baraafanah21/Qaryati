@@ -32,6 +32,8 @@ export const SNAPSHOT_POLICY = {
     // Review actions (#35): which claim lost the preferred flag, and why an editor preferred.
     'previousPreferredClaimId',
     'preferenceNote',
+    // Author edits (#27): the owner's fact value before and after, which the claim keeps only as a hash.
+    'fact',
   ],
   RefreshToken: ['id', 'userId', 'familyId', 'expiresAt'],
   // Session revocations (#18): the owner, why and how many tokens; never a token or digest.

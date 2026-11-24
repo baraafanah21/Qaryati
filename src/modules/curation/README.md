@@ -261,7 +261,7 @@ Audit actions:
 - `claim.edited`
 - `claim.withdrawn`
 
-Successful writes record audit entries. Edits and withdrawals include before-and-after snapshots.
+Successful writes record audit entries. Edits and withdrawals include before-and-after snapshots. A claim keeps only the hash of its value, so `ClaimWriter.edit` takes an optional `factSnapshot` (`{ before, after }`, the owner's fact value) and records it as `fact` inside `before` and `after`; otherwise an author's edit would lose the old value. Submit and withdraw do not need it: the value stays in its fact table.
 
 ### Scope limitations
 

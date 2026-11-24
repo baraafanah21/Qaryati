@@ -388,6 +388,19 @@ describe('village facts: /api/v1/villages/{id}/... (e2e)', () => {
       expect(audit.entries).toEqual([
         expect.objectContaining({ action: 'claim.edited', villageId }),
       ]);
+      // The claim keeps only the value's hash, so the entry keeps the old and the new name.
+      expect(audit.entries[0]).toMatchObject({
+        before: {
+          fact: {
+            name: 'Fourik',
+            lang: 'en',
+            nameType: 'ALTERNATIVE_SPELLING',
+            periodFromYear: null,
+            periodToYear: null,
+          },
+        },
+        after: { fact: { name: 'Furik', lang: 'en', nameType: 'ALTERNATIVE_SPELLING' } },
+      });
     });
 
     it("answers 403 to someone else's name, 412 when stale, 428 without If-Match", async () => {

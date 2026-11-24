@@ -33,7 +33,7 @@ An audit trail that the API can edit proves nothing. The table has no version co
 
 ## Snapshot allow-list
 
-[`domain/snapshot-policy.ts`](domain/snapshot-policy.ts) maps each entity type to the fields the trail keeps. `before` and `after` keep only those fields. On top of that, any key matching `/password|token|secret|hash/i` is always dropped (defence in depth), except `valueHash` / `value_hash` on `Claim`, which is a digest of the claim's value and not a secret.
+[`domain/snapshot-policy.ts`](domain/snapshot-policy.ts) maps each entity type to the fields the trail keeps. `before` and `after` keep only those fields. On top of that, any key matching `/password|token|secret|hash/i` is always dropped (defence in depth), except `valueHash` / `value_hash` on `Claim`, which is a digest of the claim's value and not a secret. `Claim` also keeps `fact`: the owning module's fact value before and after an author's edit (for example a village name), which the claim itself stores only as a hash.
 
 **No personal data.** The trail is never deleted from, so snapshots keep no personal data such as a user's email; `entity_id` already identifies the user. `UserAccount` keeps only `role` and `status`.
 

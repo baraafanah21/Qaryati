@@ -16,6 +16,17 @@ export type VillageNameChanges = Partial<VillageFactInputs['VILLAGE_NAME']> & {
   sourceLocator?: string | null;
 };
 
+/** The fields of a name the audit trail keeps around an edit. */
+function nameSnapshot(value: VillageNameValue): Record<string, unknown> {
+  return {
+    name: value.name,
+    lang: value.lang,
+    nameType: value.nameType,
+    periodFromYear: value.periodFromYear,
+    periodToYear: value.periodToYear,
+  };
+}
+
 /**
  * The author's own corrections to an unverified name claim: edit (PATCH) and
  * withdraw (DELETE). Curation's `ClaimWriter` enforces "author only, while
@@ -41,12 +52,13 @@ export class VillageNameClaims {
     const value = validateVillageName({ ...current, ...valueChanges });
     const question = villageNameClaim(input.villageId, value);
 
-    await this.claimWriter.edit(asId<'Claim'>(input.claimId), input.expectedVersion, {
-      groupKey: question.groupKey,
-      valueHash: question.valueHash,
-      sourceId,
-      sourceLocator,
-    });
+    await this.claimWriter.edit(
+      asId<'Claim'>(input.claimId),
+      input.expectedVersion,
+      { groupKey: question.groupKey, valueHash: question.valueHash, sourceId, sourceLocator },
+      // The claim keeps only the hash: the audit entry keeps the name before and after.
+      { before: nameSnapshot(current), after: nameSnapshot(value) },
+    );
     await this.facts.updateName(input.claimId, value);
     return { claim: await this.view(input.claimId), value };
   }
