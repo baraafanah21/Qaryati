@@ -110,3 +110,18 @@ export function applySnapshotPolicy(
   }
   return kept;
 }
+
+/**
+ * A stored snapshot as the read APIs (#44) return it: filtered through the
+ * policy again, so narrowing an allow-list also hides what older entries kept.
+ * An entity type without an entry (removed since) returns null rather than
+ * throwing: reading history must not fail because the code moved on.
+ */
+export function readableSnapshot(
+  policy: SnapshotPolicy,
+  entityType: string,
+  snapshot: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (snapshot === null || !Object.hasOwn(policy, entityType)) return null;
+  return applySnapshotPolicy(policy, entityType, snapshot) ?? null;
+}

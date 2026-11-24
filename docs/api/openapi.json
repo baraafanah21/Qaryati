@@ -1729,6 +1729,244 @@
         ]
       }
     },
+    "/api/v1/villages/{id}/history-log": {
+      "get": {
+        "description": "EDITOR+. Every recorded change that belongs to the village. Newest first. Keyset pagination: pass the nextCursor of a page as ?cursor= for the next one (null on the last page); limit 1–100, default 20. before/after hold only the fields of the entity type's snapshot allow-list. An unknown id returns an empty page, not 404: the trail outlives the rows it describes, so the history of a deleted village stays readable.",
+        "operationId": "audit_historyLog",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "The nextCursor of the previous page; omit for the first page.",
+            "schema": {
+              "description": "The nextCursor of the previous page; omit for the first page.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: the caller may not do this.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the audit entries of one village",
+        "tags": [
+          "audit"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "description": "ADMIN. Every given filter must match; from is inclusive, to exclusive. Newest first. Keyset pagination: pass the nextCursor of a page as ?cursor= for the next one (null on the last page); limit 1–100, default 20. before/after hold only the fields of the entity type's snapshot allow-list. 400 for an invalid cursor or an empty time range.",
+        "operationId": "audit_list",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "The nextCursor of the previous page; omit for the first page.",
+            "schema": {
+              "description": "The nextCursor of the previous page; omit for the first page.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "actorId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "entityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive lower bound of occurredAt (ISO 8601).",
+            "schema": {
+              "description": "Inclusive lower bound of occurredAt (ISO 8601).",
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "Exclusive upper bound of occurredAt (ISO 8601).",
+            "schema": {
+              "description": "Exclusive upper bound of occurredAt (ISO 8601).",
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEntryPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: the caller may not do this.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List the audit trail",
+        "tags": [
+          "audit"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/villages": {
       "get": {
         "description": "q is typo-tolerant (trigram similarity) over the Arabic and English display names and every published spelling of a name. Anonymous callers and contributors see published villages only; editors see every status and may filter by publicationStatus. Sort by nameAr, nameEn, createdAt or relevance (relevance needs q); the default is relevance,desc with q and nameAr,asc without.",
@@ -9629,6 +9867,155 @@
           }
         ]
       }
+    },
+    "/api/v1/villages/{idOrSlug}/profile": {
+      "get": {
+        "description": "One document: identity, names, name origin, administrative affiliation, location, measures, relations, population (history and latest), history, events, landmarks, cultural items, products and facilities. Only published (preferred) claims; each fact carries its claimId, source (id, title, reliability) and verifiedAt. Anonymous callers see published villages only (other statuses answer 404); with a bearer token, drafts and archived villages too. A fixed number of queries, whatever the number of facts.",
+        "operationId": "profile_profile",
+        "parameters": [
+          {
+            "name": "idOrSlug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VillageProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get everything published about a village",
+        "tags": [
+          "profile"
+        ],
+        "security": [
+          {},
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/villages/{id}/completeness": {
+      "get": {
+        "description": "EDITOR+. The claim types with no published (preferred) claim, and a 0–100 score: the share of claim types with one, rounded down (100 means nothing is missing). Counts drafts too, so editors see what a village needs before publishing.",
+        "operationId": "profile_completeness",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VillageCompletenessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED: the body, query, path or a header is malformed; see errors[].",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED: missing/invalid access token; INVALID_CREDENTIALS: login credentials were rejected.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN: the caller may not do this.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: the resource does not exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Which kinds of fact a village still lacks",
+        "tags": [
+          "profile"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -10227,6 +10614,92 @@
           "distinctValues",
           "claimCount",
           "claimIds"
+        ],
+        "additionalProperties": false
+      },
+      "AuditEntryPage": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditEntryResponse"
+            }
+          },
+          "nextCursor": {
+            "nullable": true,
+            "description": "Send as ?cursor= for the next page; null on the last page.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content",
+          "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "AuditEntryResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "action": {
+            "type": "string"
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "villageId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "actorId": {
+            "nullable": true,
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "requestId": {
+            "nullable": true,
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "before": {
+            "nullable": true,
+            "description": "Only the fields of the snapshot allow-list of entityType.",
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "after": {
+            "nullable": true,
+            "description": "Only the fields of the snapshot allow-list of entityType.",
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "entityType",
+          "entityId",
+          "villageId",
+          "actorId",
+          "requestId",
+          "occurredAt",
+          "before",
+          "after"
         ],
         "additionalProperties": false
       },
@@ -12356,6 +12829,1123 @@
           "name",
           "location",
           "establishedYear"
+        ],
+        "additionalProperties": false
+      },
+      "VillageProfileResponse": {
+        "type": "object",
+        "properties": {
+          "village": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "settlementStatus": {
+                "type": "string",
+                "enum": [
+                  "INHABITED",
+                  "DEPOPULATED",
+                  "MERGED"
+                ]
+              },
+              "publicationStatus": {
+                "type": "string",
+                "enum": [
+                  "DRAFT",
+                  "PUBLISHED",
+                  "ARCHIVED"
+                ]
+              },
+              "displayNameAr": {
+                "type": "string"
+              },
+              "displayNameEn": {
+                "nullable": true,
+                "type": "string"
+              },
+              "location": {
+                "nullable": true,
+                "type": "object",
+                "properties": {
+                  "latitude": {
+                    "type": "number"
+                  },
+                  "longitude": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "latitude",
+                  "longitude"
+                ],
+                "additionalProperties": false
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "settlementStatus",
+              "publicationStatus",
+              "displayNameAr",
+              "displayNameEn",
+              "location",
+              "version",
+              "createdAt",
+              "updatedAt"
+            ],
+            "additionalProperties": false
+          },
+          "names": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileName"
+            }
+          },
+          "origin": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfileNameOrigin"
+              }
+            ]
+          },
+          "affiliations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileAffiliation"
+            }
+          },
+          "location": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfileLocation"
+              }
+            ]
+          },
+          "measures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileMeasure"
+            }
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProfileRelation"
+            }
+          },
+          "population": {
+            "type": "object",
+            "properties": {
+              "latest": {
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ProfilePopulation"
+                  }
+                ]
+              },
+              "history": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ProfilePopulation"
+                }
+              }
+            },
+            "required": [
+              "latest",
+              "history"
+            ],
+            "additionalProperties": false
+          },
+          "heritage": {
+            "type": "object",
+            "properties": {
+              "history": {
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ProfileHistoryOverview"
+                  }
+                ]
+              },
+              "events": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ProfileHistoricalEvent"
+                }
+              },
+              "landmarks": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ProfileLandmark"
+                }
+              },
+              "culturalItems": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ProfileCulturalItem"
+                }
+              }
+            },
+            "required": [
+              "history",
+              "events",
+              "landmarks",
+              "culturalItems"
+            ],
+            "additionalProperties": false
+          },
+          "economy": {
+            "type": "object",
+            "properties": {
+              "products": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ProfileProduct"
+                }
+              },
+              "facilities": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ProfileFacility"
+                }
+              }
+            },
+            "required": [
+              "products",
+              "facilities"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "village",
+          "names",
+          "origin",
+          "affiliations",
+          "location",
+          "measures",
+          "relations",
+          "population",
+          "heritage",
+          "economy"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileName": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "nameType": {
+            "type": "string",
+            "enum": [
+              "CURRENT",
+              "HISTORICAL",
+              "ALTERNATIVE_SPELLING",
+              "TRANSLITERATION"
+            ]
+          },
+          "periodFromYear": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "periodToYear": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "name",
+          "lang",
+          "nameType",
+          "periodFromYear",
+          "periodToYear"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileSource": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "reliability": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "reliability"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileNameOrigin": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "meaning": {
+            "type": "string"
+          },
+          "originLanguage": {
+            "nullable": true,
+            "type": "string"
+          },
+          "explanation": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "meaning",
+          "originLanguage",
+          "explanation"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileAffiliation": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "adminUnit": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "code": {
+                "type": "string"
+              },
+              "unitType": {
+                "type": "string",
+                "enum": [
+                  "GOVERNORATE",
+                  "SUB_DISTRICT",
+                  "LOCAL_AUTHORITY"
+                ]
+              },
+              "era": {
+                "type": "string",
+                "enum": [
+                  "CURRENT",
+                  "BRITISH_MANDATE",
+                  "OTTOMAN"
+                ]
+              },
+              "nameAr": {
+                "type": "string"
+              },
+              "nameEn": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "code",
+              "unitType",
+              "era",
+              "nameAr",
+              "nameEn"
+            ],
+            "additionalProperties": false
+          },
+          "validFrom": {
+            "nullable": true,
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "validTo": {
+            "nullable": true,
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "adminUnit",
+          "validFrom",
+          "validTo"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileLocation": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "precision": {
+            "type": "string",
+            "enum": [
+              "EXACT",
+              "APPROXIMATE"
+            ]
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "latitude",
+          "longitude",
+          "precision",
+          "description"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileMeasure": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "ELEVATION_M",
+              "AREA_DUNUM"
+            ]
+          },
+          "value": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "kind",
+          "value"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileRelation": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "relationType": {
+            "type": "string",
+            "enum": [
+              "ADJACENT",
+              "MERGED_INTO",
+              "SPLIT_FROM"
+            ]
+          },
+          "relatedVillage": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "slug": {
+                "type": "string"
+              },
+              "displayNameAr": {
+                "type": "string"
+              },
+              "displayNameEn": {
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "displayNameAr",
+              "displayNameEn"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "relationType",
+          "relatedVillage"
+        ],
+        "additionalProperties": false
+      },
+      "ProfilePopulation": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "population": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "referenceYear": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "countType": {
+            "type": "string",
+            "enum": [
+              "CENSUS",
+              "ESTIMATE",
+              "REGISTERED"
+            ]
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "population",
+          "referenceYear",
+          "countType"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileHistoryOverview": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "summary"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileHistoricalEvent": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "endDate": {
+            "nullable": true,
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "datePrecision": {
+            "type": "string",
+            "enum": [
+              "DAY",
+              "MONTH",
+              "YEAR",
+              "DECADE",
+              "CENTURY"
+            ]
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "title",
+          "description",
+          "startDate",
+          "endDate",
+          "datePrecision"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileLandmark": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "landmarkType": {
+            "type": "string",
+            "enum": [
+              "MOSQUE",
+              "CHURCH",
+              "MAQAM",
+              "CEMETERY",
+              "SPRING",
+              "WELL",
+              "SCHOOL",
+              "KHAN",
+              "MILL",
+              "OLIVE_PRESS",
+              "FORTRESS",
+              "HOUSE",
+              "ARCHAEOLOGICAL_SITE",
+              "VIEWPOINT",
+              "OTHER"
+            ]
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "location": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "number"
+              },
+              "longitude": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "latitude",
+              "longitude"
+            ],
+            "additionalProperties": false
+          },
+          "era": {
+            "nullable": true,
+            "type": "string",
+            "enum": [
+              "ROMAN",
+              "BYZANTINE",
+              "EARLY_ISLAMIC",
+              "CRUSADER",
+              "AYYUBID",
+              "MAMLUK",
+              "OTTOMAN",
+              "BRITISH_MANDATE",
+              "MODERN"
+            ]
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "name",
+          "landmarkType",
+          "description",
+          "location",
+          "era"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileCulturalItem": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "FOLK_SONG",
+              "DANCE",
+              "DISH",
+              "CRAFT",
+              "COSTUME",
+              "EMBROIDERY",
+              "AGRICULTURAL_PRACTICE",
+              "PROVERB",
+              "STORY",
+              "FESTIVAL",
+              "CUSTOM",
+              "OTHER"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "category",
+          "name",
+          "description"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileProduct": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "product": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "code": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "CROP",
+                  "LIVESTOCK",
+                  "CRAFT",
+                  "INDUSTRY",
+                  "SERVICE"
+                ]
+              },
+              "nameAr": {
+                "type": "string"
+              },
+              "nameEn": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "code",
+              "category",
+              "nameAr",
+              "nameEn"
+            ],
+            "additionalProperties": false
+          },
+          "significance": {
+            "type": "string",
+            "enum": [
+              "PRIMARY",
+              "SECONDARY",
+              "HISTORICAL"
+            ]
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "product",
+          "significance"
+        ],
+        "additionalProperties": false
+      },
+      "ProfileFacility": {
+        "type": "object",
+        "properties": {
+          "claimId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ProfileSource"
+          },
+          "sourceLocator": {
+            "nullable": true,
+            "type": "string"
+          },
+          "verifiedAt": {
+            "nullable": true,
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "facilityType": {
+            "type": "string",
+            "enum": [
+              "SCHOOL",
+              "CLINIC",
+              "HOSPITAL",
+              "LIBRARY",
+              "COMMUNITY_CENTER",
+              "PARK",
+              "SPORTS",
+              "MOSQUE",
+              "CHURCH",
+              "MUNICIPALITY",
+              "OTHER"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "location": {
+            "nullable": true,
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "number"
+              },
+              "longitude": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "latitude",
+              "longitude"
+            ],
+            "additionalProperties": false
+          },
+          "establishedYear": {
+            "nullable": true,
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "claimId",
+          "source",
+          "sourceLocator",
+          "verifiedAt",
+          "facilityType",
+          "name",
+          "location",
+          "establishedYear"
+        ],
+        "additionalProperties": false
+      },
+      "VillageCompletenessResponse": {
+        "type": "object",
+        "properties": {
+          "villageId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "present": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "VILLAGE_NAME",
+                "NAME_ORIGIN",
+                "AFFILIATION",
+                "LOCATION",
+                "MEASURE",
+                "RELATION",
+                "POPULATION",
+                "HISTORY_OVERVIEW",
+                "HISTORICAL_EVENT",
+                "LANDMARK",
+                "CULTURAL_ITEM",
+                "VILLAGE_PRODUCT",
+                "FACILITY"
+              ]
+            }
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "VILLAGE_NAME",
+                "NAME_ORIGIN",
+                "AFFILIATION",
+                "LOCATION",
+                "MEASURE",
+                "RELATION",
+                "POPULATION",
+                "HISTORY_OVERVIEW",
+                "HISTORICAL_EVENT",
+                "LANDMARK",
+                "CULTURAL_ITEM",
+                "VILLAGE_PRODUCT",
+                "FACILITY"
+              ]
+            }
+          }
+        },
+        "required": [
+          "villageId",
+          "score",
+          "present",
+          "missing"
         ],
         "additionalProperties": false
       },

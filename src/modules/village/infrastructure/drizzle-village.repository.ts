@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { InjectModuleDb } from '../../../platform/database/database';
 import { deleteWithVersion, updateWithVersion } from '../../../platform/database/versioning';
 import { asId, CLOCK, toPage, type Clock, type Id, type Page } from '../../../shared/kernel';
@@ -95,6 +95,15 @@ export class DrizzleVillageRepository implements VillageRepository {
   async findById(id: Id<'Village'>): Promise<Village | undefined> {
     const [row] = await this.db.select(columns).from(village).where(eq(village.id, id)).limit(1);
     return row && toDomain(row);
+  }
+
+  async findByIds(ids: readonly Id<'Village'>[]): Promise<Village[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.db
+      .select(columns)
+      .from(village)
+      .where(inArray(village.id, [...ids]));
+    return rows.map(toDomain);
   }
 
   async findBySlug(slug: string): Promise<Village | undefined> {

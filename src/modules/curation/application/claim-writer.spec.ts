@@ -58,6 +58,8 @@ describe('ClaimWriter', () => {
       listForVillage: jest.fn(),
       listReviewQueue: jest.fn(),
       listConflicts: jest.fn(),
+      preferredProvenance: jest.fn(),
+      preferredTypes: jest.fn(),
     };
 
     sources = {

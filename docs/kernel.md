@@ -166,7 +166,7 @@ async search(query: PageRequest & { sort: Sort<'name' | 'createdAt'>[] }): Promi
 - `?sort=name,desc&sort=createdAt` (direction defaults to `asc`). A field outside the allow-list is a 400 with `NOT_ALLOWED`. Allow only fields you have an index for.
 - Add a unique column (`id`) as the last sort key so pages are stable.
 - The response is `{ content: [...], page: { number, size, totalElements, totalPages } }`.
-- Keyset (cursor) pagination is not needed yet. The audit API (#44) will add it for its append-only, fast-growing table.
+- Keyset (cursor) pagination is used only by the audit read APIs (#44), for their append-only, fast-growing table: `?cursor=&limit=` and `{ content, nextCursor }`, on `(occurred_at, id)` ([audit README](../src/modules/audit/README.md#read-apis-44)). Other lists use page numbers.
 
 **Don't:** interpolate a sort field into SQL with `sql.raw`, or read a column by a name the client chose without the allow-list. The allow-list is what keeps the column name safe.
 

@@ -4,7 +4,7 @@
 
 ## Responsibility
 
-Append-only audit trail of every write, recorded in the same transaction as the change, and (from #44) the audit read APIs.
+Append-only audit trail of every write, recorded in the same transaction as the change, and the audit read APIs (#44).
 
 ## What is recorded
 
@@ -29,7 +29,7 @@ An audit trail that the API can edit proves nothing. The table has no version co
 
 ## No foreign keys, and why
 
-`entity_id`, `village_id` and `actor_id` are not foreign keys. The trail must outlive the rows it describes: when an admin hard-deletes spam (`deleteWithVersion`), the entries about it stay. A foreign key would either block that delete or cascade it into the history. It also keeps `audit` independent: it imports no other module. See [docs/database.md](../../../docs/database.md#audit-trail-20).
+`entity_id`, `village_id` and `actor_id` are not foreign keys. The trail must outlive the rows it describes: when an admin hard-deletes spam (`deleteWithVersion`), the entries about it stay. A foreign key would either block that delete or cascade it into the history. It also keeps `audit` independent of the modules it records: it imports only `iam`, for role decorators. See [docs/database.md](../../../docs/database.md#audit-trail-20).
 
 ## Snapshot allow-list
 
@@ -55,24 +55,39 @@ Empty. Audit implements the `AuditRecorder` port and `AuditModule` (`@Global()`)
 
 In tests, bind [`InMemoryAuditRecorder`](../../../test/support/in-memory-audit-recorder.ts) with `.overrideProvider(AUDIT_RECORDER)` when a test asserts on entries without the database; otherwise the real recorder runs.
 
-## What #44 adds
+## Read APIs (#44)
 
-Read APIs for admins: entries of one entity, of one village, of one actor, and the unfiltered list, newest first with keyset pagination on `(occurred_at, id)`. The four indexes in `schema.ts` exist for exactly those queries.
+| Endpoint                                                                            | Who     | What                                                                             |
+| ----------------------------------------------------------------------------------- | ------- | -------------------------------------------------------------------------------- |
+| `GET /api/v1/villages/{id}/history-log?cursor=&limit=`                              | EDITOR+ | the entries of one village                                                       |
+| `GET /api/v1/audit?actorId=&entityType=&entityId=&action=&from=&to=&cursor=&limit=` | ADMIN   | the whole trail; every given filter must match; `from` inclusive, `to` exclusive |
+
+Both answer `{ content: AuditEntry[], nextCursor: string | null }`, newest first.
+
+**Keyset pagination on `(occurred_at, id)`.** A page is `WHERE <filters> AND (occurred_at, id) < (cursor) ORDER BY occurred_at DESC, id DESC LIMIT limit + 1`; the extra row tells whether a next page exists, so there is no count query. The four indexes of #20 (`audit_entry_village_idx`, `_actor_idx`, `_entity_idx`, `_occurred_idx`, all ending in `occurred_at DESC, id DESC`) serve exactly these reads: the planner walks the index from the cursor, so page 1000 costs what page 1 does, unlike `OFFSET`. `id` breaks ties between entries recorded at the same instant, so none is skipped or repeated (`test/audit/audit-log.int-spec.ts` pages 23 entries on three instants). The trail is append-only and grows fast, which is why it uses a keyset while the other lists use page numbers.
+
+**The cursor** (`domain/audit-cursor.ts`) is base64url of `[occurredAt ISO, id]`: opaque, so clients only pass back `nextCursor`. It is not signed: it only says where to start reading, and any value it can hold is a valid start. A cursor this API did not issue is a 400. `occurred_at` comes from the `Clock` with millisecond precision, the precision of the cursor.
+
+**Snapshots on read.** `before` and `after` are filtered through the allow-list again (`readableSnapshot`): narrowing an entry of `SNAPSHOT_POLICY` also hides what older entries kept, and an entity type removed from the policy shows `null` instead of failing the read.
+
+**No 404 for an unknown village.** `history-log` of an unknown id is an empty page: the trail outlives the rows it describes, so the history of a hard-deleted village stays readable, and audit imports no `village` facade to check it.
+
+**Roles.** The controllers use `@Roles()` from `iam`'s `index.ts`; `audit → iam` is the only module import audit has.
 
 ## Dependencies
 
-| Direction                         | Modules |
-| --------------------------------- | ------- |
-| May import (besides `src/shared`) | none    |
-| Imported by                       | none    |
+| Direction                         | Modules                                  |
+| --------------------------------- | ---------------------------------------- |
+| May import (besides `src/shared`) | `iam` (role decorators of the read APIs) |
+| Imported by                       | none                                     |
 
 dependency-cruiser enforces these directions (`module-dependency-direction`), and other modules may reach this one only through `index.ts` (`no-cross-module-internals`). See [docs/architecture.md](../../../docs/architecture.md).
 
 ## Layout
 
-| Folder            | Holds                                                          |
-| ----------------- | -------------------------------------------------------------- |
-| `domain/`         | `snapshot-policy.ts`: the allow-list; plain TypeScript         |
-| `infrastructure/` | `DrizzleAuditRecorder`, `persistence/schema.ts`, `audit-db.ts` |
-| `application/`    | Empty until #44's read use cases                               |
-| `web/`            | Empty until #44's controllers                                  |
+| Folder            | Holds                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------- |
+| `domain/`         | `snapshot-policy.ts` (the allow-list), `audit-cursor.ts`, `audit-log.ts` (read port); plain TS |
+| `infrastructure/` | `DrizzleAuditRecorder`, `DrizzleAuditLogReader`, `persistence/schema.ts`, `audit-db.ts`        |
+| `application/`    | `ListAuditEntries`: both read APIs                                                             |
+| `web/`            | `AuditController` and its zod schemas                                                          |

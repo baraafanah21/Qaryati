@@ -22,6 +22,19 @@ export interface VillageClaimsQuery extends PageRequest {
   preferredOnly: boolean;
 }
 
+/**
+ * Where a published fact comes from: its source and when it was verified.
+ * A preferred claim is verified and a verified claim has a source (database
+ * CHECKs), so `source` is set for every preferred claim.
+ */
+export interface ClaimProvenance {
+  claimId: string;
+  claimType: ClaimType;
+  source: { id: string; title: string; reliability: number };
+  sourceLocator: string | null;
+  verifiedAt: Date | null;
+}
+
 /** Filters of the conflicts list. */
 export interface ConflictQuery extends PageRequest {
   claimType?: ClaimType;
@@ -75,6 +88,15 @@ export interface ClaimRepository {
    * use the partial index `claim_village_published`.
    */
   listForVillage(query: VillageClaimsQuery): Promise<Page<Claim>>;
+
+  /**
+   * Every preferred claim of a village with its source, in one statement on
+   * `claim_village_published` (the village profile, #39).
+   */
+  preferredProvenance(villageId: string): Promise<ClaimProvenance[]>;
+
+  /** The claim types that have at least one preferred claim for a village (completeness). */
+  preferredTypes(villageId: string): Promise<ClaimType[]>;
 
   /** Claims waiting for review, oldest first (native SQL on `claim_review_queue`). */
   listReviewQueue(query: ReviewQueueQuery): Promise<Page<Claim>>;
