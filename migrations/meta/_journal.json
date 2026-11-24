@@ -148,6 +148,27 @@
       "when": 1795523860573,
       "tag": "0020_heritage_claim_fks",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795526088662,
+      "tag": "0021_powerful_fixer",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795526127873,
+      "tag": "0022_economy_claim_fks",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795526128519,
+      "tag": "0023_seed_products",
+      "breakpoints": true
     }
   ]
 }

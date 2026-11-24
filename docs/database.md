@@ -203,7 +203,7 @@ A module never imports another module's Drizzle tables, so a foreign key that cr
 | `village_name`, `name_origin`, `village_affiliation`, `village_location`, `village_measure`, `village_relation` `(claim_id, claim_type)` | `claim (id, claim_type)` | village (`0015_village_claim_fks`)                  | CASCADE     |
 | `population_record (claim_id, claim_type)`                                                                                               | `claim (id, claim_type)` | population (`0018_population_claim_fks`)            | CASCADE     |
 | `history_overview`, `historical_event`, `landmark`, `cultural_item` `(claim_id, claim_type)`                                             | `claim (id, claim_type)` | heritage (`0020_heritage_claim_fks`)                | CASCADE     |
-| every other fact table's `(claim_id, claim_type)`                                                                                        | `claim (id, claim_type)` | the fact table's module (planned)                   | CASCADE     |
+| `village_product`, `facility` `(claim_id, claim_type)`                                                                                   | `claim (id, claim_type)` | economy (`0022_economy_claim_fks`)                  | CASCADE     |
 | The `claim.source_id` and `claim.supersedes_id` foreign keys are                                                                         |
 | defined within the curation Drizzle schema and generated in migration                                                                    |
 | `0008_tranquil_sleeper.sql`. Both use `ON DELETE RESTRICT`.                                                                              |
