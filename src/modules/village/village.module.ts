@@ -11,6 +11,7 @@ import { DeleteVillage } from './application/delete-village.use-case';
 import { FindNearbyVillages } from './application/find-nearby-villages.use-case';
 import { GetVillage } from './application/get-village.use-case';
 import { ListVillageFacts } from './application/list-village-facts.use-case';
+import { SearchVillages } from './application/search-villages.use-case';
 import { PublishedCurrentNamesReader } from './application/published-current-names';
 import { SubmitVillageFact } from './application/submit-village-fact.use-case';
 import { UpdateVillage } from './application/update-village.use-case';
@@ -51,6 +52,7 @@ import { VillageFactController } from './web/village-fact.controller';
     ListVillageFacts,
     VillageNameClaims,
     FindNearbyVillages,
+    SearchVillages,
     VillageProjector,
     VillageQueries,
     AdminUnitQueries,

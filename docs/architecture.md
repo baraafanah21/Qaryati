@@ -86,9 +86,9 @@ Searching villages by product (olives, grapes, ...) needs data from `economy`, b
 
 **Decision:** `village` search accepts an optional list of village ids from the caller, and `economy` is that caller.
 
-- The `village` facade offers `search({ q, governorate, settlementStatus, sort, page, size, villageIds? })`. When `villageIds` is set, the search adds `id = ANY($villageIds)` to the same query, so filtering, sorting and pagination stay in one SQL statement.
+- The `village` facade offers `VillageQueries.search({ q, governorate, settlementStatus, publicationStatus, villageIds, sort, page, size, viewer })`, the same use case as `GET /villages`. When `villageIds` is set (at most 100), the search adds `id = ANY($villageIds)` to the same query, so filtering, sorting and pagination stay in one SQL statement.
 - `economy` exposes `GET /products/{productId}/villages?q=&governorate=&sort=&page=&size=`. It reads the ids of villages that produce the product from its own `village_product` table, then calls the `village` search facade with them.
-- `GET /villages` (#30) stays in `village` without a product parameter.
+- `GET /villages` (#30) stays in `village` without a product parameter; its `?ids=` is the same id filter, over HTTP.
 
 | Option                                                               | Why not chosen                                                                                                                                                                   |
 | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

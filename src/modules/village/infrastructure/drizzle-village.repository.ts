@@ -2,12 +2,27 @@ import { Inject, Injectable } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 import { InjectModuleDb } from '../../../platform/database/database';
 import { deleteWithVersion, updateWithVersion } from '../../../platform/database/versioning';
-import { asId, CLOCK, type Clock, type Id } from '../../../shared/kernel';
+import { asId, CLOCK, toPage, type Clock, type Id, type Page } from '../../../shared/kernel';
 import { Village } from '../domain/village';
 import type { VillageRepository } from '../domain/village.repository';
+import type { VillageSearchCriteria, VillageSearchHit } from '../domain/village-search';
 import { isPublicationStatus, isSettlementStatus } from '../domain/village-values';
 import { village } from './persistence/schema';
 import type { VillageDb } from './persistence/village-db';
+import { villageSearchQueries } from './village-search.sql';
+
+interface RawSearchRow extends Record<string, unknown> {
+  id: string;
+  slug: string;
+  settlement_status: string;
+  publication_status: string;
+  display_name_ar: string;
+  display_name_en: string | null;
+  created_at: Date;
+  latitude: number | null;
+  longitude: number | null;
+  relevance: number | null;
+}
 
 type VillageRow = Omit<typeof village.$inferSelect, 'location'>;
 
@@ -126,5 +141,37 @@ export class DrizzleVillageRepository implements VillageRepository {
 
   async delete(id: Id<'Village'>, expectedVersion: number): Promise<Village> {
     return toDomain(await deleteWithVersion(this, village, id, expectedVersion));
+  }
+
+  /** Native SQL (trigram search); the statements are built in `village-search.sql.ts`. */
+  async search(criteria: VillageSearchCriteria): Promise<Page<VillageSearchHit>> {
+    const queries = villageSearchQueries(criteria);
+    const [rows, counted] = await Promise.all([
+      this.db.execute<RawSearchRow>(queries.page),
+      this.db.execute<{ total: number }>(queries.count),
+    ]);
+    const content = rows.rows.map((row): VillageSearchHit => {
+      if (
+        !isSettlementStatus(row.settlement_status) ||
+        !isPublicationStatus(row.publication_status)
+      ) {
+        throw new Error(`Village ${row.id} has an unknown status value.`);
+      }
+      return {
+        id: row.id,
+        slug: row.slug,
+        settlementStatus: row.settlement_status,
+        publicationStatus: row.publication_status,
+        displayNameAr: row.display_name_ar,
+        displayNameEn: row.display_name_en,
+        location:
+          row.latitude != null && row.longitude != null
+            ? { latitude: Number(row.latitude), longitude: Number(row.longitude) }
+            : null,
+        createdAt: new Date(row.created_at),
+        relevance: row.relevance == null ? null : Number(row.relevance),
+      };
+    });
+    return toPage(content, Number(counted.rows[0]?.total ?? 0), criteria);
   }
 }

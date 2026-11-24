@@ -43,6 +43,7 @@ Other modules access curation through `index.ts`. `CurationModule` is global, so
 - `SOURCE_TYPES`
 - `SourceType`
 - `ClaimTypeRegistry` and the `ClaimTypeHandler` / `PreferredClaimChange` types (#35): owning modules register their claim types and projection hook (see "Claim review" below).
+- `preferredClaimsOf(claimType)` (#30): a Drizzle `sql` fragment, the derived table `(claim_id, village_id)` of the preferred claims of one type, for an owner's native SQL that must filter or rank many villages by published facts in one statement (village search). Curation keeps the SQL that reads `claim`; the owner aliases the fragment and joins its fact table by `claim_id`. Joined by `village_id` it reads `claim_village_published`.
 
 The `exists` query checks whether a source record exists.
 
