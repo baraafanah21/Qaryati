@@ -32,9 +32,13 @@ describe('Claim Domain', () => {
     expect(claim.data.isPreferred).toBe(false);
   });
 
-  it('requires a source for population claims', () => {
-    expect(() => createClaim({ claimType: 'POPULATION' })).toThrow(BusinessRuleViolationError);
-  });
+  it.each(['POPULATION', 'NAME_ORIGIN'] as const)(
+    'requires a source for %s claims',
+    (claimType) => {
+      expect(() => createClaim({ claimType })).toThrow(BusinessRuleViolationError);
+      expect(createClaim({ claimType, sourceId: 'source-1' }).data.sourceId).toBe('source-1');
+    },
+  );
 
   it('prevents an author from reviewing their own claim', () => {
     const claim = createClaim({ sourceId: 'source-1' });

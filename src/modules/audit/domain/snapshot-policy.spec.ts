@@ -53,6 +53,14 @@ describe('snapshot policy', () => {
     });
   });
 
+  it('keeps the fact value an author edit records on Claim', () => {
+    const fact = { name: 'Fourik', lang: 'en', nameType: 'ALTERNATIVE_SPELLING' };
+    expect(applySnapshotPolicy(SNAPSHOT_POLICY, 'Claim', { status: 'UNVERIFIED', fact })).toEqual({
+      status: 'UNVERIFIED',
+      fact,
+    });
+  });
+
   it('does not keep a refresh token hash, which is not in its list either', () => {
     expect(SNAPSHOT_POLICY.RefreshToken).not.toContain('tokenHash');
     expect(

@@ -14,6 +14,14 @@ export interface ReviewQueueQuery extends PageRequest {
   villageId?: string;
 }
 
+/** The claims of one type about one village, oldest first. */
+export interface VillageClaimsQuery extends PageRequest {
+  villageId: string;
+  claimType: ClaimType;
+  /** Only the published (preferred) claims, as public readers see them. */
+  preferredOnly: boolean;
+}
+
 /** Filters of the conflicts list. */
 export interface ConflictQuery extends PageRequest {
   claimType?: ClaimType;
@@ -58,6 +66,12 @@ export interface ClaimRepository {
 
   /** The preferred claim of the question `groupKey`, if any. */
   findPreferredForGroup(groupKey: string): Promise<Claim | undefined>;
+
+  /**
+   * Claims of one type about one village, oldest first. Preferred-only reads
+   * use the partial index `claim_village_published`.
+   */
+  listForVillage(query: VillageClaimsQuery): Promise<Page<Claim>>;
 
   /** Claims waiting for review, oldest first (native SQL on `claim_review_queue`). */
   listReviewQueue(query: ReviewQueueQuery): Promise<Page<Claim>>;
