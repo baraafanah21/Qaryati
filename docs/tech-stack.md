@@ -314,8 +314,8 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 ### lru-cache (in-process)
 
 - **Version:** 11.x
-- **Status:** In use (#19): `src/modules/village/infrastructure/cached-admin-unit.repository.ts`, a decorator around the admin-unit repository.
-- **Role:** keeps administrative units (governorates and later sub-districts and local authorities) in each API process for `ADMIN_UNITS_CACHE_TTL_SECONDS` (default 3600).
+- **Status:** In use (#19): `src/modules/village/infrastructure/cached-admin-unit.repository.ts`, a decorator around the admin-unit repository; (#22) `src/modules/economy/infrastructure/cached-product.repository.ts`, the same decorator for products.
+- **Role:** keeps administrative units (governorates and later sub-districts and local authorities) in each API process for `ADMIN_UNITS_CACHE_TTL_SECONDS` (default 3600), and products (seeded reference data) for `PRODUCTS_CACHE_TTL_SECONDS` (default 3600).
 - **Why:** this is reference data that changes almost never (only by migration today) and is read by every village page and filter. A memory lookup costs microseconds and no network hop, and the set is a few hundred rows. Bounded size (`max`) and TTL, and its `perf` option takes our `Clock`, so the TTL is tested without sleeping. _Performance._
 - **Alternatives:** Redis: shared between instances, but a network round trip for data that never changes, and #25 has not wired it yet; a hand-written `Map` with timestamps: no size bound, more code to test; no cache: one query per request for constant data.
 - **Cost:** each API instance has its own copy, so a changed unit can be stale for up to one TTL. Accepted: units change by migration, and a deploy restarts the processes anyway. Misses are not cached, so a new unit is found at once.

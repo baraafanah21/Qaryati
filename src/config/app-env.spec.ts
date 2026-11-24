@@ -17,17 +17,18 @@ describe('appEnvSchema', () => {
       JWT_ACCESS_TTL: '15m',
       JWT_REFRESH_TTL: '7d',
       ADMIN_UNITS_CACHE_TTL_SECONDS: 3600,
+      PRODUCTS_CACHE_TTL_SECONDS: 3600,
     });
   });
 
-  it.each(['0', '-5', '1.5', 'soon'])('rejects ADMIN_UNITS_CACHE_TTL_SECONDS=%j', (value) => {
-    const result = appEnvSchema.safeParse({
-      DATABASE_URL,
-      ...JWT,
-      ADMIN_UNITS_CACHE_TTL_SECONDS: value,
-    });
+  it.each(
+    ['ADMIN_UNITS_CACHE_TTL_SECONDS', 'PRODUCTS_CACHE_TTL_SECONDS'].flatMap((name) =>
+      ['0', '-5', '1.5', 'soon'].map((value) => [name, value] as const),
+    ),
+  )('rejects %s=%j', (name, value) => {
+    const result = appEnvSchema.safeParse({ DATABASE_URL, ...JWT, [name]: value });
     expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.path).toEqual(['ADMIN_UNITS_CACHE_TTL_SECONDS']);
+    expect(result.error?.issues[0]?.path).toEqual([name]);
   });
 
   it.each([
