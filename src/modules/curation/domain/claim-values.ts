@@ -33,4 +33,8 @@ export const CLAIM_STATUSES = [
 export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
 
 /** Claim types that require a source when initially submitted. */
-export const SOURCE_REQUIRED_ON_SUBMIT: readonly ClaimType[] = ['POPULATION', 'NAME_ORIGIN'];
+export const SOURCE_REQUIRED_ON_SUBMIT: readonly ClaimType[] = [
+  'POPULATION',
+  'NAME_ORIGIN',
+  'HISTORICAL_EVENT',
+];
