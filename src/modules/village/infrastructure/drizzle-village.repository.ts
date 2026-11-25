@@ -2,7 +2,15 @@ import { Inject, Injectable } from '@nestjs/common';
 import { eq, inArray, sql } from 'drizzle-orm';
 import { InjectModuleDb } from '../../../platform/database/database';
 import { deleteWithVersion, updateWithVersion } from '../../../platform/database/versioning';
-import { asId, CLOCK, toPage, type Clock, type Id, type Page } from '../../../shared/kernel';
+import {
+  asId,
+  CLOCK,
+  pageOffset,
+  toPage,
+  type Clock,
+  type Id,
+  type Page,
+} from '../../../shared/kernel';
 import { Village } from '../domain/village';
 import type { VillageRepository } from '../domain/village.repository';
 import type { VillageSearchCriteria, VillageSearchHit } from '../domain/village-search';
@@ -22,6 +30,8 @@ interface RawSearchRow extends Record<string, unknown> {
   latitude: number | null;
   longitude: number | null;
   relevance: number | null;
+  /** `count(*) OVER ()`: every matching row, the same on each row of the page. */
+  total: number;
 }
 
 type VillageRow = Omit<typeof village.$inferSelect, 'location'>;
@@ -152,13 +162,20 @@ export class DrizzleVillageRepository implements VillageRepository {
     return toDomain(await deleteWithVersion(this, village, id, expectedVersion));
   }
 
-  /** Native SQL (trigram search); the statements are built in `village-search.sql.ts`. */
+  /**
+   * Native SQL (trigram search); the statements are built in `village-search.sql.ts`.
+   * One statement per request: the page carries the total. Only an empty page
+   * after the first one needs the separate count, to tell "past the end" (the
+   * total stays) from "no match" (0).
+   */
   async search(criteria: VillageSearchCriteria): Promise<Page<VillageSearchHit>> {
     const queries = villageSearchQueries(criteria);
-    const [rows, counted] = await Promise.all([
-      this.db.execute<RawSearchRow>(queries.page),
-      this.db.execute<{ total: number }>(queries.count),
-    ]);
+    const rows = await this.db.execute<RawSearchRow>(queries.page);
+    const total =
+      rows.rows[0]?.total ??
+      (pageOffset(criteria) === 0
+        ? 0
+        : ((await this.db.execute<{ total: number }>(queries.count)).rows[0]?.total ?? 0));
     const content = rows.rows.map((row): VillageSearchHit => {
       if (
         !isSettlementStatus(row.settlement_status) ||
@@ -181,6 +198,6 @@ export class DrizzleVillageRepository implements VillageRepository {
         relevance: row.relevance == null ? null : Number(row.relevance),
       };
     });
-    return toPage(content, Number(counted.rows[0]?.total ?? 0), criteria);
+    return toPage(content, Number(total), criteria);
   }
 }

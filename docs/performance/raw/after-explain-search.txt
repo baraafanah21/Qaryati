@@ -1,0 +1,786 @@
+# EXPLAIN (ANALYZE, BUFFERS) of GET /villages?q=<term>&size=20 (2026-11-25T14:49:38Z)
+
+################ q = بيت ################
+=== A. Two statements (before #50): the page ===
+                                                                                            QUERY PLAN                                                                                             
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=5.704..5.709 rows=20 loops=1)
+   Buffers: shared hit=1455
+   ->  Sort (actual time=5.703..5.707 rows=20 loops=1)
+         Sort Key: (GREATEST(similarity(v.display_name_ar, 'بيت'::text), COALESCE(similarity(v.display_name_en, 'بيت'::text), '0'::real), COALESCE((SubPlan 1), '0'::real))) DESC NULLS LAST, v.id
+         Sort Method: top-N heapsort  Memory: 33kB
+         Buffers: shared hit=1455
+         ->  Hash Join (actual time=4.541..5.650 rows=110 loops=1)
+               Hash Cond: (v.id = village.id)
+               Buffers: shared hit=1449
+               ->  Seq Scan on village v (actual time=0.005..0.081 rows=815 loops=1)
+                     Filter: (publication_status = 'PUBLISHED'::text)
+                     Buffers: shared hit=19
+               ->  Hash (actual time=4.485..4.486 rows=110 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 14kB
+                     Buffers: shared hit=435
+                     ->  HashAggregate (actual time=4.466..4.475 rows=110 loops=1)
+                           Group Key: village.id
+                           Batches: 1  Memory Usage: 40kB
+                           Buffers: shared hit=435
+                           ->  Append (actual time=0.007..4.430 rows=220 loops=1)
+                                 Buffers: shared hit=435
+                                 ->  Seq Scan on village (actual time=0.006..0.870 rows=110 loops=1)
+                                       Filter: (display_name_ar % 'بيت'::text)
+                                       Rows Removed by Filter: 705
+                                       Buffers: shared hit=19
+                                 ->  Seq Scan on village village_1 (actual time=0.670..0.670 rows=0 loops=1)
+                                       Filter: (display_name_en % 'بيت'::text)
+                                       Rows Removed by Filter: 815
+                                       Buffers: shared hit=19
+                                 ->  Hash Join (actual time=1.486..2.877 rows=110 loops=1)
+                                       Hash Cond: (claim.id = vn.claim_id)
+                                       Buffers: shared hit=397
+                                       ->  Seq Scan on claim (actual time=0.002..1.301 rows=1630 loops=1)
+                                             Filter: (is_preferred AND (claim_type = 'VILLAGE_NAME'::text))
+                                             Rows Removed by Filter: 8439
+                                             Buffers: shared hit=377
+                                       ->  Hash (actual time=1.475..1.475 rows=110 loops=1)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 14kB
+                                             Buffers: shared hit=20
+                                             ->  Seq Scan on village_name vn (actual time=0.003..1.464 rows=110 loops=1)
+                                                   Filter: (name_normalized % 'بيت'::text)
+                                                   Rows Removed by Filter: 1520
+                                                   Buffers: shared hit=20
+               SubPlan 1
+                 ->  Aggregate (actual time=0.007..0.007 rows=1 loops=110)
+                       Buffers: shared hit=995
+                       ->  Nested Loop (actual time=0.003..0.004 rows=2 loops=110)
+                             Buffers: shared hit=995
+                             ->  Bitmap Heap Scan on claim claim_1 (actual time=0.002..0.002 rows=2 loops=110)
+                                   Recheck Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text) AND is_preferred)
+                                   Heap Blocks: exact=115
+                                   Buffers: shared hit=335
+                                   ->  Bitmap Index Scan on claim_village_published (actual time=0.001..0.001 rows=2 loops=110)
+                                         Index Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Buffers: shared hit=220
+                             ->  Index Scan using village_name_pkey on village_name vn_1 (actual time=0.001..0.001 rows=1 loops=220)
+                                   Index Cond: (claim_id = claim_1.id)
+                                   Buffers: shared hit=660
+ Planning:
+   Buffers: shared hit=567
+ Planning Time: 1.760 ms
+ Execution Time: 10.363 ms
+(62 rows)
+
+=== B. Two statements (before #50): the count, same WHERE ===
+                                                    QUERY PLAN                                                     
+-------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=3.981..3.983 rows=1 loops=1)
+   Buffers: shared hit=454
+   ->  Hash Join (actual time=3.876..3.978 rows=110 loops=1)
+         Hash Cond: (v.id = village.id)
+         Buffers: shared hit=454
+         ->  Seq Scan on village v (actual time=0.003..0.062 rows=815 loops=1)
+               Filter: (publication_status = 'PUBLISHED'::text)
+               Buffers: shared hit=19
+         ->  Hash (actual time=3.869..3.871 rows=110 loops=1)
+               Buckets: 1024  Batches: 1  Memory Usage: 14kB
+               Buffers: shared hit=435
+               ->  HashAggregate (actual time=3.853..3.861 rows=110 loops=1)
+                     Group Key: village.id
+                     Batches: 1  Memory Usage: 40kB
+                     Buffers: shared hit=435
+                     ->  Append (actual time=0.003..3.832 rows=220 loops=1)
+                           Buffers: shared hit=435
+                           ->  Seq Scan on village (actual time=0.003..0.819 rows=110 loops=1)
+                                 Filter: (display_name_ar % 'بيت'::text)
+                                 Rows Removed by Filter: 705
+                                 Buffers: shared hit=19
+                           ->  Seq Scan on village village_1 (actual time=0.641..0.641 rows=0 loops=1)
+                                 Filter: (display_name_en % 'بيت'::text)
+                                 Rows Removed by Filter: 815
+                                 Buffers: shared hit=19
+                           ->  Hash Join (actual time=1.487..2.364 rows=110 loops=1)
+                                 Hash Cond: (claim.id = vn.claim_id)
+                                 Buffers: shared hit=397
+                                 ->  Seq Scan on claim (actual time=0.002..0.807 rows=1630 loops=1)
+                                       Filter: (is_preferred AND (claim_type = 'VILLAGE_NAME'::text))
+                                       Rows Removed by Filter: 8439
+                                       Buffers: shared hit=377
+                                 ->  Hash (actual time=1.478..1.478 rows=110 loops=1)
+                                       Buckets: 1024  Batches: 1  Memory Usage: 14kB
+                                       Buffers: shared hit=20
+                                       ->  Seq Scan on village_name vn (actual time=0.003..1.470 rows=110 loops=1)
+                                             Filter: (name_normalized % 'بيت'::text)
+                                             Rows Removed by Filter: 1520
+                                             Buffers: shared hit=20
+ Planning:
+   Buffers: shared hit=18
+ Planning Time: 0.788 ms
+ Execution Time: 4.013 ms
+(43 rows)
+
+=== C. One statement, count(*) OVER () ===
+                                                                                            QUERY PLAN                                                                                             
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=4.788..4.792 rows=20 loops=1)
+   Buffers: shared hit=1449
+   ->  Sort (actual time=4.787..4.790 rows=20 loops=1)
+         Sort Key: (GREATEST(similarity(v.display_name_ar, 'بيت'::text), COALESCE(similarity(v.display_name_en, 'بيت'::text), '0'::real), COALESCE((SubPlan 1), '0'::real))) DESC NULLS LAST, v.id
+         Sort Method: top-N heapsort  Memory: 33kB
+         Buffers: shared hit=1449
+         ->  WindowAgg (actual time=3.874..4.757 rows=110 loops=1)
+               Buffers: shared hit=1449
+               ->  Hash Join (actual time=3.728..3.820 rows=110 loops=1)
+                     Hash Cond: (v.id = village.id)
+                     Buffers: shared hit=454
+                     ->  Seq Scan on village v (actual time=0.002..0.054 rows=815 loops=1)
+                           Filter: (publication_status = 'PUBLISHED'::text)
+                           Buffers: shared hit=19
+                     ->  Hash (actual time=3.723..3.725 rows=110 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 14kB
+                           Buffers: shared hit=435
+                           ->  HashAggregate (actual time=3.705..3.712 rows=110 loops=1)
+                                 Group Key: village.id
+                                 Batches: 1  Memory Usage: 40kB
+                                 Buffers: shared hit=435
+                                 ->  Append (actual time=0.003..3.682 rows=220 loops=1)
+                                       Buffers: shared hit=435
+                                       ->  Seq Scan on village (actual time=0.003..0.799 rows=110 loops=1)
+                                             Filter: (display_name_ar % 'بيت'::text)
+                                             Rows Removed by Filter: 705
+                                             Buffers: shared hit=19
+                                       ->  Seq Scan on village village_1 (actual time=0.636..0.637 rows=0 loops=1)
+                                             Filter: (display_name_en % 'بيت'::text)
+                                             Rows Removed by Filter: 815
+                                             Buffers: shared hit=19
+                                       ->  Hash Join (actual time=1.454..2.238 rows=110 loops=1)
+                                             Hash Cond: (claim.id = vn.claim_id)
+                                             Buffers: shared hit=397
+                                             ->  Seq Scan on claim (actual time=0.002..0.711 rows=1630 loops=1)
+                                                   Filter: (is_preferred AND (claim_type = 'VILLAGE_NAME'::text))
+                                                   Rows Removed by Filter: 8439
+                                                   Buffers: shared hit=377
+                                             ->  Hash (actual time=1.450..1.450 rows=110 loops=1)
+                                                   Buckets: 1024  Batches: 1  Memory Usage: 14kB
+                                                   Buffers: shared hit=20
+                                                   ->  Seq Scan on village_name vn (actual time=0.003..1.441 rows=110 loops=1)
+                                                         Filter: (name_normalized % 'بيت'::text)
+                                                         Rows Removed by Filter: 1520
+                                                         Buffers: shared hit=20
+               SubPlan 1
+                 ->  Aggregate (actual time=0.006..0.006 rows=1 loops=110)
+                       Buffers: shared hit=995
+                       ->  Nested Loop (actual time=0.003..0.004 rows=2 loops=110)
+                             Buffers: shared hit=995
+                             ->  Bitmap Heap Scan on claim claim_1 (actual time=0.002..0.002 rows=2 loops=110)
+                                   Recheck Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text) AND is_preferred)
+                                   Heap Blocks: exact=115
+                                   Buffers: shared hit=335
+                                   ->  Bitmap Index Scan on claim_village_published (actual time=0.001..0.001 rows=2 loops=110)
+                                         Index Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Buffers: shared hit=220
+                             ->  Index Scan using village_name_pkey on village_name vn_1 (actual time=0.001..0.001 rows=1 loops=220)
+                                   Index Cond: (claim_id = claim_1.id)
+                                   Buffers: shared hit=660
+ Planning:
+   Buffers: shared hit=27
+ Planning Time: 0.867 ms
+ Execution Time: 4.844 ms
+(64 rows)
+
+=== D. One statement, matching ids once in a CTE, reused for page and count ===
+                                                                                            QUERY PLAN                                                                                             
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=4.980..4.984 rows=20 loops=1)
+   Buffers: shared hit=1468
+   CTE matched
+     ->  Hash Join (actual time=3.834..3.925 rows=110 loops=1)
+           Hash Cond: (v_1.id = village.id)
+           Buffers: shared hit=454
+           ->  Seq Scan on village v_1 (actual time=0.001..0.053 rows=815 loops=1)
+                 Filter: (publication_status = 'PUBLISHED'::text)
+                 Buffers: shared hit=19
+           ->  Hash (actual time=3.827..3.829 rows=110 loops=1)
+                 Buckets: 1024  Batches: 1  Memory Usage: 14kB
+                 Buffers: shared hit=435
+                 ->  HashAggregate (actual time=3.810..3.818 rows=110 loops=1)
+                       Group Key: village.id
+                       Batches: 1  Memory Usage: 40kB
+                       Buffers: shared hit=435
+                       ->  Append (actual time=0.004..3.785 rows=220 loops=1)
+                             Buffers: shared hit=435
+                             ->  Seq Scan on village (actual time=0.004..0.828 rows=110 loops=1)
+                                   Filter: (display_name_ar % 'بيت'::text)
+                                   Rows Removed by Filter: 705
+                                   Buffers: shared hit=19
+                             ->  Seq Scan on village village_1 (actual time=0.673..0.673 rows=0 loops=1)
+                                   Filter: (display_name_en % 'بيت'::text)
+                                   Rows Removed by Filter: 815
+                                   Buffers: shared hit=19
+                             ->  Hash Join (actual time=1.489..2.274 rows=110 loops=1)
+                                   Hash Cond: (claim.id = vn.claim_id)
+                                   Buffers: shared hit=397
+                                   ->  Seq Scan on claim (actual time=0.001..0.710 rows=1630 loops=1)
+                                         Filter: (is_preferred AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Rows Removed by Filter: 8439
+                                         Buffers: shared hit=377
+                                   ->  Hash (actual time=1.477..1.477 rows=110 loops=1)
+                                         Buckets: 1024  Batches: 1  Memory Usage: 14kB
+                                         Buffers: shared hit=20
+                                         ->  Seq Scan on village_name vn (actual time=0.003..1.467 rows=110 loops=1)
+                                               Filter: (name_normalized % 'بيت'::text)
+                                               Rows Removed by Filter: 1520
+                                               Buffers: shared hit=20
+   InitPlan 3 (returns $3)
+     ->  Aggregate (actual time=0.008..0.008 rows=1 loops=1)
+           ->  CTE Scan on matched (actual time=0.000..0.004 rows=110 loops=1)
+   ->  Sort (actual time=4.979..4.981 rows=20 loops=1)
+         Sort Key: (GREATEST(similarity(v.display_name_ar, 'بيت'::text), COALESCE(similarity(v.display_name_en, 'بيت'::text), '0'::real), COALESCE((SubPlan 2), '0'::real))) DESC NULLS LAST, v.id
+         Sort Method: top-N heapsort  Memory: 33kB
+         Buffers: shared hit=1468
+         ->  Hash Join (actual time=3.976..4.945 rows=110 loops=1)
+               Hash Cond: (v.id = m.id)
+               Buffers: shared hit=1468
+               ->  Seq Scan on village v (actual time=0.001..0.037 rows=815 loops=1)
+                     Buffers: shared hit=19
+               ->  Hash (actual time=3.940..3.941 rows=110 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 14kB
+                     Buffers: shared hit=454
+                     ->  CTE Scan on matched m (actual time=3.835..3.934 rows=110 loops=1)
+                           Buffers: shared hit=454
+               SubPlan 2
+                 ->  Aggregate (actual time=0.006..0.006 rows=1 loops=110)
+                       Buffers: shared hit=995
+                       ->  Nested Loop (actual time=0.003..0.004 rows=2 loops=110)
+                             Buffers: shared hit=995
+                             ->  Bitmap Heap Scan on claim claim_1 (actual time=0.002..0.002 rows=2 loops=110)
+                                   Recheck Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text) AND is_preferred)
+                                   Heap Blocks: exact=115
+                                   Buffers: shared hit=335
+                                   ->  Bitmap Index Scan on claim_village_published (actual time=0.001..0.001 rows=2 loops=110)
+                                         Index Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Buffers: shared hit=220
+                             ->  Index Scan using village_name_pkey on village_name vn_1 (actual time=0.001..0.001 rows=1 loops=220)
+                                   Index Cond: (claim_id = claim_1.id)
+                                   Buffers: shared hit=660
+ Planning:
+   Buffers: shared hit=27
+ Planning Time: 0.900 ms
+ Execution Time: 5.028 ms
+(76 rows)
+
+
+################ q = kafr ################
+=== A. Two statements (before #50): the page ===
+                                                                                             QUERY PLAN                                                                                              
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=5.100..5.104 rows=20 loops=1)
+   Buffers: shared hit=1329
+   ->  Sort (actual time=5.099..5.101 rows=20 loops=1)
+         Sort Key: (GREATEST(similarity(v.display_name_ar, 'kafr'::text), COALESCE(similarity(v.display_name_en, 'kafr'::text), '0'::real), COALESCE((SubPlan 1), '0'::real))) DESC NULLS LAST, v.id
+         Sort Method: top-N heapsort  Memory: 33kB
+         Buffers: shared hit=1329
+         ->  Hash Join (actual time=4.132..5.056 rows=96 loops=1)
+               Hash Cond: (v.id = village.id)
+               Buffers: shared hit=1323
+               ->  Seq Scan on village v (actual time=0.006..0.078 rows=815 loops=1)
+                     Filter: (publication_status = 'PUBLISHED'::text)
+                     Buffers: shared hit=19
+               ->  Hash (actual time=4.077..4.079 rows=96 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                     Buffers: shared hit=435
+                     ->  HashAggregate (actual time=4.061..4.068 rows=96 loops=1)
+                           Group Key: village.id
+                           Batches: 1  Memory Usage: 24kB
+                           Buffers: shared hit=435
+                           ->  Append (actual time=0.782..4.012 rows=192 loops=1)
+                                 Buffers: shared hit=435
+                                 ->  Seq Scan on village (actual time=0.768..0.768 rows=0 loops=1)
+                                       Filter: (display_name_ar % 'kafr'::text)
+                                       Rows Removed by Filter: 815
+                                       Buffers: shared hit=19
+                                 ->  Seq Scan on village village_1 (actual time=0.012..0.592 rows=96 loops=1)
+                                       Filter: (display_name_en % 'kafr'::text)
+                                       Rows Removed by Filter: 719
+                                       Buffers: shared hit=19
+                                 ->  Hash Join (actual time=1.421..2.641 rows=96 loops=1)
+                                       Hash Cond: (claim.id = vn.claim_id)
+                                       Buffers: shared hit=397
+                                       ->  Seq Scan on claim (actual time=0.007..1.163 rows=1630 loops=1)
+                                             Filter: (is_preferred AND (claim_type = 'VILLAGE_NAME'::text))
+                                             Rows Removed by Filter: 8439
+                                             Buffers: shared hit=377
+                                       ->  Hash (actual time=1.382..1.382 rows=96 loops=1)
+                                             Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                                             Buffers: shared hit=20
+                                             ->  Seq Scan on village_name vn (actual time=0.022..1.372 rows=96 loops=1)
+                                                   Filter: (name_normalized % 'kafr'::text)
+                                                   Rows Removed by Filter: 1534
+                                                   Buffers: shared hit=20
+               SubPlan 1
+                 ->  Aggregate (actual time=0.006..0.006 rows=1 loops=96)
+                       Buffers: shared hit=869
+                       ->  Nested Loop (actual time=0.003..0.004 rows=2 loops=96)
+                             Buffers: shared hit=869
+                             ->  Bitmap Heap Scan on claim claim_1 (actual time=0.002..0.002 rows=2 loops=96)
+                                   Recheck Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text) AND is_preferred)
+                                   Heap Blocks: exact=101
+                                   Buffers: shared hit=293
+                                   ->  Bitmap Index Scan on claim_village_published (actual time=0.002..0.002 rows=2 loops=96)
+                                         Index Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Buffers: shared hit=192
+                             ->  Index Scan using village_name_pkey on village_name vn_1 (actual time=0.001..0.001 rows=1 loops=192)
+                                   Index Cond: (claim_id = claim_1.id)
+                                   Buffers: shared hit=576
+ Planning:
+   Buffers: shared hit=567
+ Planning Time: 2.872 ms
+ Execution Time: 12.026 ms
+(62 rows)
+
+=== B. Two statements (before #50): the count, same WHERE ===
+                                                    QUERY PLAN                                                    
+------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=3.809..3.811 rows=1 loops=1)
+   Buffers: shared hit=454
+   ->  Hash Join (actual time=3.726..3.806 rows=96 loops=1)
+         Hash Cond: (v.id = village.id)
+         Buffers: shared hit=454
+         ->  Seq Scan on village v (actual time=0.003..0.050 rows=815 loops=1)
+               Filter: (publication_status = 'PUBLISHED'::text)
+               Buffers: shared hit=19
+         ->  Hash (actual time=3.718..3.719 rows=96 loops=1)
+               Buckets: 1024  Batches: 1  Memory Usage: 13kB
+               Buffers: shared hit=435
+               ->  HashAggregate (actual time=3.704..3.709 rows=96 loops=1)
+                     Group Key: village.id
+                     Batches: 1  Memory Usage: 24kB
+                     Buffers: shared hit=435
+                     ->  Append (actual time=0.719..3.682 rows=192 loops=1)
+                           Buffers: shared hit=435
+                           ->  Seq Scan on village (actual time=0.708..0.708 rows=0 loops=1)
+                                 Filter: (display_name_ar % 'kafr'::text)
+                                 Rows Removed by Filter: 815
+                                 Buffers: shared hit=19
+                           ->  Seq Scan on village village_1 (actual time=0.010..0.585 rows=96 loops=1)
+                                 Filter: (display_name_en % 'kafr'::text)
+                                 Rows Removed by Filter: 719
+                                 Buffers: shared hit=19
+                           ->  Hash Join (actual time=1.514..2.380 rows=96 loops=1)
+                                 Hash Cond: (claim.id = vn.claim_id)
+                                 Buffers: shared hit=397
+                                 ->  Seq Scan on claim (actual time=0.002..0.810 rows=1630 loops=1)
+                                       Filter: (is_preferred AND (claim_type = 'VILLAGE_NAME'::text))
+                                       Rows Removed by Filter: 8439
+                                       Buffers: shared hit=377
+                                 ->  Hash (actual time=1.493..1.493 rows=96 loops=1)
+                                       Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                                       Buffers: shared hit=20
+                                       ->  Seq Scan on village_name vn (actual time=0.020..1.485 rows=96 loops=1)
+                                             Filter: (name_normalized % 'kafr'::text)
+                                             Rows Removed by Filter: 1534
+                                             Buffers: shared hit=20
+ Planning:
+   Buffers: shared hit=18
+ Planning Time: 0.733 ms
+ Execution Time: 3.841 ms
+(43 rows)
+
+=== C. One statement, count(*) OVER () ===
+                                                                                             QUERY PLAN                                                                                              
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=4.403..4.407 rows=20 loops=1)
+   Buffers: shared hit=1323
+   ->  Sort (actual time=4.403..4.406 rows=20 loops=1)
+         Sort Key: (GREATEST(similarity(v.display_name_ar, 'kafr'::text), COALESCE(similarity(v.display_name_en, 'kafr'::text), '0'::real), COALESCE((SubPlan 1), '0'::real))) DESC NULLS LAST, v.id
+         Sort Method: top-N heapsort  Memory: 33kB
+         Buffers: shared hit=1323
+         ->  WindowAgg (actual time=3.623..4.375 rows=96 loops=1)
+               Buffers: shared hit=1323
+               ->  Hash Join (actual time=3.481..3.572 rows=96 loops=1)
+                     Hash Cond: (v.id = village.id)
+                     Buffers: shared hit=454
+                     ->  Seq Scan on village v (actual time=0.002..0.053 rows=815 loops=1)
+                           Filter: (publication_status = 'PUBLISHED'::text)
+                           Buffers: shared hit=19
+                     ->  Hash (actual time=3.476..3.477 rows=96 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                           Buffers: shared hit=435
+                           ->  HashAggregate (actual time=3.465..3.471 rows=96 loops=1)
+                                 Group Key: village.id
+                                 Batches: 1  Memory Usage: 24kB
+                                 Buffers: shared hit=435
+                                 ->  Append (actual time=0.738..3.442 rows=192 loops=1)
+                                       Buffers: shared hit=435
+                                       ->  Seq Scan on village (actual time=0.727..0.727 rows=0 loops=1)
+                                             Filter: (display_name_ar % 'kafr'::text)
+                                             Rows Removed by Filter: 815
+                                             Buffers: shared hit=19
+                                       ->  Seq Scan on village village_1 (actual time=0.010..0.581 rows=96 loops=1)
+                                             Filter: (display_name_en % 'kafr'::text)
+                                             Rows Removed by Filter: 719
+                                             Buffers: shared hit=19
+                                       ->  Hash Join (actual time=1.326..2.125 rows=96 loops=1)
+                                             Hash Cond: (claim.id = vn.claim_id)
+                                             Buffers: shared hit=397
+                                             ->  Seq Scan on claim (actual time=0.001..0.738 rows=1630 loops=1)
+                                                   Filter: (is_preferred AND (claim_type = 'VILLAGE_NAME'::text))
+                                                   Rows Removed by Filter: 8439
+                                                   Buffers: shared hit=377
+                                             ->  Hash (actual time=1.311..1.311 rows=96 loops=1)
+                                                   Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                                                   Buffers: shared hit=20
+                                                   ->  Seq Scan on village_name vn (actual time=0.020..1.304 rows=96 loops=1)
+                                                         Filter: (name_normalized % 'kafr'::text)
+                                                         Rows Removed by Filter: 1534
+                                                         Buffers: shared hit=20
+               SubPlan 1
+                 ->  Aggregate (actual time=0.006..0.006 rows=1 loops=96)
+                       Buffers: shared hit=869
+                       ->  Nested Loop (actual time=0.003..0.004 rows=2 loops=96)
+                             Buffers: shared hit=869
+                             ->  Bitmap Heap Scan on claim claim_1 (actual time=0.002..0.002 rows=2 loops=96)
+                                   Recheck Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text) AND is_preferred)
+                                   Heap Blocks: exact=101
+                                   Buffers: shared hit=293
+                                   ->  Bitmap Index Scan on claim_village_published (actual time=0.001..0.001 rows=2 loops=96)
+                                         Index Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Buffers: shared hit=192
+                             ->  Index Scan using village_name_pkey on village_name vn_1 (actual time=0.001..0.001 rows=1 loops=192)
+                                   Index Cond: (claim_id = claim_1.id)
+                                   Buffers: shared hit=576
+ Planning:
+   Buffers: shared hit=27
+ Planning Time: 0.811 ms
+ Execution Time: 4.454 ms
+(64 rows)
+
+=== D. One statement, matching ids once in a CTE, reused for page and count ===
+                                                                                             QUERY PLAN                                                                                              
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=4.918..4.923 rows=20 loops=1)
+   Buffers: shared hit=1342
+   CTE matched
+     ->  Hash Join (actual time=3.888..3.977 rows=96 loops=1)
+           Hash Cond: (v_1.id = village.id)
+           Buffers: shared hit=454
+           ->  Seq Scan on village v_1 (actual time=0.001..0.054 rows=815 loops=1)
+                 Filter: (publication_status = 'PUBLISHED'::text)
+                 Buffers: shared hit=19
+           ->  Hash (actual time=3.880..3.882 rows=96 loops=1)
+                 Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                 Buffers: shared hit=435
+                 ->  HashAggregate (actual time=3.863..3.869 rows=96 loops=1)
+                       Group Key: village.id
+                       Batches: 1  Memory Usage: 24kB
+                       Buffers: shared hit=435
+                       ->  Append (actual time=0.747..3.835 rows=192 loops=1)
+                             Buffers: shared hit=435
+                             ->  Seq Scan on village (actual time=0.736..0.736 rows=0 loops=1)
+                                   Filter: (display_name_ar % 'kafr'::text)
+                                   Rows Removed by Filter: 815
+                                   Buffers: shared hit=19
+                             ->  Seq Scan on village village_1 (actual time=0.011..0.580 rows=96 loops=1)
+                                   Filter: (display_name_en % 'kafr'::text)
+                                   Rows Removed by Filter: 719
+                                   Buffers: shared hit=19
+                             ->  Hash Join (actual time=1.625..2.510 rows=96 loops=1)
+                                   Hash Cond: (claim.id = vn.claim_id)
+                                   Buffers: shared hit=397
+                                   ->  Seq Scan on claim (actual time=0.001..0.810 rows=1630 loops=1)
+                                         Filter: (is_preferred AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Rows Removed by Filter: 8439
+                                         Buffers: shared hit=377
+                                   ->  Hash (actual time=1.596..1.597 rows=96 loops=1)
+                                         Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                                         Buffers: shared hit=20
+                                         ->  Seq Scan on village_name vn (actual time=0.020..1.576 rows=96 loops=1)
+                                               Filter: (name_normalized % 'kafr'::text)
+                                               Rows Removed by Filter: 1534
+                                               Buffers: shared hit=20
+   InitPlan 3 (returns $3)
+     ->  Aggregate (actual time=0.008..0.008 rows=1 loops=1)
+           ->  CTE Scan on matched (actual time=0.000..0.004 rows=96 loops=1)
+   ->  Sort (actual time=4.918..4.920 rows=20 loops=1)
+         Sort Key: (GREATEST(similarity(v.display_name_ar, 'kafr'::text), COALESCE(similarity(v.display_name_en, 'kafr'::text), '0'::real), COALESCE((SubPlan 2), '0'::real))) DESC NULLS LAST, v.id
+         Sort Method: top-N heapsort  Memory: 33kB
+         Buffers: shared hit=1342
+         ->  Hash Join (actual time=4.035..4.887 rows=96 loops=1)
+               Hash Cond: (v.id = m.id)
+               Buffers: shared hit=1342
+               ->  Seq Scan on village v (actual time=0.001..0.037 rows=815 loops=1)
+                     Buffers: shared hit=19
+               ->  Hash (actual time=3.993..3.993 rows=96 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 13kB
+                     Buffers: shared hit=454
+                     ->  CTE Scan on matched m (actual time=3.889..3.986 rows=96 loops=1)
+                           Buffers: shared hit=454
+               SubPlan 2
+                 ->  Aggregate (actual time=0.006..0.006 rows=1 loops=96)
+                       Buffers: shared hit=869
+                       ->  Nested Loop (actual time=0.003..0.004 rows=2 loops=96)
+                             Buffers: shared hit=869
+                             ->  Bitmap Heap Scan on claim claim_1 (actual time=0.002..0.002 rows=2 loops=96)
+                                   Recheck Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text) AND is_preferred)
+                                   Heap Blocks: exact=101
+                                   Buffers: shared hit=293
+                                   ->  Bitmap Index Scan on claim_village_published (actual time=0.002..0.002 rows=2 loops=96)
+                                         Index Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Buffers: shared hit=192
+                             ->  Index Scan using village_name_pkey on village_name vn_1 (actual time=0.001..0.001 rows=1 loops=192)
+                                   Index Cond: (claim_id = claim_1.id)
+                                   Buffers: shared hit=576
+ Planning:
+   Buffers: shared hit=27
+ Planning Time: 0.833 ms
+ Execution Time: 4.968 ms
+(76 rows)
+
+
+################ q = الرما ################
+=== A. Two statements (before #50): the page ===
+                                                                                              QUERY PLAN                                                                                               
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=4.899..4.903 rows=19 loops=1)
+   Buffers: shared hit=312
+   ->  Sort (actual time=4.897..4.900 rows=19 loops=1)
+         Sort Key: (GREATEST(similarity(v.display_name_ar, 'الرما'::text), COALESCE(similarity(v.display_name_en, 'الرما'::text), '0'::real), COALESCE((SubPlan 1), '0'::real))) DESC NULLS LAST, v.id
+         Sort Method: quicksort  Memory: 29kB
+         Buffers: shared hit=312
+         ->  Hash Join (actual time=4.574..4.868 rows=19 loops=1)
+               Hash Cond: (v.id = village.id)
+               Buffers: shared hit=306
+               ->  Seq Scan on village v (actual time=0.007..0.069 rows=815 loops=1)
+                     Filter: (publication_status = 'PUBLISHED'::text)
+                     Buffers: shared hit=19
+               ->  Hash (actual time=4.507..4.508 rows=19 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=115
+                     ->  HashAggregate (actual time=4.501..4.504 rows=19 loops=1)
+                           Group Key: village.id
+                           Batches: 1  Memory Usage: 24kB
+                           Buffers: shared hit=115
+                           ->  Append (actual time=0.045..4.487 rows=38 loops=1)
+                                 Buffers: shared hit=115
+                                 ->  Seq Scan on village (actual time=0.045..1.438 rows=19 loops=1)
+                                       Filter: (display_name_ar % 'الرما'::text)
+                                       Rows Removed by Filter: 796
+                                       Buffers: shared hit=19
+                                 ->  Seq Scan on village village_1 (actual time=1.166..1.166 rows=0 loops=1)
+                                       Filter: (display_name_en % 'الرما'::text)
+                                       Rows Removed by Filter: 815
+                                       Buffers: shared hit=19
+                                 ->  Nested Loop (actual time=0.072..1.877 rows=19 loops=1)
+                                       Buffers: shared hit=77
+                                       ->  Seq Scan on village_name vn (actual time=0.041..1.727 rows=19 loops=1)
+                                             Filter: (name_normalized % 'الرما'::text)
+                                             Rows Removed by Filter: 1611
+                                             Buffers: shared hit=20
+                                       ->  Index Scan using claim_id_type_unique on claim (actual time=0.007..0.007 rows=1 loops=19)
+                                             Index Cond: ((id = vn.claim_id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                             Filter: is_preferred
+                                             Buffers: shared hit=57
+               SubPlan 1
+                 ->  Aggregate (actual time=0.009..0.009 rows=1 loops=19)
+                       Buffers: shared hit=172
+                       ->  Nested Loop (actual time=0.005..0.007 rows=2 loops=19)
+                             Buffers: shared hit=172
+                             ->  Bitmap Heap Scan on claim claim_1 (actual time=0.004..0.004 rows=2 loops=19)
+                                   Recheck Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text) AND is_preferred)
+                                   Heap Blocks: exact=20
+                                   Buffers: shared hit=58
+                                   ->  Bitmap Index Scan on claim_village_published (actual time=0.003..0.003 rows=2 loops=19)
+                                         Index Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Buffers: shared hit=38
+                             ->  Index Scan using village_name_pkey on village_name vn_1 (actual time=0.001..0.001 rows=1 loops=38)
+                                   Index Cond: (claim_id = claim_1.id)
+                                   Buffers: shared hit=114
+ Planning:
+   Buffers: shared hit=567
+ Planning Time: 2.892 ms
+ Execution Time: 12.022 ms
+(58 rows)
+
+=== B. Two statements (before #50): the count, same WHERE ===
+                                                          QUERY PLAN                                                           
+-------------------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=3.395..3.396 rows=1 loops=1)
+   Buffers: shared hit=134
+   ->  Hash Join (actual time=3.314..3.394 rows=19 loops=1)
+         Hash Cond: (v.id = village.id)
+         Buffers: shared hit=134
+         ->  Seq Scan on village v (actual time=0.002..0.052 rows=815 loops=1)
+               Filter: (publication_status = 'PUBLISHED'::text)
+               Buffers: shared hit=19
+         ->  Hash (actual time=3.305..3.305 rows=19 loops=1)
+               Buckets: 1024  Batches: 1  Memory Usage: 9kB
+               Buffers: shared hit=115
+               ->  HashAggregate (actual time=3.300..3.302 rows=19 loops=1)
+                     Group Key: village.id
+                     Batches: 1  Memory Usage: 24kB
+                     Buffers: shared hit=115
+                     ->  Append (actual time=0.019..3.294 rows=38 loops=1)
+                           Buffers: shared hit=115
+                           ->  Seq Scan on village (actual time=0.019..0.883 rows=19 loops=1)
+                                 Filter: (display_name_ar % 'الرما'::text)
+                                 Rows Removed by Filter: 796
+                                 Buffers: shared hit=19
+                           ->  Seq Scan on village village_1 (actual time=0.715..0.715 rows=0 loops=1)
+                                 Filter: (display_name_en % 'الرما'::text)
+                                 Rows Removed by Filter: 815
+                                 Buffers: shared hit=19
+                           ->  Nested Loop (actual time=0.036..1.693 rows=19 loops=1)
+                                 Buffers: shared hit=77
+                                 ->  Seq Scan on village_name vn (actual time=0.031..1.626 rows=19 loops=1)
+                                       Filter: (name_normalized % 'الرما'::text)
+                                       Rows Removed by Filter: 1611
+                                       Buffers: shared hit=20
+                                 ->  Index Scan using claim_id_type_unique on claim (actual time=0.003..0.003 rows=1 loops=19)
+                                       Index Cond: ((id = vn.claim_id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                       Filter: is_preferred
+                                       Buffers: shared hit=57
+ Planning:
+   Buffers: shared hit=18
+ Planning Time: 0.872 ms
+ Execution Time: 3.430 ms
+(39 rows)
+
+=== C. One statement, count(*) OVER () ===
+                                                                                              QUERY PLAN                                                                                               
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=3.641..3.644 rows=19 loops=1)
+   Buffers: shared hit=306
+   ->  Sort (actual time=3.640..3.643 rows=19 loops=1)
+         Sort Key: (GREATEST(similarity(v.display_name_ar, 'الرما'::text), COALESCE(similarity(v.display_name_en, 'الرما'::text), '0'::real), COALESCE((SubPlan 1), '0'::real))) DESC NULLS LAST, v.id
+         Sort Method: quicksort  Memory: 29kB
+         Buffers: shared hit=306
+         ->  WindowAgg (actual time=3.465..3.633 rows=19 loops=1)
+               Buffers: shared hit=306
+               ->  Hash Join (actual time=3.361..3.437 rows=19 loops=1)
+                     Hash Cond: (v.id = village.id)
+                     Buffers: shared hit=134
+                     ->  Seq Scan on village v (actual time=0.002..0.048 rows=815 loops=1)
+                           Filter: (publication_status = 'PUBLISHED'::text)
+                           Buffers: shared hit=19
+                     ->  Hash (actual time=3.355..3.356 rows=19 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                           Buffers: shared hit=115
+                           ->  HashAggregate (actual time=3.351..3.353 rows=19 loops=1)
+                                 Group Key: village.id
+                                 Batches: 1  Memory Usage: 24kB
+                                 Buffers: shared hit=115
+                                 ->  Append (actual time=0.024..3.342 rows=38 loops=1)
+                                       Buffers: shared hit=115
+                                       ->  Seq Scan on village (actual time=0.024..0.917 rows=19 loops=1)
+                                             Filter: (display_name_ar % 'الرما'::text)
+                                             Rows Removed by Filter: 796
+                                             Buffers: shared hit=19
+                                       ->  Seq Scan on village village_1 (actual time=0.752..0.752 rows=0 loops=1)
+                                             Filter: (display_name_en % 'الرما'::text)
+                                             Rows Removed by Filter: 815
+                                             Buffers: shared hit=19
+                                       ->  Nested Loop (actual time=0.039..1.671 rows=19 loops=1)
+                                             Buffers: shared hit=77
+                                             ->  Seq Scan on village_name vn (actual time=0.034..1.633 rows=19 loops=1)
+                                                   Filter: (name_normalized % 'الرما'::text)
+                                                   Rows Removed by Filter: 1611
+                                                   Buffers: shared hit=20
+                                             ->  Index Scan using claim_id_type_unique on claim (actual time=0.002..0.002 rows=1 loops=19)
+                                                   Index Cond: ((id = vn.claim_id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                                   Filter: is_preferred
+                                                   Buffers: shared hit=57
+               SubPlan 1
+                 ->  Aggregate (actual time=0.007..0.007 rows=1 loops=19)
+                       Buffers: shared hit=172
+                       ->  Nested Loop (actual time=0.003..0.004 rows=2 loops=19)
+                             Buffers: shared hit=172
+                             ->  Bitmap Heap Scan on claim claim_1 (actual time=0.002..0.002 rows=2 loops=19)
+                                   Recheck Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text) AND is_preferred)
+                                   Heap Blocks: exact=20
+                                   Buffers: shared hit=58
+                                   ->  Bitmap Index Scan on claim_village_published (actual time=0.002..0.002 rows=2 loops=19)
+                                         Index Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Buffers: shared hit=38
+                             ->  Index Scan using village_name_pkey on village_name vn_1 (actual time=0.001..0.001 rows=1 loops=38)
+                                   Index Cond: (claim_id = claim_1.id)
+                                   Buffers: shared hit=114
+ Planning:
+   Buffers: shared hit=27
+ Planning Time: 0.945 ms
+ Execution Time: 3.693 ms
+(60 rows)
+
+=== D. One statement, matching ids once in a CTE, reused for page and count ===
+                                                                                              QUERY PLAN                                                                                               
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual time=3.998..4.001 rows=19 loops=1)
+   Buffers: shared hit=325
+   CTE matched
+     ->  Hash Join (actual time=3.617..3.693 rows=19 loops=1)
+           Hash Cond: (v_1.id = village.id)
+           Buffers: shared hit=134
+           ->  Seq Scan on village v_1 (actual time=0.001..0.048 rows=815 loops=1)
+                 Filter: (publication_status = 'PUBLISHED'::text)
+                 Buffers: shared hit=19
+           ->  Hash (actual time=3.606..3.607 rows=19 loops=1)
+                 Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                 Buffers: shared hit=115
+                 ->  HashAggregate (actual time=3.599..3.601 rows=19 loops=1)
+                       Group Key: village.id
+                       Batches: 1  Memory Usage: 24kB
+                       Buffers: shared hit=115
+                       ->  Append (actual time=0.022..3.592 rows=38 loops=1)
+                             Buffers: shared hit=115
+                             ->  Seq Scan on village (actual time=0.022..0.928 rows=19 loops=1)
+                                   Filter: (display_name_ar % 'الرما'::text)
+                                   Rows Removed by Filter: 796
+                                   Buffers: shared hit=19
+                             ->  Seq Scan on village village_1 (actual time=0.773..0.773 rows=0 loops=1)
+                                   Filter: (display_name_en % 'الرما'::text)
+                                   Rows Removed by Filter: 815
+                                   Buffers: shared hit=19
+                             ->  Nested Loop (actual time=0.045..1.888 rows=19 loops=1)
+                                   Buffers: shared hit=77
+                                   ->  Seq Scan on village_name vn (actual time=0.035..1.842 rows=19 loops=1)
+                                         Filter: (name_normalized % 'الرما'::text)
+                                         Rows Removed by Filter: 1611
+                                         Buffers: shared hit=20
+                                   ->  Index Scan using claim_id_type_unique on claim (actual time=0.002..0.002 rows=1 loops=19)
+                                         Index Cond: ((id = vn.claim_id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Filter: is_preferred
+                                         Buffers: shared hit=57
+   InitPlan 3 (returns $4)
+     ->  Aggregate (actual time=0.002..0.002 rows=1 loops=1)
+           ->  CTE Scan on matched (actual time=0.000..0.001 rows=19 loops=1)
+   ->  Sort (actual time=3.997..3.999 rows=19 loops=1)
+         Sort Key: (GREATEST(similarity(v.display_name_ar, 'الرما'::text), COALESCE(similarity(v.display_name_en, 'الرما'::text), '0'::real), COALESCE((SubPlan 2), '0'::real))) DESC NULLS LAST, v.id
+         Sort Method: quicksort  Memory: 29kB
+         Buffers: shared hit=325
+         ->  Hash Join (actual time=3.729..3.989 rows=19 loops=1)
+               Hash Cond: (v.id = m.id)
+               Buffers: shared hit=325
+               ->  Seq Scan on village v (actual time=0.001..0.034 rows=815 loops=1)
+                     Buffers: shared hit=19
+               ->  Hash (actual time=3.697..3.697 rows=19 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     Buffers: shared hit=134
+                     ->  CTE Scan on matched m (actual time=3.617..3.694 rows=19 loops=1)
+                           Buffers: shared hit=134
+               SubPlan 2
+                 ->  Aggregate (actual time=0.008..0.008 rows=1 loops=19)
+                       Buffers: shared hit=172
+                       ->  Nested Loop (actual time=0.004..0.005 rows=2 loops=19)
+                             Buffers: shared hit=172
+                             ->  Bitmap Heap Scan on claim claim_1 (actual time=0.003..0.003 rows=2 loops=19)
+                                   Recheck Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text) AND is_preferred)
+                                   Heap Blocks: exact=20
+                                   Buffers: shared hit=58
+                                   ->  Bitmap Index Scan on claim_village_published (actual time=0.002..0.002 rows=2 loops=19)
+                                         Index Cond: ((village_id = v.id) AND (claim_type = 'VILLAGE_NAME'::text))
+                                         Buffers: shared hit=38
+                             ->  Index Scan using village_name_pkey on village_name vn_1 (actual time=0.001..0.001 rows=1 loops=38)
+                                   Index Cond: (claim_id = claim_1.id)
+                                   Buffers: shared hit=114
+ Planning:
+   Buffers: shared hit=27
+ Planning Time: 1.024 ms
+ Execution Time: 4.046 ms
+(72 rows)
+

@@ -38,6 +38,7 @@
     "perf:write": "scripts/perf/run-k6.sh write-heavy",
     "perf:ratelimit": "scripts/perf/run-k6.sh rate-limit-check",
     "perf:statements": "scripts/perf/top-statements.sh",
+    "perf:explain": "scripts/perf/explain-search.sh",
     "perf:inspect": "for s in read-heavy write-heavy rate-limit-check; do docker run --rm -v \"$PWD/perf:/perf:ro\" grafana/k6:2.4.0@sha256:d41bb79cd8de5a7ad619b53570e3712633e8bff0937010a5c6c57a4747e7a276 inspect /perf/$s.js >/dev/null || exit 1; done && echo k6 inspect: ok",
     "keys:dev": "node scripts/generate-dev-jwt-keys.mjs",
     "prepare": "husky"

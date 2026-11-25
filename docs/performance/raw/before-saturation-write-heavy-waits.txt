@@ -1,0 +1,75 @@
+# Session samples of qaryati_app (non-idle sessions, every 0.5 s, 100 s)
+# count | state | wait_event_type | wait_event
+    992 idle in transaction|Client|ClientRead
+    196 active|LWLock|WALWrite
+    135 active|IO|WALSync
+    109 active|CPU|CPU
+     35 idle in transaction|CPU|CPU
+     14 active|Client|ClientRead
+      1 idle in transaction|LWLock|WALWrite
+      1 idle in transaction|IO|WALWrite
+      1 active|IO|WALInitSync
+      1 active|IO|DataFileExtend
+
+# Samples waiting on a heavyweight lock (wait_event_type = Lock): 0
+# Session samples in total: 1485
+
+# docker stats every 5 s: name cpu mem
+qaryati-api-1 38.83% 454.8MiB / 15.24GiB
+qaryati-redis-1 0.68% 3.711MiB / 15.24GiB
+qaryati-db-1 13.09% 98.99MiB / 15.24GiB
+modest_banzai 3.75% 25.14MiB / 15.24GiB
+modest_banzai 27.68% 70.09MiB / 15.24GiB
+qaryati-api-1 122.15% 455MiB / 15.24GiB
+qaryati-redis-1 0.33% 4.211MiB / 15.24GiB
+qaryati-db-1 105.39% 139.4MiB / 15.24GiB
+modest_banzai 28.27% 90.8MiB / 15.24GiB
+qaryati-api-1 114.30% 455.8MiB / 15.24GiB
+qaryati-redis-1 0.34% 4.457MiB / 15.24GiB
+qaryati-db-1 107.75% 155.8MiB / 15.24GiB
+modest_banzai 28.22% 103.8MiB / 15.24GiB
+qaryati-api-1 111.88% 456.8MiB / 15.24GiB
+qaryati-redis-1 0.30% 3.957MiB / 15.24GiB
+qaryati-db-1 104.85% 171.2MiB / 15.24GiB
+modest_banzai 28.25% 107.1MiB / 15.24GiB
+qaryati-api-1 127.05% 458MiB / 15.24GiB
+qaryati-redis-1 2.17% 4.93MiB / 15.24GiB
+qaryati-db-1 107.49% 188.2MiB / 15.24GiB
+modest_banzai 28.34% 110MiB / 15.24GiB
+qaryati-api-1 111.49% 458MiB / 15.24GiB
+qaryati-redis-1 0.35% 3.965MiB / 15.24GiB
+qaryati-db-1 103.52% 203.8MiB / 15.24GiB
+modest_banzai 27.35% 112.6MiB / 15.24GiB
+qaryati-api-1 109.69% 460.4MiB / 15.24GiB
+qaryati-redis-1 0.31% 3.961MiB / 15.24GiB
+qaryati-db-1 110.08% 207.5MiB / 15.24GiB
+modest_banzai 23.56% 114.5MiB / 15.24GiB
+qaryati-api-1 111.97% 461MiB / 15.24GiB
+qaryati-redis-1 0.30% 4.566MiB / 15.24GiB
+qaryati-db-1 107.99% 208.4MiB / 15.24GiB
+modest_banzai 23.21% 114.8MiB / 15.24GiB
+qaryati-api-1 110.01% 461MiB / 15.24GiB
+qaryati-redis-1 0.32% 3.965MiB / 15.24GiB
+qaryati-db-1 107.08% 209.1MiB / 15.24GiB
+modest_banzai 23.17% 119.1MiB / 15.24GiB
+qaryati-api-1 112.83% 459.7MiB / 15.24GiB
+qaryati-redis-1 1.87% 4.527MiB / 15.24GiB
+qaryati-db-1 106.19% 211.2MiB / 15.24GiB
+modest_banzai 22.89% 119.8MiB / 15.24GiB
+qaryati-api-1 110.19% 460.5MiB / 15.24GiB
+qaryati-redis-1 0.35% 4.426MiB / 15.24GiB
+qaryati-db-1 106.94% 211.5MiB / 15.24GiB
+modest_banzai 28.87% 124MiB / 15.24GiB
+qaryati-api-1 112.71% 461.7MiB / 15.24GiB
+qaryati-redis-1 0.30% 4.41MiB / 15.24GiB
+qaryati-db-1 107.18% 213.3MiB / 15.24GiB
+modest_banzai 27.84% 121.1MiB / 15.24GiB
+qaryati-api-1 113.51% 461.2MiB / 15.24GiB
+qaryati-redis-1 0.33% 4.66MiB / 15.24GiB
+qaryati-db-1 108.11% 213.7MiB / 15.24GiB
+qaryati-api-1 0.88% 459.2MiB / 15.24GiB
+qaryati-redis-1 1.03% 4.211MiB / 15.24GiB
+qaryati-db-1 6.39% 213.7MiB / 15.24GiB
+qaryati-api-1 11.95% 460.2MiB / 15.24GiB
+qaryati-redis-1 2.99% 4.328MiB / 15.24GiB
+qaryati-db-1 1.21% 211.5MiB / 15.24GiB
