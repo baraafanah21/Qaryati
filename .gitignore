@@ -34,3 +34,6 @@ Thumbs.db
 
 # Local tool settings (Claude Code permissions, etc.)
 .claude/
+
+# Ad-hoc k6 runs (LABEL defaults to latest); named baselines are committed.
+docs/performance/raw/latest-*

@@ -487,6 +487,25 @@ Two constraints follow from the table. `@nestjs/swagger` 12 accepts TypeScript u
 - **Alternatives:** node:alpine: musl surprises with native modules.
 - **Cost:** slightly larger than Alpine.
 
+## Performance testing
+
+### k6 (grafana/k6 image)
+
+- **Version:** 2.4.0, the `grafana/k6` image pinned by digest in `scripts/perf/run-k6.sh` and `npm run perf:inspect`.
+- **Status:** In use (#47, #48): `perf/read-heavy.js`, `perf/write-heavy.js`, `perf/rate-limit-check.js` ([performance.md](performance.md)).
+- **Role:** generates the load, applies the thresholds and writes the JSON summary of each run.
+- **Why:** scripted scenarios in JavaScript (weighted mixes, `setup()` that registers users, custom counters such as `precondition_failed_412`), thresholds that fail the run, per-tag metrics for each endpoint group. Run from Docker, so nobody installs it and everybody runs the same build. _Reproducibility, honest reporting._
+- **Alternatives:** autocannon (one URL at a time, no scenario mix or setup); Artillery (YAML scenarios, a Node runtime that competes with the API for the same CPU); JMeter (heavy, XML test plans); Locust (Python, a second language in the repository).
+- **Cost:** k6 is not Node: its scripts cannot import project code, so a few constants (landmark types, count types) are repeated in `perf/`. The k6 container shares the machine's CPUs with the stack during a run.
+
+### pg_stat_statements
+
+- **Status:** In use in the perf profile only (#49): `docker-compose.perf.yml` preloads it, `npm run perf:up` creates the extension, `scripts/perf/top-statements.sh` dumps the top 10.
+- **Role:** per-statement call count, total, mean and max time, rows and cache hits during a load test.
+- **Why:** ships with PostgreSQL, so no new dependency; it shows which statement the time goes to, which the HTTP numbers alone cannot. _Observability._
+- **Alternatives:** `auto_explain` (plans of slow statements, but nothing was slower than 100 ms), log parsing with pgBadger (another tool to install).
+- **Cost:** `shared_preload_libraries` needs a server restart, so it is a separate Compose override and not on by default; a small per-statement overhead while it is on.
+
 ---
 
 ## CI and supply chain
