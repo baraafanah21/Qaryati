@@ -73,4 +73,6 @@ npm run start:dev | build | lint | format | typecheck | depcruise
 npm run test:unit | test:int | test:e2e | test:cov
 npm run db:generate | db:generate:custom | db:migrate | db:check | db:drift | db:studio
 npm run openapi:generate | openapi:check
+npm run db:seed | db:seed:perf (development only; src/seed/README.md)
+npm run perf:up | perf:read | perf:write | perf:ratelimit | perf:statements | perf:inspect (docs/performance.md)
 cp .env.example .env && npm run keys:dev && docker compose up -d --build --wait

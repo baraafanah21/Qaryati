@@ -1,0 +1,26 @@
+# Perf profile (#49): an override for load tests only, never for daily work.
+#   npm run perf:up   (= docker compose -f docker-compose.yml -f docker-compose.perf.yml up ...)
+# Everything here is explained in docs/performance.md.
+services:
+  db:
+    # pg_stat_statements must be preloaded at server start; scripts/perf/up.sh
+    # then runs CREATE EXTENSION IF NOT EXISTS. Statements slower than 100 ms
+    # are written to the server log (docker compose logs db).
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - pg_stat_statements.max=10000
+      - -c
+      - log_min_duration_statement=100
+
+  api:
+    environment:
+      # k6 sends every request from one container IP, so the per-IP limit of
+      # 120 requests per minute (#25) would turn the load test into a test of
+      # the limiter. Off here only; .env.example and docker-compose.yml keep it on.
+      # npm run perf:ratelimit shows the limiter working on the normal stack.
+      RATE_LIMIT_ENABLED: 'false'

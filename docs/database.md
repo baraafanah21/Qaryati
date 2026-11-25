@@ -179,6 +179,10 @@ How migrations are applied:
 - **Tests:** `runMigrations()` from the same file.
 - Applied migrations are recorded in `drizzle.__drizzle_migrations`, so a second run does nothing. Pending migrations are applied in one transaction: either all of them apply, or none do.
 
+## Development and load-test data
+
+Reference data (governorates, products) comes from data migrations, so every database has it. Sample and load-test data never does: `npm run db:seed` writes 15 sample villages through the API (audited, illustrative values) and `npm run db:seed:perf` bulk-loads 800 synthetic villages as the owner role for the k6 tests. Both are idempotent and refuse `NODE_ENV=production` ([seeds README](../src/seed/README.md), [performance.md](performance.md)).
+
 ## What the database enforces
 
 The project rule is that the database guards data shape and integrity, while domain code owns business rules. A business rule changing must never require a migration.

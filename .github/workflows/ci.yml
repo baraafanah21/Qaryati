@@ -50,6 +50,10 @@ jobs:
       # differs from the committed file, so every API change shows in the PR diff.
       - name: OpenAPI drift
         run: npm run openapi:check
+      # Parses the k6 load-test scripts (pinned image), so a broken scenario
+      # fails here and not on the day of a measurement (docs/performance.md).
+      - name: k6 inspect
+        run: npm run perf:inspect
       - name: Upload openapi.json
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

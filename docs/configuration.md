@@ -91,6 +91,19 @@ Read by `npm run db:*` (through `drizzle.config.ts`) and by the `migrate` servic
 
 The API never receives this variable. Its schema is separate, so the API cannot even read it by mistake.
 
+### Seeds
+
+Read by `npm run db:seed` and `npm run db:seed:perf` and validated by `seedEnvSchema` ([`src/config/seed-env.ts`](../src/config/seed-env.ts)). Both tools refuse to run when `NODE_ENV=production` ([seeds README](../src/seed/README.md)).
+
+| Variable             | Required | Default                 | Meaning                                                                                                        |
+| -------------------- | -------- | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`           | no       | `development`           | `production` stops both seeds before they connect.                                                             |
+| `DATABASE_OWNER_URL` | yes      |                         | The owner role (as for migrations): `db:seed` promotes its first administrator, `db:seed:perf` bulk-loads.     |
+| `SEED_API_URL`       | no       | `http://localhost:3000` | `http(s)` base URL of the running API that `db:seed` calls (without `/api/v1`).                                |
+| `PERF_SEED_VILLAGES` | no       | `800`                   | Number of synthetic villages `db:seed:perf` writes (1–20 000). The same number always gives the same villages. |
+
+The load tests set no variable of their own in `.env`: the perf profile turns rate limiting off in `docker-compose.perf.yml` only ([performance.md](performance.md#rate-limiting-is-off-during-the-load-tests)), and k6 reads `VUS`, `RAMP`, `HOLD`, `USERS`, `THINK` and `LABEL` from the shell of the `npm run perf:*` command.
+
 ### Docker Compose
 
 Used only by `docker-compose.yml` and the database container. The Node process never reads them.
