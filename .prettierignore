@@ -4,3 +4,4 @@ node_modules/
 package-lock.json
 migrations/meta/
 docs/api/openapi.json
+docs/performance/raw/
