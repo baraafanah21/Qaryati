@@ -12,10 +12,17 @@ const SORT_SQL: Record<VillageSortField, SQL> = {
 };
 
 /**
- * The two statements of `GET /villages` (#30): one page, and the total with the
- * same `WHERE`. Built only from bound parameters and fixed fragments, never by
- * concatenating input. Exported so an integration test can `EXPLAIN` exactly
- * what runs.
+ * The statements of `GET /villages` (#30). Built only from bound parameters and
+ * fixed fragments, never by concatenating input. Exported so an integration
+ * test can `EXPLAIN` exactly what runs.
+ *
+ * - `page` is the only statement of a normal request: the rows of the page
+ *   **and** the total, as `count(*) OVER ()`. The window counts every matching
+ *   row before `LIMIT`, so the trigram matching runs once per request (#50:
+ *   it ran twice, once more for a separate `count(*)`, and that second run
+ *   was half of the database time of the read test; docs/performance.md).
+ * - `count` is the total alone, with the same `WHERE`. It runs only when a
+ *   page after the last one comes back empty, so no row carries the total.
  *
  * - `q` (already normalized) matches with the pg_trgm `%` operator on
  *   `display_name_ar`, `display_name_en` and the **preferred** names in
@@ -89,7 +96,8 @@ export function villageSearchQueries(criteria: VillageSearchCriteria): {
              v.display_name_ar, v.display_name_en, v.created_at,
              ST_Y(v.location::geometry) AS latitude,
              ST_X(v.location::geometry) AS longitude,
-             ${relevance} AS relevance
+             ${relevance} AS relevance,
+             count(*) OVER ()::int AS total
       FROM village v
       ${where}
       ORDER BY ${order}, v.id

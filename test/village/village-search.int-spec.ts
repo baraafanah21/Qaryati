@@ -1,11 +1,12 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PgDialect } from 'drizzle-orm/pg-core';
-import { Client } from 'pg';
+import { Client, type Pool } from 'pg';
 
 // Type only (erased): AppModule reads the environment when loaded, so it is required in beforeAll.
 import type { AppModule as AppModuleType } from '../../src/app.module';
 import { Role } from '../../src/modules/iam';
+import { PG_POOL } from '../../src/platform/database/database';
 import { VillageQueries, type SearchVillagesInput } from '../../src/modules/village';
 import { villageSearchQueries } from '../../src/modules/village/infrastructure/village-search.sql';
 import { CURRENT_GOVERNORATES } from '../../src/modules/village/infrastructure/seed/governorates';
@@ -240,6 +241,53 @@ describe('village search: trigram, filters and visibility (PostGIS)', () => {
         await ids({ villageIds: [VILLAGES.burin.id, VILLAGES.majdal.id], q: 'بورين' }),
       ).toEqual([VILLAGES.burin.id]);
       expect(await ids({ villageIds: [] })).toEqual([]);
+    });
+  });
+
+  describe('paging: the page carries the total, one statement per request (#50)', () => {
+    let query: jest.SpiedFunction<Pool['query']>;
+    /** The search statements sent to the pool (a read outside a transaction uses the pool). */
+    const searchStatements = () =>
+      query.mock.calls.filter(([config]) => {
+        const text = typeof config === 'string' ? config : (config as { text: string }).text;
+        return text.includes('FROM village v');
+      }).length;
+
+    beforeEach(() => {
+      query = jest.spyOn(app.get<Pool>(PG_POOL, { strict: false }), 'query');
+    });
+    afterEach(() => query.mockRestore());
+
+    it('counts every published match on the first and on a middle page, in one statement', async () => {
+      const first = await search({ size: 1, page: 0 });
+      expect(first.content).toHaveLength(1);
+      expect(first.page.totalElements).toBe(3);
+      expect(first.page.totalPages).toBe(3);
+
+      const middle = await search({ size: 1, page: 1 });
+      expect(middle.content).toHaveLength(1);
+      expect(middle.page.totalElements).toBe(3);
+      expect(searchStatements()).toBe(2);
+    });
+
+    it('counts the matches of q alone, not every village', async () => {
+      const page = await search({ q: 'بيت فوريق' });
+      expect(page.page.totalElements).toBe(1);
+      expect(searchStatements()).toBe(1);
+    });
+
+    it('keeps the total on an empty page after the last one, with the separate count', async () => {
+      const past = await search({ size: 1, page: 7 });
+      expect(past.content).toEqual([]);
+      expect(past.page.totalElements).toBe(3);
+      expect(searchStatements()).toBe(2);
+    });
+
+    it('answers 0 for no match on the first page without a second statement', async () => {
+      const none = await search({ q: 'زززززز' });
+      expect(none.content).toEqual([]);
+      expect(none.page.totalElements).toBe(0);
+      expect(searchStatements()).toBe(1);
     });
   });
 

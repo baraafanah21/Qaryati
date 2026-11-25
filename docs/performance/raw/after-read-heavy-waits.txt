@@ -1,0 +1,104 @@
+# Session samples of qaryati_app (non-idle sessions, every 0.5 s, 165 s)
+# count | state | wait_event_type | wait_event
+    218 active|CPU|CPU
+      1 active|Client|ClientRead
+
+# Samples waiting on a heavyweight lock (wait_event_type = Lock): 0
+# Session samples in total: 219
+
+# docker stats every 5 s: name cpu mem
+qaryati-api-1 6.47% 282.9MiB / 15.24GiB
+qaryati-redis-1 0.73% 5.625MiB / 15.24GiB
+qaryati-db-1 9.06% 55.73MiB / 15.24GiB
+practical_gould 2.08% 59.67MiB / 15.24GiB
+practical_gould 5.11% 66.37MiB / 15.24GiB
+qaryati-api-1 13.62% 287.3MiB / 15.24GiB
+qaryati-redis-1 2.81% 6.293MiB / 15.24GiB
+qaryati-db-1 35.03% 95.88MiB / 15.24GiB
+practical_gould 6.61% 78.6MiB / 15.24GiB
+qaryati-api-1 19.21% 291MiB / 15.24GiB
+qaryati-redis-1 0.57% 5.875MiB / 15.24GiB
+qaryati-db-1 39.76% 95.54MiB / 15.24GiB
+practical_gould 11.12% 96.51MiB / 15.24GiB
+qaryati-api-1 23.88% 291.3MiB / 15.24GiB
+qaryati-redis-1 0.56% 5.625MiB / 15.24GiB
+qaryati-db-1 61.17% 97.48MiB / 15.24GiB
+practical_gould 9.51% 109.8MiB / 15.24GiB
+qaryati-api-1 35.60% 296.3MiB / 15.24GiB
+qaryati-redis-1 0.53% 5.617MiB / 15.24GiB
+qaryati-db-1 80.40% 97.58MiB / 15.24GiB
+practical_gould 9.55% 123.4MiB / 15.24GiB
+qaryati-api-1 28.66% 302.5MiB / 15.24GiB
+qaryati-redis-1 0.51% 6.836MiB / 15.24GiB
+qaryati-db-1 89.72% 97.7MiB / 15.24GiB
+practical_gould 9.00% 134MiB / 15.24GiB
+qaryati-api-1 29.45% 318MiB / 15.24GiB
+qaryati-redis-1 2.74% 6.152MiB / 15.24GiB
+qaryati-db-1 83.67% 98.43MiB / 15.24GiB
+practical_gould 8.51% 139.1MiB / 15.24GiB
+qaryati-api-1 34.72% 318.7MiB / 15.24GiB
+qaryati-redis-1 0.40% 6.121MiB / 15.24GiB
+qaryati-db-1 97.48% 98.79MiB / 15.24GiB
+practical_gould 9.00% 138.7MiB / 15.24GiB
+qaryati-api-1 27.11% 322.1MiB / 15.24GiB
+qaryati-redis-1 0.53% 5.863MiB / 15.24GiB
+qaryati-db-1 84.86% 98.33MiB / 15.24GiB
+practical_gould 8.71% 143.8MiB / 15.24GiB
+qaryati-api-1 25.02% 333.8MiB / 15.24GiB
+qaryati-redis-1 0.51% 6.922MiB / 15.24GiB
+qaryati-db-1 86.08% 99.07MiB / 15.24GiB
+practical_gould 9.51% 146.2MiB / 15.24GiB
+qaryati-api-1 28.63% 334.3MiB / 15.24GiB
+qaryati-redis-1 0.66% 5.879MiB / 15.24GiB
+qaryati-db-1 80.95% 98.06MiB / 15.24GiB
+practical_gould 19.97% 148.2MiB / 15.24GiB
+qaryati-api-1 29.42% 335.5MiB / 15.24GiB
+qaryati-redis-1 1.95% 6.695MiB / 15.24GiB
+qaryati-db-1 85.23% 98.41MiB / 15.24GiB
+practical_gould 9.09% 148.7MiB / 15.24GiB
+qaryati-api-1 24.85% 347.1MiB / 15.24GiB
+qaryati-redis-1 0.61% 5.875MiB / 15.24GiB
+qaryati-db-1 84.98% 98.51MiB / 15.24GiB
+practical_gould 9.50% 148.9MiB / 15.24GiB
+qaryati-api-1 25.38% 347.8MiB / 15.24GiB
+qaryati-redis-1 0.49% 5.875MiB / 15.24GiB
+qaryati-db-1 94.58% 98.2MiB / 15.24GiB
+practical_gould 9.90% 151.3MiB / 15.24GiB
+qaryati-api-1 29.25% 348MiB / 15.24GiB
+qaryati-redis-1 0.51% 6.812MiB / 15.24GiB
+qaryati-db-1 90.78% 98.93MiB / 15.24GiB
+practical_gould 8.90% 151.8MiB / 15.24GiB
+qaryati-api-1 25.82% 348.4MiB / 15.24GiB
+qaryati-redis-1 0.52% 5.875MiB / 15.24GiB
+qaryati-db-1 81.36% 98.17MiB / 15.24GiB
+practical_gould 8.91% 151.9MiB / 15.24GiB
+qaryati-api-1 26.30% 366.4MiB / 15.24GiB
+qaryati-redis-1 2.62% 6.633MiB / 15.24GiB
+qaryati-db-1 78.82% 98.63MiB / 15.24GiB
+practical_gould 9.60% 152.4MiB / 15.24GiB
+qaryati-api-1 40.33% 371.9MiB / 15.24GiB
+qaryati-redis-1 0.50% 5.867MiB / 15.24GiB
+qaryati-db-1 85.82% 98.73MiB / 15.24GiB
+practical_gould 9.10% 152.7MiB / 15.24GiB
+qaryati-api-1 26.57% 372.1MiB / 15.24GiB
+qaryati-redis-1 0.51% 6.113MiB / 15.24GiB
+qaryati-db-1 87.83% 98.33MiB / 15.24GiB
+practical_gould 8.60% 153.3MiB / 15.24GiB
+qaryati-api-1 24.71% 371.7MiB / 15.24GiB
+qaryati-redis-1 0.64% 6.617MiB / 15.24GiB
+qaryati-db-1 83.72% 98.08MiB / 15.24GiB
+practical_gould 9.31% 154.2MiB / 15.24GiB
+qaryati-api-1 27.00% 371.9MiB / 15.24GiB
+qaryati-redis-1 0.62% 6.355MiB / 15.24GiB
+qaryati-db-1 88.44% 98.26MiB / 15.24GiB
+practical_gould 8.89% 155.2MiB / 15.24GiB
+qaryati-api-1 47.36% 373.4MiB / 15.24GiB
+qaryati-redis-1 2.11% 7.297MiB / 15.24GiB
+qaryati-db-1 81.16% 98.25MiB / 15.24GiB
+practical_gould 6.82% 156.3MiB / 15.24GiB
+qaryati-api-1 15.52% 372.7MiB / 15.24GiB
+qaryati-redis-1 0.72% 6.348MiB / 15.24GiB
+qaryati-db-1 58.30% 98.37MiB / 15.24GiB
+qaryati-api-1 0.78% 371.6MiB / 15.24GiB
+qaryati-redis-1 0.88% 5.875MiB / 15.24GiB
+qaryati-db-1 0.38% 98.07MiB / 15.24GiB

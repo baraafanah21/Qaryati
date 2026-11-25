@@ -1,0 +1,69 @@
+# Session samples of qaryati_app (non-idle sessions, every 0.5 s, 105 s)
+# count | state | wait_event_type | wait_event
+    894 active|CPU|CPU
+     15 active|Client|ClientRead
+
+# Samples waiting on a heavyweight lock (wait_event_type = Lock): 0
+# Session samples in total: 909
+
+# docker stats every 5 s: name cpu mem
+qaryati-api-1 36.94% 372.6MiB / 15.24GiB
+qaryati-redis-1 0.43% 5.871MiB / 15.24GiB
+qaryati-db-1 8.47% 93.55MiB / 15.24GiB
+eloquent_raman 13.17% 28.04MiB / 15.24GiB
+eloquent_raman 34.25% 75.02MiB / 15.24GiB
+qaryati-api-1 116.67% 436.1MiB / 15.24GiB
+qaryati-redis-1 0.33% 6.121MiB / 15.24GiB
+qaryati-db-1 521.64% 99.3MiB / 15.24GiB
+eloquent_raman 40.36% 91.34MiB / 15.24GiB
+qaryati-api-1 117.34% 441.9MiB / 15.24GiB
+qaryati-redis-1 2.05% 7.062MiB / 15.24GiB
+qaryati-db-1 493.09% 98.76MiB / 15.24GiB
+eloquent_raman 33.82% 108.1MiB / 15.24GiB
+qaryati-api-1 101.18% 442.8MiB / 15.24GiB
+qaryati-redis-1 0.31% 6.625MiB / 15.24GiB
+qaryati-db-1 497.88% 99MiB / 15.24GiB
+eloquent_raman 36.75% 121.1MiB / 15.24GiB
+qaryati-api-1 114.48% 450.7MiB / 15.24GiB
+qaryati-redis-1 0.37% 6.336MiB / 15.24GiB
+qaryati-db-1 519.57% 99.18MiB / 15.24GiB
+eloquent_raman 36.16% 128.1MiB / 15.24GiB
+qaryati-api-1 103.55% 452MiB / 15.24GiB
+qaryati-redis-1 0.32% 5.922MiB / 15.24GiB
+qaryati-db-1 519.94% 99.23MiB / 15.24GiB
+eloquent_raman 35.22% 131.8MiB / 15.24GiB
+qaryati-api-1 115.88% 453.7MiB / 15.24GiB
+qaryati-redis-1 0.36% 5.875MiB / 15.24GiB
+qaryati-db-1 481.03% 98.7MiB / 15.24GiB
+eloquent_raman 30.95% 131.9MiB / 15.24GiB
+qaryati-api-1 105.30% 453.2MiB / 15.24GiB
+qaryati-redis-1 2.67% 7.637MiB / 15.24GiB
+qaryati-db-1 509.79% 98.7MiB / 15.24GiB
+eloquent_raman 32.64% 133.3MiB / 15.24GiB
+qaryati-api-1 105.56% 455.9MiB / 15.24GiB
+qaryati-redis-1 0.36% 6.363MiB / 15.24GiB
+qaryati-db-1 520.64% 98.75MiB / 15.24GiB
+eloquent_raman 38.46% 133.3MiB / 15.24GiB
+qaryati-api-1 104.02% 455.6MiB / 15.24GiB
+qaryati-redis-1 0.37% 6.879MiB / 15.24GiB
+qaryati-db-1 504.06% 98.98MiB / 15.24GiB
+eloquent_raman 29.78% 140.4MiB / 15.24GiB
+qaryati-api-1 103.07% 456.4MiB / 15.24GiB
+qaryati-redis-1 0.36% 6.113MiB / 15.24GiB
+qaryati-db-1 462.13% 99.45MiB / 15.24GiB
+eloquent_raman 34.69% 140.5MiB / 15.24GiB
+qaryati-api-1 116.33% 456.6MiB / 15.24GiB
+qaryati-redis-1 0.35% 6.723MiB / 15.24GiB
+qaryati-db-1 501.92% 98.42MiB / 15.24GiB
+eloquent_raman 36.08% 147.8MiB / 15.24GiB
+qaryati-api-1 105.94% 456.8MiB / 15.24GiB
+qaryati-redis-1 2.53% 6.906MiB / 15.24GiB
+qaryati-db-1 525.55% 98.37MiB / 15.24GiB
+eloquent_raman 30.16% 147.9MiB / 15.24GiB
+qaryati-api-1 104.24% 456.9MiB / 15.24GiB
+qaryati-redis-1 0.36% 6.828MiB / 15.24GiB
+qaryati-db-1 494.50% 102.9MiB / 15.24GiB
+eloquent_raman 17.43% 148.1MiB / 15.24GiB
+qaryati-api-1 73.43% 457.1MiB / 15.24GiB
+qaryati-redis-1 0.32% 5.863MiB / 15.24GiB
+qaryati-db-1 500.78% 98.48MiB / 15.24GiB

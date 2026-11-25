@@ -134,7 +134,7 @@ Each item carries `relevance` (0–1): the best `similarity` of the three names,
 
 **Why contributors see published villages only here**, although `GET /villages/{idOrSlug}` shows them drafts: the list is the public catalogue, and the editors' working view of every status is a filter they own. A contributor reaches their own draft by the id or the `Location` they got when creating it.
 
-**How the SQL is built** (`infrastructure/village-search.sql.ts`, run by `DrizzleVillageRepository.search`): one statement for the page and one `count(*)` with the same `WHERE`, both native SQL through Drizzle's `sql` template from bound parameters and fixed fragments; the sort field reaches SQL only through the allow-list map.
+**How the SQL is built** (`infrastructure/village-search.sql.ts`, run by `DrizzleVillageRepository.search`): **one statement per request**: the page rows carry the total as `count(*) OVER ()`, so the trigram matching runs once (#50: the separate `count(*)` ran the same matching a second time and was 47% of the read test's database time, [docs/performance.md](../../../docs/performance.md)). The separate `count(*)` with the same `WHERE` runs only when a page after the first comes back empty, to keep the total on a page past the end. Both are native SQL through Drizzle's `sql` template from bound parameters and fixed fragments; the sort field reaches SQL only through the allow-list map.
 
 ```sql
 SELECT v.*, GREATEST(similarity(v.display_name_ar, $q), similarity(v.display_name_en, $q),
